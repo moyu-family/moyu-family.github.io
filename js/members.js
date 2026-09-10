@@ -90,7 +90,7 @@ async function deleteSelectedMembers() {
   }
 }
 
-// Bảng tổng hợp
+// Bảng tổng hợp (Đã bổ sung cột BHXH)
 function openSummaryTable() {
   let targetMembers = members;
   if (selectedIds.size > 0) {
@@ -114,6 +114,7 @@ function openSummaryTable() {
       <td>${m.cccd || '-'}</td>
       <td>${m.cccdDate || '-'}</td>
       <td>${m.bhyt || '-'}</td>
+      <td>${m.bhxh || '-'}</td>
       <td>${m.tax || '-'}</td>
       <td>${m.specialCode || '-'}</td>
       <td>${bankDetails || '-'}</td>
@@ -145,7 +146,7 @@ function copyTableData() {
   });
 }
 
-// Render lưới thành viên
+// Render danh sách thẻ
 function renderGrid() {
   const grid = document.getElementById('memberGrid');
   grid.innerHTML = '';
@@ -193,6 +194,7 @@ function renderGrid() {
   initSortable();
 }
 
+// Hiển thị chi tiết (Đã bổ sung hiển thị BHXH)
 function viewDetails(id) {
   const m = members.find(item => item.id === id);
   if (!m) return;
@@ -210,6 +212,7 @@ function viewDetails(id) {
   document.getElementById('dtCccd').innerText = m.cccd || '-';
   document.getElementById('dtCccdDate').innerText = m.cccdDate || '-';
   document.getElementById('dtBhyt').innerText = m.bhyt || '-';
+  document.getElementById('dtBhxh').innerText = m.bhxh || '-'; // BỔ SUNG
   document.getElementById('dtTax').innerText = m.tax || '-';
 
   const notesEl = document.getElementById('dtNotes');
@@ -250,6 +253,7 @@ function showHome() {
   renderGrid();
 }
 
+// Mở form (Đã nạp trường BHXH)
 function openForm(member = null) {
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -271,6 +275,7 @@ function openForm(member = null) {
     document.getElementById('fCccd').value = member.cccd;
     document.getElementById('fCccdDate').value = member.cccdDate || '';
     document.getElementById('fBhyt').value = member.bhyt;
+    document.getElementById('fBhxh').value = member.bhxh || ''; // BỔ SUNG
     document.getElementById('fTax').value = member.tax;
     document.getElementById('fSpecialCode').value = member.specialCode;
     document.getElementById('fNotesEditor').innerHTML = member.notes || '';
@@ -279,6 +284,7 @@ function openForm(member = null) {
   } else {
     document.getElementById('formHeading').innerText = 'Thêm thành viên mới';
     document.getElementById('fId').value = '';
+    document.getElementById('fBhxh').value = ''; // BỔ SUNG
     document.getElementById('fNotesEditor').innerHTML = '';
   }
   toggleSpecialInput();
@@ -352,6 +358,7 @@ function removeBankRow(btn) {
   }
 }
 
+// Lưu thông tin (Đã bổ sung lưu BHXH)
 async function saveMember(e) {
   e.preventDefault();
   const dobVal = document.getElementById('fDob').value.trim();
@@ -387,6 +394,7 @@ async function saveMember(e) {
     cccd: document.getElementById('fCccd').value,
     cccdDate: cccdDateVal,
     bhyt: document.getElementById('fBhyt').value,
+    bhxh: document.getElementById('fBhxh').value.trim(), // BỔ SUNG
     tax: document.getElementById('fTax').value,
     specialCode: document.getElementById('fSpecialCode').value,
     notes: notesHtml,
