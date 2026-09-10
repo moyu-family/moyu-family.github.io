@@ -90,7 +90,7 @@ async function deleteSelectedMembers() {
   }
 }
 
-// Bảng tổng hợp (Đã bổ sung cột BHXH)
+// Bảng tổng hợp: Khớp đúng vị trí cột và thay ghi chú bằng nút icon nhỏ
 function openSummaryTable() {
   let targetMembers = members;
   if (selectedIds.size > 0) {
@@ -103,6 +103,12 @@ function openSummaryTable() {
   targetMembers.forEach((m, idx) => {
     const bankDetails = (m.banks || []).map(b => `${b.bankName}: ${b.accNum}`).join('<br>');
     const roleText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
+    const hasNote = m.notes && m.notes.trim() !== '' && m.notes !== '<br>';
+
+    // Nút icon xem ghi chú nhỏ gọn
+    const noteBtnHtml = hasNote
+      ? `<button type="button" class="btn-outline" style="padding:3px 8px; font-size:0.75rem;" onclick="showNoteModal('${m.name}', '${m.id}')">📝 Xem</button>`
+      : `<span style="color:var(--text-muted); font-size:0.8rem;">-</span>`;
     
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -118,7 +124,7 @@ function openSummaryTable() {
       <td>${m.tax || '-'}</td>
       <td>${m.specialCode || '-'}</td>
       <td>${bankDetails || '-'}</td>
-      <td><div class="rich-display">${m.notes || '-'}</div></td>
+      <td style="text-align:center;">${noteBtnHtml}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -128,21 +134,47 @@ function openSummaryTable() {
   document.getElementById('tableView').classList.remove('hidden');
 }
 
+// Sao chép bảng (nội dung ghi chú khi paste vào Excel sẽ lấy text thuần thay vì nút bấm)
 function copyTableData() {
-  const table = document.getElementById('summaryTableElement');
-  let text = '';
-  for (let row of table.rows) {
-    let rowData = [];
-    for (let cell of row.cells) {
-      rowData.push(`"${cell.innerText.replace(/"/g, '""').replace(/\n/g, ' - ')}"`);
-    }
-    text += rowData.join('\t') + '\n';
+  let targetMembers = members;
+  if (selectedIds.size > 0) {
+    targetMembers = members.filter(m => selectedIds.has(m.id));
   }
+
+  const headers = ["STT", "Họ và Tên", "Đối tượng", "Ngày sinh", "Nơi sinh", "Số CCCD", "Ngày cấp", "BHYT", "Mã số BHXH", "Mã số thuế", "Mã HS / NV", "Tài khoản ngân hàng", "Ghi chú"];
+  let text = headers.join('\t') + '\n';
+
+  targetMembers.forEach((m, idx) => {
+    const bankDetails = (m.banks || []).map(b => `${b.bankName}: ${b.accNum}`).join(' - ');
+    const roleText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
+    
+    // Chuyển HTML ghi chú thành text thuần khi xuất Excel
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = m.notes || '';
+    const plainNotes = tempDiv.innerText.replace(/\r?\n|\r/g, ' ').replace(/"/g, '""');
+
+    const row = [
+      idx + 1,
+      `"${m.name || ''}"`,
+      roleText,
+      m.dob || '',
+      `"${m.pob || ''}"`,
+      `="${m.cccd || ''}"`, // Giữ số 0 đầu cho CCCD trong Excel
+      m.cccdDate || '',
+      `="${m.bhyt || ''}"`,
+      `="${m.bhxh || ''}"`,
+      `="${m.tax || ''}"`,
+      `"${m.specialCode || ''}"`,
+      `"${bankDetails}"`,
+      `"${plainNotes}"`
+    ];
+    text += row.join('\t') + '\n';
+  });
 
   navigator.clipboard.writeText(text).then(() => {
     alert('Đã sao chép bảng thành công! Bạn có thể dán trực tiếp vào Excel hoặc Google Sheets.');
   }).catch(() => {
-    alert('Không thể tự động sao chép, vui lòng bôi đen bảng để copy thủ công.');
+    alert('Không thể tự động sao chép, vui lòng thử lại.');
   });
 }
 
