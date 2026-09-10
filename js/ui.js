@@ -79,3 +79,21 @@ function refreshBankDropdowns() {
     sel.innerHTML = opts;
   });
 }
+
+// Quản lý Modal Popup xem Ghi chú
+function showNoteModal(name, memberId) {
+  const m = members.find(item => item.id === memberId);
+  document.getElementById('noteModalTitle').innerText = `📝 Ghi chú: ${name}`;
+  const contentEl = document.getElementById('noteModalContent');
+  
+  if (m && m.notes && m.notes.trim() !== '') {
+    contentEl.innerHTML = m.notes;
+  } else {
+    contentEl.innerHTML = '<span style="color:var(--text-muted); font-style:italic;">Không có ghi chú nào.</span>';
+  }
+  document.getElementById('noteModal').classList.remove('hidden');
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.add('hidden');
+}
