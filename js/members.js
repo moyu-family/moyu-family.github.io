@@ -91,6 +91,7 @@ async function deleteSelectedMembers() {
 }
 
 // Bảng tổng hợp: Khớp đúng vị trí cột và thay ghi chú bằng nút icon nhỏ
+// Bảng tổng hợp: Chỉ hiển thị icon con mắt 👁️ ở cột Ghi chú
 function openSummaryTable() {
   let targetMembers = members;
   if (selectedIds.size > 0) {
@@ -101,19 +102,22 @@ function openSummaryTable() {
   tbody.innerHTML = '';
 
   targetMembers.forEach((m, idx) => {
-    const bankDetails = (m.banks || []).map(b => `${b.bankName}: ${b.accNum}`).join('<br>');
-    const roleText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
-    const hasNote = m.notes && m.notes.trim() !== '' && m.notes !== '<br>';
+    const bankDetails = (m.banks && m.banks.length > 0)
+      ? m.banks.map(b => `<strong>${b.bankName}:</strong> ${b.accNum}`).join('<br>')
+      : '-';
 
-    // Nút icon xem ghi chú nhỏ gọn
+    const roleText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
+    const hasNote = m.notes && m.notes.trim() !== '' && m.notes !== '<br>' && m.notes !== '<div><br></div>';
+
+    // CHỈ HIỂN THỊ DUY NHẤT ICON CON MẮT: Có ghi chú thì hiện icon mắt rõ, không có thì hiện dấu gạch ngang
     const noteBtnHtml = hasNote
-      ? `<button type="button" class="btn-outline" style="padding:3px 8px; font-size:0.75rem;" onclick="showNoteModal('${m.name}', '${m.id}')">📝 Xem</button>`
-      : `<span style="color:var(--text-muted); font-size:0.8rem;">-</span>`;
-    
+      ? `<button type="button" class="btn-eye" title="Bấm để xem ghi chú" onclick="showNoteModal('${m.name}', '${m.id}')">👁️</button>`
+      : `<span style="color:var(--text-muted); opacity: 0.5;">-</span>`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="text-align:center;">${idx + 1}</td>
-      <td><strong>${m.name}</strong></td>
+      <td><strong>${m.name || '-'}</strong></td>
       <td>${roleText}</td>
       <td>${m.dob || '-'}</td>
       <td>${m.pob || '-'}</td>
@@ -123,8 +127,8 @@ function openSummaryTable() {
       <td>${m.bhxh || '-'}</td>
       <td>${m.tax || '-'}</td>
       <td>${m.specialCode || '-'}</td>
-      <td>${bankDetails || '-'}</td>
-      <td style="text-align:center;">${noteBtnHtml}</td>
+      <td>${bankDetails}</td>
+      <td style="text-align:center; vertical-align: middle;">${noteBtnHtml}</td>
     `;
     tbody.appendChild(tr);
   });
