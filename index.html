@@ -25,7 +25,7 @@
     .container { max-width: 1060px; margin: 0 auto; }
     .hidden { display: none !important; }
 
-    /* Màn hình Đăng nhập */
+    /* Màn hình Khóa */
     .modal-box {
       max-width: 400px; margin: 80px auto; background: var(--card-bg);
       padding: 34px 28px; border-radius: 20px; border: 1px solid var(--border-color);
@@ -72,24 +72,24 @@
     }
     .member-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
     
-    /* Khi thẻ được chọn sẽ sáng viền xanh */
+    /* Khi thẻ được chọn */
     .member-card.is-selected {
       border-color: #2563eb;
       background-color: #f0f7ff;
     }
     .sortable-ghost { opacity: 0.35; background: #e2e8f0; }
 
-    /* Tay cầm kéo thả chuyên dụng */
+    /* Tay cầm kéo thả */
     .drag-handle {
       position: absolute; top: 10px; right: 12px; font-size: 1.3rem; color: #94a3b8;
       cursor: grab; padding: 4px; line-height: 1; touch-action: none; z-index: 2;
     }
     .drag-handle:active { cursor: grabbing; color: var(--navy); }
 
-    /* Hộp kiểm checkbox tùy biến */
+    /* Hộp kiểm checkbox */
     .card-checkbox {
       position: absolute; top: 12px; left: 12px; width: 22px; height: 22px;
-      accent-color: #2563eb; cursor: pointer; z-index: 2; pointer-events: none;
+      accent-color: #2563eb; cursor: pointer; z-index: 5;
     }
 
     .avatar-wrap { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; margin: 0 auto 12px; border: 3px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.08); background: #f1f5f9; pointer-events: none; }
@@ -364,7 +364,6 @@
     document.getElementById('authScreen').classList.remove('hidden');
   }
 
-  // Khởi tạo kéo thả (CHỈ CHẠY KHI KHÔNG BẬT CHẾ ĐỘ CHỌN)
   function initSortable() {
     const grid = document.getElementById('memberGrid');
     if (sortableInstance) {
@@ -372,7 +371,7 @@
       sortableInstance = null;
     }
     
-    if (isSelectMode) return; // Nếu đang ở chế độ chọn, tắt hoàn toàn kéo thả để không chặn click
+    if (isSelectMode) return;
 
     if (typeof Sortable !== 'undefined') {
       sortableInstance = new Sortable(grid, {
@@ -393,7 +392,6 @@
     }
   }
 
-  // Bật/tắt chế độ chọn
   function toggleSelectMode() {
     isSelectMode = !isSelectMode;
     selectedIds.clear();
@@ -408,7 +406,7 @@
     document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${members.length})`;
   }
 
-  // Chọn hoặc bỏ chọn 1 người khi click vào thẻ
+  // Hàm xử lý chọn/bỏ chọn
   function toggleMemberSelection(id) {
     if (selectedIds.has(id)) {
       selectedIds.delete(id);
@@ -416,12 +414,11 @@
       selectedIds.add(id);
     }
     
-    // Cập nhật giao diện thẻ đó
     const card = document.querySelector(`.member-card[data-id="${id}"]`);
     if (card) {
-      const cb = card.querySelector('.card-checkbox');
       const isSelected = selectedIds.has(id);
       card.classList.toggle('is-selected', isSelected);
+      const cb = card.querySelector('.card-checkbox');
       if (cb) cb.checked = isSelected;
     }
 
@@ -429,7 +426,6 @@
     updateSelectedCount();
   }
 
-  // Chọn hoặc bỏ chọn tất cả
   function toggleSelectAll(checked) {
     selectedIds.clear();
     if (checked) {
@@ -443,10 +439,9 @@
     updateSelectedCount();
   }
 
-  // Xóa những người đã chọn
   async function deleteSelectedMembers() {
     if (selectedIds.size === 0) {
-      alert('Vui lòng click chọn ít nhất 1 thành viên để xóa!');
+      alert('Vui lòng chọn ít nhất 1 thành viên để xóa!');
       return;
     }
     if (confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} thành viên đã chọn?`)) {
@@ -463,7 +458,6 @@
     }
   }
 
-  // Mở Bảng Tổng Hợp
   function openSummaryTable() {
     let targetMembers = members;
     if (selectedIds.size > 0) {
@@ -517,7 +511,6 @@
     });
   }
 
-  // Hiển thị lưới thẻ
   function renderGrid() {
     const grid = document.getElementById('memberGrid');
     grid.innerHTML = '';
@@ -536,17 +529,16 @@
 
       let topControls = '';
       if (isSelectMode) {
-        topControls = `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''}>`;
+        // Ô checkbox đã có onclick riêng và ngăn chặn nổi bọt sự kiện
+        topControls = `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleMemberSelection('${m.id}')">`;
       } else {
         topControls = `<div class="drag-handle" title="Giữ để kéo thả sắp xếp">⠿</div>`;
       }
 
       card.onclick = (e) => {
         if (isSelectMode) {
-          // Khi ở chế độ chọn: click vào đâu trên thẻ cũng chọn/bỏ chọn
           toggleMemberSelection(m.id);
         } else {
-          // Khi ở chế độ bình thường: nếu không click vào tay cầm kéo thì mở chi tiết
           if (!e.target.classList.contains('drag-handle')) {
             viewDetails(m.id);
           }
