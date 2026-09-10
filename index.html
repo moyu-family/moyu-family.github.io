@@ -66,7 +66,7 @@
       <h2 style="font-size:1.3rem; color:var(--navy); margin-bottom:8px;">Bảng tổng hợp thông tin gia đình</h2>
       <div class="table-container">
         <table class="summary-table" id="summaryTableElement">
-          <thead>
+         <thead>
             <tr>
               <th>STT</th>
               <th>Họ và Tên</th>
@@ -80,7 +80,7 @@
               <th>Mã số thuế</th>
               <th>Mã HS / NV</th>
               <th>Tài khoản ngân hàng</th>
-              <th>Ghi chú thêm</th>
+              <th style="text-align:center;">Ghi chú</th>
             </tr>
           </thead>
           <tbody id="summaryTableBody"></tbody>
@@ -251,6 +251,17 @@
   </div>
 </div>
 
+<!-- Modal Popup xem Ghi chú từ Bảng tổng hợp -->
+<div id="noteModal" class="modal-overlay hidden" onclick="closeNoteModal()">
+  <div class="modal-card" style="max-width: 500px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 id="noteModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:8px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">Ghi chú</h3>
+    <div id="noteModalContent" class="rich-display" style="max-height: 350px; overflow-y: auto; margin: 12px 0; padding-right: 4px;"></div>
+    <div style="text-align: right; margin-top: 14px;">
+      <button class="btn-primary" onclick="closeNoteModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+  
 <!-- Modal Thêm ngân hàng mới -->
 <div id="newBankModal" class="modal-overlay hidden" onclick="closeNewBankModal()">
   <div class="modal-card" onclick="event.stopPropagation()">
