@@ -61,6 +61,8 @@
     .btn-outline:hover { background: #f1f5f9; }
     .btn-danger { background: #fff1f2; color: #e11d48; border: 1px solid #ffe4e6; }
     .btn-success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .btn-qr { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 6px 10px; font-size: 0.8rem; }
+    .btn-qr:hover { background: #dcfce7; }
 
     /* Lưới thành viên */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
@@ -71,22 +73,15 @@
       cursor: pointer;
     }
     .member-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
-    
-    /* Khi thẻ được chọn */
-    .member-card.is-selected {
-      border-color: #2563eb;
-      background-color: #f0f7ff;
-    }
+    .member-card.is-selected { border-color: #2563eb; background-color: #f0f7ff; }
     .sortable-ghost { opacity: 0.35; background: #e2e8f0; }
 
-    /* Tay cầm kéo thả */
     .drag-handle {
       position: absolute; top: 10px; right: 12px; font-size: 1.3rem; color: #94a3b8;
       cursor: grab; padding: 4px; line-height: 1; touch-action: none; z-index: 2;
     }
     .drag-handle:active { cursor: grabbing; color: var(--navy); }
 
-    /* Hộp kiểm checkbox */
     .card-checkbox {
       position: absolute; top: 12px; left: 12px; width: 22px; height: 22px;
       accent-color: #2563eb; cursor: pointer; z-index: 5;
@@ -107,21 +102,35 @@
     .info-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; font-weight: 700; }
     .info-val { font-size: 0.95rem; font-weight: 600; color: var(--navy); word-break: break-all; }
 
-    .bank-card { display: flex; align-items: center; gap: 14px; background: #ffffff; padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border-color); }
-    .bank-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; background: #fafbfd; border: 1px solid #f1f5f9; padding: 2px; }
+    /* Ngân hàng */
+    .bank-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; padding: 12px 16px; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+    .bank-info-left { display: flex; align-items: center; gap: 12px; }
+    .bank-logo { width: 42px; height: 42px; object-fit: contain; border-radius: 8px; background: #fafbfd; border: 1px solid #f1f5f9; padding: 2px; }
+
+    /* Modal Popup xem QR */
+    .qr-modal-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .qr-modal-card {
+      background: white; border-radius: 20px; padding: 24px; max-width: 340px; width: 90%;
+      text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+    .qr-img-display { width: 220px; height: 220px; object-fit: contain; margin: 16px auto; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px; }
 
     /* Giao diện Bảng tổng hợp */
     .table-container { overflow-x: auto; margin-top: 18px; border: 1px solid var(--border-color); border-radius: 12px; }
-    table.summary-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; min-width: 800px; }
-    table.summary-table th, table.summary-table td { padding: 12px 14px; border: 1px solid var(--border-color); }
-    table.summary-table th { background: #f1f5f9; color: var(--navy); font-weight: 700; }
+    table.summary-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; min-width: 900px; }
+    table.summary-table th, table.summary-table td { padding: 12px 14px; border: 1px solid var(--border-color); vertical-align: top; }
+    table.summary-table th { background: #f1f5f9; color: var(--navy); font-weight: 700; white-space: nowrap; }
     table.summary-table tr:hover { background: #f8fafc; }
 
     .form-group { margin-bottom: 14px; text-align: left; }
     label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--navy); margin-bottom: 5px; }
-    input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; background: #fafbfd; }
-    input:focus, select:focus { border-color: var(--navy); background: #fff; outline: none; }
-    .bank-edit-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; background: #fafbfd; }
+    input:focus, select:focus, textarea:focus { border-color: var(--navy); background: #fff; outline: none; }
+    textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+    .bank-edit-row { background: #f8fafc; border: 1px solid var(--border-color); padding: 10px; border-radius: 10px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -195,6 +204,7 @@
               <th>Mã số thuế</th>
               <th>Mã HS / NV</th>
               <th>Tài khoản ngân hàng</th>
+              <th>Ghi chú thêm</th>
             </tr>
           </thead>
           <tbody id="summaryTableBody"></tbody>
@@ -228,6 +238,7 @@
         <div class="info-item"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
         <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
         <div class="info-item"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
+        <div class="info-item" style="grid-column: 1 / -1;"><div class="info-label">📝 Ghi chú tự do</div><div class="info-val" id="dtNotes" style="white-space: pre-line; line-height: 1.5; color: #334155;"></div></div>
       </div>
 
       <div style="font-weight:700; color:var(--navy); margin-bottom:12px;">💳 Tài khoản ngân hàng</div>
@@ -275,6 +286,11 @@
           <input type="text" id="fSpecialCode">
         </div>
 
+        <div class="form-group">
+          <label>📝 Ghi chú tự do (nhóm máu, dị ứng, size giày dép, lưu ý cá nhân...)</label>
+          <textarea id="fNotes" placeholder="Nhập các ghi chú tự do tại đây..."></textarea>
+        </div>
+
         <div class="form-group" style="margin-top:20px;">
           <label>Tài khoản ngân hàng</label>
           <div id="bankInputs"></div>
@@ -286,6 +302,18 @@
           <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal xem mã QR -->
+<div id="qrModal" class="qr-modal-overlay hidden" onclick="closeQrModal()">
+  <div class="qr-modal-card" onclick="event.stopPropagation()">
+    <h3 id="qrModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:4px;">Mã QR chuyển khoản</h3>
+    <p id="qrModalSubtitle" style="font-size:0.85rem; color:var(--text-muted);"></p>
+    <img id="qrModalImg" class="qr-img-display" src="" alt="Mã QR">
+    <div>
+      <button class="btn-primary" style="width:100%; justify-content:center;" onclick="closeQrModal()">Đóng</button>
     </div>
   </div>
 </div>
@@ -406,7 +434,6 @@
     document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${members.length})`;
   }
 
-  // Hàm xử lý chọn/bỏ chọn
   function toggleMemberSelection(id) {
     if (selectedIds.has(id)) {
       selectedIds.delete(id);
@@ -484,6 +511,7 @@
         <td>${m.tax || '-'}</td>
         <td>${m.specialCode || '-'}</td>
         <td>${bankDetails || '-'}</td>
+        <td style="white-space: pre-line;">${m.notes || '-'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -511,6 +539,26 @@
     });
   }
 
+  // Quản lý hiển thị QR Modal
+  function showQrModal(bankName, accNum, qrUrl, ownerName) {
+    document.getElementById('qrModalTitle').innerText = bankName;
+    document.getElementById('qrModalSubtitle').innerText = `${ownerName} - STK: ${accNum}`;
+    
+    // Nếu có URL ảnh riêng thì dùng, nếu không tạo VietQR tự động
+    let finalQrSrc = qrUrl;
+    if (!finalQrSrc) {
+      finalQrSrc = `https://api.vietqr.io/${encodeURIComponent(bankName)}/${encodeURIComponent(accNum)}/compact.png?accountName=${encodeURIComponent(ownerName)}`;
+    }
+    
+    const imgEl = document.getElementById('qrModalImg');
+    imgEl.src = finalQrSrc;
+    document.getElementById('qrModal').classList.remove('hidden');
+  }
+
+  function closeQrModal() {
+    document.getElementById('qrModal').classList.add('hidden');
+  }
+
   function renderGrid() {
     const grid = document.getElementById('memberGrid');
     grid.innerHTML = '';
@@ -529,7 +577,6 @@
 
       let topControls = '';
       if (isSelectMode) {
-        // Ô checkbox đã có onclick riêng và ngăn chặn nổi bọt sự kiện
         topControls = `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleMemberSelection('${m.id}')">`;
       } else {
         topControls = `<div class="drag-handle" title="Giữ để kéo thả sắp xếp">⠿</div>`;
@@ -577,6 +624,7 @@
     document.getElementById('dtCccdDate').innerText = m.cccdDate || '-';
     document.getElementById('dtBhyt').innerText = m.bhyt || '-';
     document.getElementById('dtTax').innerText = m.tax || '-';
+    document.getElementById('dtNotes').innerText = m.notes || 'Chưa có ghi chú nào.';
 
     document.getElementById('specialLabel').innerText = m.type === 'child' ? 'Mã học sinh' : 'Mã nhân viên';
     document.getElementById('specialVal').innerText = m.specialCode || '-';
@@ -585,13 +633,17 @@
     bList.innerHTML = '';
     if (m.banks && m.banks.length > 0) {
       m.banks.forEach(b => {
+        const qrJsonStr = JSON.stringify({ bank: b.bankName, acc: b.accNum, qr: b.qrUrl || '', owner: m.name }).replace(/"/g, '&quot;');
         bList.innerHTML += `
           <div class="bank-card">
-            <img class="bank-logo" src="${b.logo || 'https://via.placeholder.com/50?text=Bank'}" onerror="this.src='https://via.placeholder.com/50?text=Bank'">
-            <div>
-              <div style="font-weight:700; color:var(--navy);">${b.bankName}</div>
-              <div style="color:var(--text-muted); font-size:0.88rem;">STK: ${b.accNum}</div>
+            <div class="bank-info-left">
+              <img class="bank-logo" src="${b.logo || 'https://via.placeholder.com/50?text=Bank'}" onerror="this.src='https://via.placeholder.com/50?text=Bank'">
+              <div>
+                <div style="font-weight:700; color:var(--navy);">${b.bankName}</div>
+                <div style="color:var(--text-muted); font-size:0.88rem;">STK: ${b.accNum}</div>
+              </div>
             </div>
+            <button class="btn-qr" onclick="showQrModal('${b.bankName}', '${b.accNum}', '${b.qrUrl || ''}', '${m.name}')">📲 Xem mã QR</button>
           </div>
         `;
       });
@@ -634,8 +686,9 @@
       document.getElementById('fBhyt').value = member.bhyt;
       document.getElementById('fTax').value = member.tax;
       document.getElementById('fSpecialCode').value = member.specialCode;
+      document.getElementById('fNotes').value = member.notes || '';
 
-      if (member.banks) member.banks.forEach(b => addBankRow(b.bankName, b.accNum, b.logo));
+      if (member.banks) member.banks.forEach(b => addBankRow(b.bankName, b.accNum, b.logo, b.qrUrl));
     } else {
       document.getElementById('formHeading').innerText = 'Thêm thành viên mới';
       document.getElementById('fId').value = '';
@@ -648,15 +701,20 @@
     document.getElementById('fSpecialLabel').innerText = type === 'child' ? 'Mã học sinh' : 'Mã nhân viên';
   }
 
-  function addBankRow(name = '', acc = '', logo = '') {
+  function addBankRow(name = '', acc = '', logo = '', qr = '') {
     const wrap = document.getElementById('bankInputs');
     const div = document.createElement('div');
     div.className = 'bank-edit-row';
     div.innerHTML = `
-      <input type="text" placeholder="Ngân hàng" value="${name}" class="b-name" style="flex:1;">
-      <input type="text" placeholder="Số tài khoản" value="${acc}" class="b-acc" style="flex:1;">
-      <input type="text" placeholder="URL Logo" value="${logo}" class="b-logo" style="flex:1;">
-      <button type="button" class="btn-danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <input type="text" placeholder="Tên Ngân hàng (VCB, MB, Techcombank...)" value="${name}" class="b-name" style="flex:1;">
+        <input type="text" placeholder="Số tài khoản" value="${acc}" class="b-acc" style="flex:1;">
+        <button type="button" class="btn-danger" style="padding:4px 8px;" onclick="this.closest('.bank-edit-row').remove()">✕</button>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" placeholder="URL Logo ngân hàng (tùy chọn)" value="${logo}" class="b-logo" style="flex:1;">
+        <input type="text" placeholder="URL Ảnh mã QR riêng (bỏ trống sẽ tự tạo QR)" value="${qr || ''}" class="b-qr" style="flex:1;">
+      </div>
     `;
     wrap.appendChild(div);
   }
@@ -688,9 +746,17 @@
     const bNames = document.querySelectorAll('.b-name');
     const bAccs = document.querySelectorAll('.b-acc');
     const bLogos = document.querySelectorAll('.b-logo');
+    const bQrs = document.querySelectorAll('.b-qr');
     const banks = [];
     for (let i = 0; i < bNames.length; i++) {
-      if (bNames[i].value.trim()) banks.push({ bankName: bNames[i].value, accNum: bAccs[i].value, logo: bLogos[i].value });
+      if (bNames[i].value.trim()) {
+        banks.push({
+          bankName: bNames[i].value.trim(),
+          accNum: bAccs[i].value.trim(),
+          logo: bLogos[i].value.trim(),
+          qrUrl: bQrs[i].value.trim()
+        });
+      }
     }
 
     const memberObj = {
@@ -705,6 +771,7 @@
       bhyt: document.getElementById('fBhyt').value,
       tax: document.getElementById('fTax').value,
       specialCode: document.getElementById('fSpecialCode').value,
+      notes: document.getElementById('fNotes').value.trim(),
       banks: banks
     };
 
