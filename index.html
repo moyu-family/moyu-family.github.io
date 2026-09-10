@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quản lý thông tin gia đình</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Thư viện mã hóa và kéo thả -->
+  <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 </head>
@@ -28,6 +28,7 @@
 
   <!-- Ứng dụng chính -->
   <div id="appScreen" class="hidden">
+    <!-- Thanh Menu -->
     <div class="top-bar">
       <div class="brand-title">👨‍👩‍👧‍👦 Quản lý gia đình</div>
       <div class="btn-group">
@@ -37,7 +38,7 @@
       </div>
     </div>
 
-    <!-- Thanh tác vụ hàng loạt -->
+    <!-- Thanh tác vụ Hàng loạt -->
     <div id="batchActionToolbar" class="batch-bar hidden">
       <div style="display:flex; align-items:center; gap:10px;">
         <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
@@ -52,12 +53,12 @@
       </div>
     </div>
 
-    <!-- Trang chủ danh sách thẻ -->
+    <!-- Trang chủ: Danh sách thẻ -->
     <div id="homeView">
       <div class="grid" id="memberGrid"></div>
     </div>
 
-    <!-- Bảng tổng hợp -->
+    <!-- Trang Bảng Tổng Hợp Thông Tin -->
     <div id="tableView" class="table-view hidden">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
         <button class="btn-outline" onclick="showHome()">← Quay lại danh sách</button>
@@ -66,9 +67,9 @@
       <h2 style="font-size:1.3rem; color:var(--navy); margin-bottom:8px;">Bảng tổng hợp thông tin gia đình</h2>
       <div class="table-container">
         <table class="summary-table" id="summaryTableElement">
-         <thead>
+          <thead>
             <tr>
-              <th>STT</th>
+              <th style="width: 40px; text-align: center;">STT</th>
               <th>Họ và Tên</th>
               <th>Đối tượng</th>
               <th>Ngày sinh</th>
@@ -80,7 +81,7 @@
               <th>Mã số thuế</th>
               <th>Mã HS / NV</th>
               <th>Tài khoản ngân hàng</th>
-              <th style="text-align:center;">Ghi chú</th>
+              <th style="text-align: center; min-width: 90px;">Ghi chú</th>
             </tr>
           </thead>
           <tbody id="summaryTableBody"></tbody>
@@ -88,7 +89,7 @@
       </div>
     </div>
 
-    <!-- Màn hình chi tiết -->
+    <!-- Chi tiết thành viên -->
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <button class="btn-outline" onclick="showHome()">← Quay lại</button>
@@ -112,7 +113,7 @@
         <div class="info-item"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
         <div class="info-item"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div>
         <div class="info-item"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
-        <div class="info-item"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>        
+        <div class="info-item"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
         <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
         <div class="info-item"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
         <div class="info-item" style="grid-column: 1 / -1;">
@@ -125,7 +126,7 @@
       <div id="dtBanks"></div>
     </div>
 
-    <!-- Form Nhập / Sửa -->
+    <!-- Form Nhập/Sửa -->
     <div id="formView" class="form-view hidden">
       <h2 id="formHeading" style="font-size: 1.35rem; font-weight: 700; color: var(--navy); margin-bottom: 20px;">Thông tin thành viên</h2>
       <form id="memberForm" onsubmit="saveMember(event)">
@@ -157,10 +158,11 @@
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <div class="form-group"><label>Mã số BHXH (10 số)</label><input type="text" id="fBhxh" placeholder="Nhập mã BHXH..."></div>
           <div class="form-group"><label>Mã BHYT</label><input type="text" id="fBhyt"></div>
-          <div class="form-group"><label>Mã số thuế cũ</label><input type="text" id="fTax"></div>
+          <div class="form-group"><label>Mã số BHXH (10 số)</label><input type="text" id="fBhxh" placeholder="Nhập mã BHXH..."></div>
         </div>
+
+        <div class="form-group"><label>Mã số thuế cũ</label><input type="text" id="fTax"></div>
 
         <div class="form-group">
           <label id="fSpecialLabel">Mã nhân viên</label>
@@ -205,7 +207,7 @@
 
               <div class="tb-group">
                 <button type="button" class="tb-btn" onclick="execFormat('insertUnorderedList')" title="Danh sách">• List</button>
-                <button type="button" class="tb-btn" onclick="execFormat('insertOrderedList')" title="Đánh số">1. List</button>
+                <button type="button" class="tb-btn" onclick="execFormat('insertOrderedList')" title="Danh sách số">1. List</button>
               </div>
 
               <div class="tb-group" style="border-right: none;">
@@ -217,7 +219,7 @@
 
               <button type="button" class="tb-btn" style="margin-left:auto;" onclick="execFormat('removeFormat')">✕ Reset</button>
             </div>
-            <div id="fNotesEditor" class="rich-content-area" contenteditable="true"></div>
+            <div id="fNotesEditor" class="rich-content-area" contenteditable="true" placeholder="Bôi đen văn bản để đổi font, cỡ chữ, màu sắc hoặc canh lề..."></div>
           </div>
         </div>
 
@@ -239,7 +241,7 @@
   </div>
 </div>
 
-<!-- Modal QR -->
+<!-- Modal xem QR -->
 <div id="qrModal" class="modal-overlay hidden" onclick="closeQrModal()">
   <div class="modal-card" onclick="event.stopPropagation()">
     <h3 id="qrModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:4px;">Mã QR chuyển khoản</h3>
@@ -251,17 +253,6 @@
   </div>
 </div>
 
-<!-- Modal Popup xem Ghi chú từ Bảng tổng hợp -->
-<div id="noteModal" class="modal-overlay hidden" onclick="closeNoteModal()">
-  <div class="modal-card" style="max-width: 500px; text-align: left;" onclick="event.stopPropagation()">
-    <h3 id="noteModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:8px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">Ghi chú</h3>
-    <div id="noteModalContent" class="rich-display" style="max-height: 350px; overflow-y: auto; margin: 12px 0; padding-right: 4px;"></div>
-    <div style="text-align: right; margin-top: 14px;">
-      <button class="btn-primary" onclick="closeNoteModal()">Đóng</button>
-    </div>
-  </div>
-</div>
-  
 <!-- Modal Thêm ngân hàng mới -->
 <div id="newBankModal" class="modal-overlay hidden" onclick="closeNewBankModal()">
   <div class="modal-card" onclick="event.stopPropagation()">
@@ -281,11 +272,22 @@
   </div>
 </div>
 
-<!-- Nạp các file JS tuần tự -->
-<script src="js/config.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/members.js"></script>
+<!-- Modal Popup xem Ghi chú -->
+<div id="noteModal" class="modal-overlay hidden" onclick="closeNoteModal()">
+  <div class="modal-card" style="max-width: 500px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 id="noteModalTitle" style="font-size: 1.15rem; color: var(--navy); margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Ghi chú</h3>
+    <div id="noteModalContent" class="rich-display" style="max-height: 350px; overflow-y: auto; margin: 12px 0; padding-right: 4px;"></div>
+    <div style="text-align: right; margin-top: 14px;">
+      <button type="button" class="btn-primary" onclick="closeNoteModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nạp các file JS với tham số ?v=3 để buộc làm mới cache -->
+<script src="js/config.js?v=3"></script>
+<script src="js/auth.js?v=3"></script>
+<script src="js/ui.js?v=3"></script>
+<script src="js/members.js?v=3"></script>
 
 </body>
 </html>
