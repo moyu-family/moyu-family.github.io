@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quản lý thông tin gia đình</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-  <!-- Thư viện kéo thả mượt mà trên cả PC lẫn Điện thoại -->
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <style>
     :root {
       --bg: #f8fafc;
@@ -26,7 +25,7 @@
     .container { max-width: 1060px; margin: 0 auto; }
     .hidden { display: none !important; }
 
-    /* Màn hình Khóa */
+    /* Màn hình Đăng nhập */
     .modal-box {
       max-width: 400px; margin: 80px auto; background: var(--card-bg);
       padding: 34px 28px; border-radius: 20px; border: 1px solid var(--border-color);
@@ -48,7 +47,7 @@
     /* Thanh tác vụ hàng loạt */
     .batch-bar {
       display: flex; justify-content: space-between; align-items: center;
-      background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px 18px;
+      background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px 18px;
       border-radius: 12px; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;
     }
 
@@ -63,29 +62,42 @@
     .btn-danger { background: #fff1f2; color: #e11d48; border: 1px solid #ffe4e6; }
     .btn-success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
 
-    /* Lưới thành viên & Kéo thả */
+    /* Lưới thành viên */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
     .member-card {
       background: var(--card-bg); border-radius: 16px; padding: 22px 16px; text-align: center;
-      border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); cursor: grab;
-      position: relative; transition: transform 0.2s, box-shadow 0.2s; user-select: none;
+      border: 2px solid var(--border-color); box-shadow: var(--shadow-sm);
+      position: relative; transition: all 0.2s ease; user-select: none;
+      cursor: pointer;
     }
     .member-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
-    .member-card:active { cursor: grabbing; }
+    
+    /* Khi thẻ được chọn sẽ sáng viền xanh */
+    .member-card.is-selected {
+      border-color: #2563eb;
+      background-color: #f0f7ff;
+    }
     .sortable-ghost { opacity: 0.35; background: #e2e8f0; }
 
-    /* Hộp kiểm checkbox */
+    /* Tay cầm kéo thả chuyên dụng */
+    .drag-handle {
+      position: absolute; top: 10px; right: 12px; font-size: 1.3rem; color: #94a3b8;
+      cursor: grab; padding: 4px; line-height: 1; touch-action: none; z-index: 2;
+    }
+    .drag-handle:active { cursor: grabbing; color: var(--navy); }
+
+    /* Hộp kiểm checkbox tùy biến */
     .card-checkbox {
-      position: absolute; top: 12px; left: 12px; width: 20px; height: 20px;
-      accent-color: var(--navy); cursor: pointer; transform: scale(1.15);
+      position: absolute; top: 12px; left: 12px; width: 22px; height: 22px;
+      accent-color: #2563eb; cursor: pointer; z-index: 2; pointer-events: none;
     }
 
-    .avatar-wrap { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; margin: 0 auto 12px; border: 3px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.08); background: #f1f5f9; }
+    .avatar-wrap { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; margin: 0 auto 12px; border: 3px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.08); background: #f1f5f9; pointer-events: none; }
     .avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
-    .member-name { font-weight: 700; font-size: 1.05rem; color: var(--navy); margin-bottom: 4px; }
-    .member-role { display: inline-block; font-size: 0.72rem; font-weight: 600; color: var(--gold); background: var(--gold-light); padding: 2px 8px; border-radius: 30px; }
+    .member-name { font-weight: 700; font-size: 1.05rem; color: var(--navy); margin-bottom: 4px; pointer-events: none; }
+    .member-role { display: inline-block; font-size: 0.72rem; font-weight: 600; color: var(--gold); background: var(--gold-light); padding: 2px 8px; border-radius: 30px; pointer-events: none; }
 
-    /* Chi tiết & Form */
+    /* Chi tiết, Form, Table */
     .detail-view, .form-view, .table-view { background: var(--card-bg); border-radius: 18px; padding: 28px; border: 1px solid var(--border-color); box-shadow: var(--shadow-md); }
     .detail-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border-color); }
     .detail-avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
@@ -141,14 +153,14 @@
       </div>
     </div>
 
-    <!-- Thanh tác vụ Hàng loạt (Chỉ hiện khi bật chế độ chọn) -->
+    <!-- Thanh tác vụ Hàng loạt -->
     <div id="batchActionToolbar" class="batch-bar hidden">
       <div style="display:flex; align-items:center; gap:10px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.88rem; cursor:pointer; margin:0;">
-          <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" style="width:18px; height:18px; accent-color:var(--navy);">
-          <strong>Chọn tất cả</strong>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
+          <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" style="width:20px; height:20px; accent-color:var(--navy); cursor:pointer;">
+          Chọn tất cả
         </label>
-        <span id="selectedCountText" style="color:var(--text-muted); font-size:0.85rem;">(Đã chọn: 0)</span>
+        <span id="selectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="btn-success" onclick="openSummaryTable()">📊 Xem bảng tổng hợp</button>
@@ -156,7 +168,7 @@
       </div>
     </div>
 
-    <!-- Trang chủ: Danh sách kéo thả -->
+    <!-- Trang chủ: Danh sách thành viên -->
     <div id="homeView">
       <div class="grid" id="memberGrid"></div>
     </div>
@@ -279,7 +291,6 @@
 </div>
 
 <script>
-  // Link Firebase của bạn
   const FIREBASE_DB_URL = "https://moyu-family-default-rtdb.asia-southeast1.firebasedatabase.app/";
 
   let masterPassword = null;
@@ -341,7 +352,6 @@
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('appScreen').classList.remove('hidden');
     renderGrid();
-    initSortable();
   }
 
   function lockApp() {
@@ -354,39 +364,43 @@
     document.getElementById('authScreen').classList.remove('hidden');
   }
 
-  // Khởi tạo tính năng kéo thả đổi vị trí
+  // Khởi tạo kéo thả (CHỈ CHẠY KHI KHÔNG BẬT CHẾ ĐỘ CHỌN)
   function initSortable() {
     const grid = document.getElementById('memberGrid');
-    if (sortableInstance) sortableInstance.destroy();
+    if (sortableInstance) {
+      sortableInstance.destroy();
+      sortableInstance = null;
+    }
     
-    sortableInstance = new Sortable(grid, {
-      animation: 200,
-      ghostClass: 'sortable-ghost',
-      disabled: isSelectMode, // Khi đang bật chọn checkbox thì tạm tắt kéo thả để tránh chạm nhầm
-      onEnd: async function () {
-        // Lấy lại danh sách ID theo thứ tự vị trí mới
-        const cardElements = grid.querySelectorAll('.member-card');
-        const newOrderedIds = Array.from(cardElements).map(el => el.getAttribute('data-id'));
-        
-        members.sort((a, b) => newOrderedIds.indexOf(a.id) - newOrderedIds.indexOf(b.id));
-        try {
-          await pushToFirebase();
-        } catch (e) {
-          alert('Không thể lưu thứ tự mới: ' + e.message);
+    if (isSelectMode) return; // Nếu đang ở chế độ chọn, tắt hoàn toàn kéo thả để không chặn click
+
+    if (typeof Sortable !== 'undefined') {
+      sortableInstance = new Sortable(grid, {
+        handle: '.drag-handle',
+        animation: 200,
+        ghostClass: 'sortable-ghost',
+        onEnd: async function () {
+          const cardElements = grid.querySelectorAll('.member-card');
+          const newOrderedIds = Array.from(cardElements).map(el => el.getAttribute('data-id'));
+          members.sort((a, b) => newOrderedIds.indexOf(a.id) - newOrderedIds.indexOf(b.id));
+          try {
+            await pushToFirebase();
+          } catch (e) {
+            alert('Không thể lưu thứ tự mới: ' + e.message);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
-  // Bật/tắt chế độ chọn hàng loạt
+  // Bật/tắt chế độ chọn
   function toggleSelectMode() {
     isSelectMode = !isSelectMode;
     selectedIds.clear();
     document.getElementById('selectAllCheckbox').checked = false;
     document.getElementById('batchActionToolbar').classList.toggle('hidden', !isSelectMode);
-    document.getElementById('btnToggleSelect').innerText = isSelectMode ? '✕ Đóng chọn' : '☑️ Quản lý / Chọn';
+    document.getElementById('btnToggleSelect').innerText = isSelectMode ? '✕ Thoát chọn' : '☑️ Quản lý / Chọn';
     renderGrid();
-    if (sortableInstance) sortableInstance.option('disabled', isSelectMode);
     updateSelectedCount();
   }
 
@@ -394,31 +408,48 @@
     document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${members.length})`;
   }
 
-  function handleCheckMember(e, id) {
-    e.stopPropagation(); // Không kích hoạt click xem chi tiết
-    if (e.target.checked) selectedIds.add(id);
-    else selectedIds.delete(id);
-    document.getElementById('selectAllCheckbox').checked = selectedIds.size === members.length && members.length > 0;
+  // Chọn hoặc bỏ chọn 1 người khi click vào thẻ
+  function toggleMemberSelection(id) {
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+    } else {
+      selectedIds.add(id);
+    }
+    
+    // Cập nhật giao diện thẻ đó
+    const card = document.querySelector(`.member-card[data-id="${id}"]`);
+    if (card) {
+      const cb = card.querySelector('.card-checkbox');
+      const isSelected = selectedIds.has(id);
+      card.classList.toggle('is-selected', isSelected);
+      if (cb) cb.checked = isSelected;
+    }
+
+    document.getElementById('selectAllCheckbox').checked = (selectedIds.size === members.length && members.length > 0);
     updateSelectedCount();
   }
 
+  // Chọn hoặc bỏ chọn tất cả
   function toggleSelectAll(checked) {
     selectedIds.clear();
     if (checked) {
       members.forEach(m => selectedIds.add(m.id));
     }
-    const checkboxes = document.querySelectorAll('.card-checkbox');
-    checkboxes.forEach(cb => cb.checked = checked);
+    document.querySelectorAll('.member-card').forEach(card => {
+      card.classList.toggle('is-selected', checked);
+      const cb = card.querySelector('.card-checkbox');
+      if (cb) cb.checked = checked;
+    });
     updateSelectedCount();
   }
 
-  // Xóa hàng loạt
+  // Xóa những người đã chọn
   async function deleteSelectedMembers() {
     if (selectedIds.size === 0) {
-      alert('Vui lòng chọn ít nhất 1 thành viên để xóa!');
+      alert('Vui lòng click chọn ít nhất 1 thành viên để xóa!');
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} thành viên đã chọn khỏi hệ thống?`)) {
+    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} thành viên đã chọn?`)) {
       members = members.filter(m => !selectedIds.has(m.id));
       selectedIds.clear();
       try {
@@ -468,23 +499,21 @@
     document.getElementById('tableView').classList.remove('hidden');
   }
 
-  // Sao chép toàn bộ bảng vào bộ nhớ tạm để paste vào Excel
   function copyTableData() {
     const table = document.getElementById('summaryTableElement');
     let text = '';
     for (let row of table.rows) {
       let rowData = [];
       for (let cell of row.cells) {
-        // Thay thế ngắt dòng thành dấu phẩy khi sao chép
         rowData.push(`"${cell.innerText.replace(/"/g, '""').replace(/\n/g, ' - ')}"`);
       }
       text += rowData.join('\t') + '\n';
     }
 
     navigator.clipboard.writeText(text).then(() => {
-      alert('Đã sao chép bảng thành công! Bạn có thể mở Excel / Google Sheets và nhấn Ctrl + V để dán.');
+      alert('Đã sao chép bảng thành công! Bạn có thể dán trực tiếp vào Excel hoặc Google Sheets.');
     }).catch(() => {
-      alert('Không thể sao chép tự động, vui lòng chọn bảng và copy thủ công.');
+      alert('Không thể tự động sao chép, vui lòng bôi đen bảng để copy thủ công.');
     });
   }
 
@@ -496,29 +525,36 @@
       grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: var(--text-muted);">Chưa có thành viên nào. Bấm "+ Thêm thành viên" để bắt đầu!</div>';
       return;
     }
+    
     members.forEach(m => {
       const card = document.createElement('div');
       card.className = 'member-card';
       card.setAttribute('data-id', m.id);
       
-      let checkboxHtml = '';
+      const isSelected = selectedIds.has(m.id);
+      if (isSelected) card.classList.add('is-selected');
+
+      let topControls = '';
       if (isSelectMode) {
-        const isChecked = selectedIds.has(m.id) ? 'checked' : '';
-        checkboxHtml = `<input type="checkbox" class="card-checkbox" ${isChecked} onchange="handleCheckMember(event, '${m.id}')">`;
+        topControls = `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''}>`;
+      } else {
+        topControls = `<div class="drag-handle" title="Giữ để kéo thả sắp xếp">⠿</div>`;
       }
 
       card.onclick = (e) => {
         if (isSelectMode) {
-          const cb = card.querySelector('.card-checkbox');
-          cb.checked = !cb.checked;
-          handleCheckMember({ target: cb, stopPropagation: () => {} }, m.id);
+          // Khi ở chế độ chọn: click vào đâu trên thẻ cũng chọn/bỏ chọn
+          toggleMemberSelection(m.id);
         } else {
-          viewDetails(m.id);
+          // Khi ở chế độ bình thường: nếu không click vào tay cầm kéo thì mở chi tiết
+          if (!e.target.classList.contains('drag-handle')) {
+            viewDetails(m.id);
+          }
         }
       };
 
       card.innerHTML = `
-        ${checkboxHtml}
+        ${topControls}
         <div class="avatar-wrap">
           <img src="${m.avatar || 'https://via.placeholder.com/150?text=No+Img'}" onerror="this.src='https://via.placeholder.com/150?text=Error'">
         </div>
@@ -527,6 +563,8 @@
       `;
       grid.appendChild(card);
     });
+
+    initSortable();
   }
 
   function viewDetails(id) {
