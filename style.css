@@ -196,3 +196,23 @@ input:focus, select:focus { border-color: var(--navy); background: #fff; outline
 .bank-edit-row { background: #f8fafc; border: 1px solid var(--border-color); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
 .bank-edit-preview { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .bank-edit-logo-preview { width: 36px; height: 36px; object-fit: contain; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px; }
+
+/* Nút icon con mắt xem ghi chú */
+.btn-eye {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-eye:hover {
+  background: #e2e8f0;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
