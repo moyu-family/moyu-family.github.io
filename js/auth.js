@@ -28,6 +28,14 @@ function setBiometricStatus(message = '', isError = false) {
   status.style.color = isError ? '#e11d48' : 'var(--text-muted)';
 }
 
+function withTimeout(promise, milliseconds, message) {
+  let timer;
+  const timeout = new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function getStoredBiometric() {
   try {
     return JSON.parse(localStorage.getItem(BIOMETRIC_STORAGE_KEY) || 'null');
@@ -136,22 +144,31 @@ async function registerBiometric() {
 
   const button = document.getElementById('btnRegisterBiometric');
   button.disabled = true;
-  setBiometricStatus('Đang xác minh mật khẩu...');
+  setBiometricStatus('Đang tải và xác minh dữ liệu...');
   try {
-    await loadDataWithPassword(pwd);
+    await withTimeout(
+      loadDataWithPassword(pwd),
+      20000,
+      'Tải dữ liệu quá lâu. Kiểm tra kết nối mạng rồi thử lại.'
+    );
+    setBiometricStatus('Đang mở xác nhận Face ID / vân tay...');
     const salt = createRandomBytes();
-    const credential = await navigator.credentials.create({
-      publicKey: {
-        challenge: createRandomBytes(),
-        rp: { name: 'Hồ sơ gia đình' },
-        user: { id: createRandomBytes(), name: 'family-owner', displayName: 'Chủ hồ sơ gia đình' },
-        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-        authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-        timeout: 60000,
-        attestation: 'none',
-        extensions: { prf: { eval: { first: salt } } }
-      }
-    });
+    const credential = await withTimeout(
+      navigator.credentials.create({
+        publicKey: {
+          challenge: createRandomBytes(),
+          rp: { name: 'Hồ sơ gia đình' },
+          user: { id: createRandomBytes(), name: 'family-owner', displayName: 'Chủ hồ sơ gia đình' },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+          timeout: 60000,
+          attestation: 'none',
+          extensions: { prf: { eval: { first: salt } } }
+        }
+      }),
+      70000,
+      'Không nhận được xác nhận sinh trắc học. Hãy thử lại và hoàn tất Face ID / vân tay trên thiết bị.'
+    );
     const prf = credential.getClientExtensionResults().prf;
     const first = prf && prf.results && prf.results.first;
     if (!first) throw new Error('Thiết bị chưa hỗ trợ PRF cho Passkey. Bạn vẫn có thể dùng mật khẩu.');
