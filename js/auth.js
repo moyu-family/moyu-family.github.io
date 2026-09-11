@@ -183,15 +183,27 @@ async function unlockWithBiometric() {
   button.disabled = true;
   setBiometricStatus('Đang chờ xác thực Face ID / vân tay...');
   try {
-    const assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge: createRandomBytes(),
-        allowCredentials: [{ type: 'public-key', id: base64UrlToBytes(record.credentialId) }],
-        userVerification: 'required',
-        timeout: 60000,
-        extensions: { prf: { evalByCredential: { [record.credentialId]: { first: base64UrlToBytes(record.salt) } } } }
-      }
-    });
+    const publicKey = {
+      challenge: createRandomBytes(),
+      allowCredentials: [{ type: 'public-key', id: base64UrlToBytes(record.credentialId) }],
+      userVerification: 'required',
+      timeout: 60000,
+      extensions: { prf: { evalByCredential: { [record.credentialId]: { first: base64UrlToBytes(record.salt) } } } }
+    };
+    let assertion;
+    try {
+      assertion = await navigator.credentials.get({ publicKey });
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') throw err;
+      assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: createRandomBytes(),
+          userVerification: 'required',
+          timeout: 60000,
+          extensions: { prf: { eval: { first: base64UrlToBytes(record.salt) } } }
+        }
+      });
+    }
     const prf = assertion.getClientExtensionResults().prf;
     const first = prf && prf.results && prf.results.first;
     if (!first) throw new Error('Không nhận được khóa từ Passkey. Hãy dùng mật khẩu để mở khóa.');
@@ -200,7 +212,10 @@ async function unlockWithBiometric() {
     await loadDataWithPassword(pwd);
     unlockApp();
   } catch (err) {
-    setBiometricStatus(err.message || 'Xác thực thất bại.', true);
+    const message = err.name === 'NotAllowedError'
+      ? 'Không tìm thấy Passkey cho moyu-family.github.io. Hãy đăng nhập bằng mật khẩu rồi đăng ký lại Face ID / vân tay trên đúng website này.'
+      : (err.message || 'Xác thực thất bại.');
+    setBiometricStatus(message, true);
   } finally {
     button.disabled = false;
   }
