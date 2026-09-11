@@ -26,6 +26,10 @@ body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; 
 .modal-desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 24px; }
 .auth-biometric-actions { display: grid; gap: 8px; margin-top: 14px; }
 .auth-biometric-actions button { width: 100%; justify-content: center; }
+.auth-biometric-actions #biometricRegisteredActions { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.auth-biometric-actions #biometricRegisteredActions button { width: auto; }
+.biometric-icon-button { width: 54px !important; height: 46px; padding: 0; justify-content: center; font-size: 1.7rem; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.biometric-icon-button:hover { background: #d1fae5; transform: scale(1.04); }
 .biometric-status { min-height: 18px; margin-top: 10px; color: var(--text-muted); font-size: 0.78rem; }
 
 /* Top Bar */

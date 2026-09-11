@@ -38,7 +38,20 @@ function getStoredBiometric() {
 
 function updateBiometricButton() {
   const button = document.getElementById('btnBiometricUnlock');
-  if (button) button.classList.toggle('hidden', !getStoredBiometric());
+  const registerButton = document.getElementById('btnRegisterBiometric');
+  const registeredActions = document.getElementById('biometricRegisteredActions');
+  const hasBiometric = Boolean(getStoredBiometric());
+  if (button) button.classList.toggle('hidden', !hasBiometric);
+  if (registerButton) registerButton.classList.toggle('hidden', hasBiometric);
+  if (registeredActions) registeredActions.classList.toggle('hidden', !hasBiometric);
+}
+
+function removeBiometric() {
+  if (!getStoredBiometric()) return;
+  if (!confirm('Bạn có chắc muốn xóa Face ID / vân tay khỏi website trên thiết bị này không?')) return;
+  localStorage.removeItem(BIOMETRIC_STORAGE_KEY);
+  updateBiometricButton();
+  setBiometricStatus('Đã xóa liên kết Face ID / vân tay khỏi website.');
 }
 
 async function loadDataWithPassword(pwd) {
