@@ -24,6 +24,9 @@ body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; 
 }
 .modal-title { font-size: 1.35rem; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
 .modal-desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 24px; }
+.auth-biometric-actions { display: grid; gap: 8px; margin-top: 14px; }
+.auth-biometric-actions button { width: 100%; justify-content: center; }
+.biometric-status { min-height: 18px; margin-top: 10px; color: var(--text-muted); font-size: 0.78rem; }
 
 /* Top Bar */
 .top-bar {

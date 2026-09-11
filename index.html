@@ -23,6 +23,11 @@
       </div>
       <button type="submit" id="btnUnlock" class="btn-primary" style="width:100%; justify-content:center; padding:10px;">Mở khóa</button>
     </form>
+    <div class="auth-biometric-actions">
+      <button type="button" id="btnBiometricUnlock" class="btn-success hidden" onclick="unlockWithBiometric()">🔐 Mở khóa bằng Face ID / vân tay</button>
+      <button type="button" id="btnRegisterBiometric" class="btn-outline" onclick="registerBiometric()">📱 Đăng ký Face ID / vân tay</button>
+    </div>
+    <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
   </div>
 
@@ -368,11 +373,11 @@
   </div>
 </div>
 
-<!-- Nạp các file JS với tham số ?v=11 để làm mới cache -->
-<script src="js/config.js?v=11"></script>
-<script src="js/auth.js?v=11"></script>
-<script src="js/ui.js?v=11"></script>
-<script src="js/members.js?v=11"></script>
+<!-- Nạp các file JS với tham số ?v=12 để làm mới cache -->
+<script src="js/config.js?v=12"></script>
+<script src="js/auth.js?v=12"></script>
+<script src="js/ui.js?v=12"></script>
+<script src="js/members.js?v=12"></script>
 
 </body>
 </html>
