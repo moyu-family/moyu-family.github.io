@@ -61,7 +61,7 @@
     <!-- Trang Bảng Tổng Hợp Thông Tin -->
     <div id="tableView" class="table-view hidden">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <button class="btn-outline" onclick="showHome()">← Quay lại danh sách</button>
+        <button class="btn-outline" onclick="goBackInApp()">← Quay lại danh sách</button>
         <button class="btn-primary" onclick="copyTableData()">📋 Sao chép bảng (Dán vào Excel)</button>
       </div>
       <h2 style="font-size:1.3rem; color:var(--navy); margin-bottom:8px;">Bảng tổng hợp thông tin gia đình</h2>
@@ -92,7 +92,7 @@
     <!-- Chi tiết thành viên -->
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button class="btn-outline" onclick="showHome()">← Quay lại</button>
+        <button class="btn-outline" onclick="goBackInApp()">← Quay lại</button>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-outline" onclick="editCurrentMember()">Chỉnh sửa</button>
           <button class="btn-danger" onclick="deleteCurrentMember()">Xóa</button>
@@ -130,7 +130,7 @@
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-outline" onclick="viewDetails(currentMemberId)">← Quay lại hồ sơ</button>
+        <button class="btn-outline" onclick="goBackInApp()">← Quay lại hồ sơ</button>
         <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
       </div>
 
@@ -368,11 +368,11 @@
   </div>
 </div>
 
-<!-- Nạp các file JS với tham số ?v=10 để làm mới cache -->
-<script src="js/config.js?v=10"></script>
-<script src="js/auth.js?v=10"></script>
-<script src="js/ui.js?v=10"></script>
-<script src="js/members.js?v=10"></script>
+<!-- Nạp các file JS với tham số ?v=11 để làm mới cache -->
+<script src="js/config.js?v=11"></script>
+<script src="js/auth.js?v=11"></script>
+<script src="js/ui.js?v=11"></script>
+<script src="js/members.js?v=11"></script>
 
 </body>
 </html>

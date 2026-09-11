@@ -20,6 +20,41 @@ function isValidDateVN(str) {
   return !(month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100);
 }
 
+function initAppHistory() {
+  history.replaceState({ app: 'family', view: 'home' }, '', location.href);
+}
+
+function pushAppHistory(view, data = {}) {
+  history.pushState({ app: 'family', view, ...data }, '', location.href);
+}
+
+function replaceAppHistory(view, data = {}) {
+  history.replaceState({ app: 'family', view, ...data }, '', location.href);
+}
+
+function goBackInApp() {
+  if (history.state && history.state.app === 'family' && history.state.view !== 'home') {
+    history.back();
+  } else {
+    showHome(true);
+  }
+}
+
+function restoreAppView(state) {
+  if (!state || state.app !== 'family') return;
+  if (state.view === 'detail') viewDetails(state.memberId, true);
+  else if (state.view === 'form') openForm(state.memberId ? members.find(m => m.id === state.memberId) : null, true);
+  else if (state.view === 'table') openSummaryTable(true);
+  else if (state.view === 'docs') openDocsView(state.memberId, true);
+  else showHome(true);
+}
+
+window.addEventListener('popstate', (event) => {
+  if (typeof masterPassword === 'string' && event.state && event.state.app === 'family') {
+    restoreAppView(event.state);
+  }
+});
+
 // Modal QR
 function showQrModal(bankName, accNum, qrUrl, ownerName) {
   document.getElementById('qrModalTitle').innerText = bankName;

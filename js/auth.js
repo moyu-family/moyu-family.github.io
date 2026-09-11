@@ -80,6 +80,7 @@ async function pushToFirebase() {
 function unlockApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
+  initAppHistory();
   renderGrid();
 }
 

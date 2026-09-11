@@ -94,7 +94,8 @@ async function deleteSelectedMembers() {
 }
 
 // Bảng tổng hợp[cite: 3]
-function openSummaryTable() {
+function openSummaryTable(skipHistory = false) {
+  if (!skipHistory) pushAppHistory('table');
   let targetMembers = members;
   if (selectedIds.size > 0) {
     targetMembers = members.filter(m => selectedIds.has(m.id));
@@ -244,11 +245,12 @@ function renderGrid() {
 }
 
 // Hiển thị chi tiết
-function viewDetails(id) {
+function viewDetails(id, skipHistory = false) {
   const targetId = id || currentMemberId;
   const m = members.find(item => item.id === targetId);
   if (!m) return;
   currentMemberId = targetId;
+  if (!skipHistory) pushAppHistory('detail', { memberId: targetId });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -323,7 +325,8 @@ function readFileAsDataUrl(file) {
   });
 }
 
-function showHome() {
+function showHome(skipHistory = false) {
+  if (!skipHistory) replaceAppHistory('home');
   document.getElementById('homeView').classList.remove('hidden');
   document.getElementById('tableView').classList.add('hidden');
   document.getElementById('detailView').classList.add('hidden');
@@ -333,7 +336,8 @@ function showHome() {
   renderGrid();
 }
 
-function openForm(member = null) {
+function openForm(member = null, skipHistory = false) {
+  if (!skipHistory) pushAppHistory('form', member ? { memberId: member.id } : {});
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
   document.getElementById('detailView').classList.add('hidden');
@@ -519,7 +523,7 @@ async function saveMember(e) {
   btn.innerText = 'Đang lưu lên Firebase...';
   try {
     await pushToFirebase();
-    viewDetails(id);
+    viewDetails(id, true);
   } catch (err) {
     alert('Lỗi lưu dữ liệu: ' + err.message);
   } finally {
@@ -528,8 +532,7 @@ async function saveMember(e) {
 }
 
 function cancelForm() {
-  if (currentMemberId) viewDetails(currentMemberId);
-  else showHome();
+  goBackInApp();
 }
 
 function editCurrentMember() {
@@ -554,7 +557,7 @@ async function deleteCurrentMember() {
 // ============================================================
 
 // Mở màn hình Hồ sơ cá nhân
-function openDocsView(memberId = null) {
+function openDocsView(memberId = null, skipHistory = false) {
   const targetId = memberId || currentMemberId;
   const m = members.find(item => item.id === targetId);
   if (!m) {
@@ -562,6 +565,7 @@ function openDocsView(memberId = null) {
     return;
   }
   currentMemberId = targetId;
+  if (!skipHistory) pushAppHistory('docs', { memberId: targetId });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
