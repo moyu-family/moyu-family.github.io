@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi tiết thành viên</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css?v=2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+</head>
+<body data-page="member">
+<div class="container">
+  <div id="authScreen" class="modal-box">
+    <div style="font-size:2.5rem; margin-bottom:10px;">🔐</div>
+    <div class="modal-title">Hồ sơ gia đình</div>
+    <div class="modal-desc">Nhập mật khẩu để mở khóa và đồng bộ dữ liệu.</div>
+    <form onsubmit="handleAuth(event)"><div class="form-group"><input type="password" id="authPwd" placeholder="Nhập mật khẩu..." required autocomplete="current-password"></div><button type="submit" id="btnUnlock" class="btn-primary" style="width:100%; justify-content:center; padding:10px;">Mở khóa</button></form>
+    <div class="auth-biometric-actions"><div id="biometricRegisteredActions" class="hidden"><button type="button" id="btnBiometricUnlock" class="biometric-icon-button" onclick="unlockWithBiometric()">🫆</button><button type="button" id="btnRemoveBiometric" class="btn-danger" onclick="removeBiometric()">Xóa Face ID / vân tay</button></div><button type="button" id="btnRegisterBiometric" class="btn-outline" onclick="registerBiometric()">📱 Đăng ký Face ID / vân tay</button></div>
+    <div id="biometricStatus" class="biometric-status"></div><div id="authError" style="color:#e11d48; font-size:.85rem; margin-top:12px; display:none;"></div>
+  </div>
+  <div id="appScreen" class="hidden">
+    <div class="top-bar"><div class="brand-title">👨‍👩‍👧‍👦 Quản lý gia đình</div><div class="btn-group"><a class="btn-back" href="index.html">↩ Trang chủ</a><button class="btn-danger" onclick="lockApp()">🔒 Khóa</button></div></div>
+    <div id="homeView" class="hidden"></div><div id="tableView" class="hidden"></div><div id="formView" class="hidden"></div>
+    <div id="detailView" class="detail-view">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:8px; flex-wrap:wrap;"><a class="btn-back" href="index.html">↩ Quay lại</a><div style="display:flex; gap:8px; flex-wrap:wrap;"><button class="btn-outline" onclick="editMemberFromPage()">✏️ Chỉnh sửa</button><button class="btn-danger" onclick="deleteCurrentMember()">🗑️ Xóa</button></div></div>
+      <div class="detail-header"><img id="dtAvatar" class="detail-avatar" src="" alt="Avatar" onclick="showImageModal(this.src, this.alt)"><div><h2 id="dtName" style="color:var(--navy); font-size:1.45rem;"></h2><span id="dtRole" class="member-role"></span><button class="btn-success" style="display:block; margin-top:12px;" onclick="openDocsView(currentMemberId)">📁 Hồ sơ cá nhân</button></div></div>
+      <div class="info-group"><div class="info-item"><div class="info-label">Ngày sinh</div><div class="info-val" id="dtDob"></div></div><div class="info-item"><div class="info-label">Nơi sinh</div><div class="info-val" id="dtPob"></div></div><div class="info-item"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div><div class="info-item"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div><div class="info-item"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div><div class="info-item"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div><div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div><div class="info-item"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div><div class="info-item" style="grid-column:1/-1;"><div class="info-label">📝 Ghi chú tự do</div><div class="info-val rich-display" id="dtNotes"></div></div></div>
+      <div style="font-weight:700; color:var(--navy); margin-bottom:12px;">💳 Tài khoản ngân hàng</div><div id="dtBanks"></div>
+    </div>
+  </div>
+</div>
+<div id="qrModal" class="modal-overlay hidden" onclick="closeQrModal()"><div class="modal-card" onclick="event.stopPropagation()"><h3 id="qrModalTitle">Mã QR chuyển khoản</h3><p id="qrModalSubtitle"></p><img id="qrModalImg" class="qr-img-display" src="" alt="Mã QR"><button class="btn-primary" onclick="closeQrModal()">Đóng</button></div></div>
+<div id="imageModal" class="modal-overlay hidden" onclick="closeImageModal()"><div class="image-modal-card" onclick="event.stopPropagation()"><button type="button" class="image-modal-close" onclick="closeImageModal()">×</button><img id="imageModalImg" class="image-modal-img" src="" alt="Ảnh đại diện phóng to"><div id="imageModalTitle" class="image-modal-title"></div></div></div>
+<script src="js/config.js?v=15"></script><script src="js/auth.js?v=15"></script><script src="js/ui.js?v=15"></script><script src="js/members.js?v=15"></script><script src="js/page.js?v=1"></script>
+</body>
+</html>

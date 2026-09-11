@@ -95,6 +95,11 @@ async function deleteSelectedMembers() {
 
 // Bảng tổng hợp[cite: 3]
 function openSummaryTable(skipHistory = false) {
+  if (!skipHistory && document.body.dataset.page !== 'summary') {
+    const selected = selectedIds.size > 0 ? `?ids=${encodeURIComponent([...selectedIds].join(','))}` : '';
+    window.location.href = `summary.html${selected}`;
+    return;
+  }
   if (!skipHistory) pushAppHistory('table');
   let targetMembers = members;
   if (selectedIds.size > 0) {
@@ -218,7 +223,7 @@ function renderGrid() {
         toggleMemberSelection(m.id);
       } else {
         if (!e.target.classList.contains('drag-handle')) {
-          viewDetails(m.id);
+          window.location.href = `member.html?id=${encodeURIComponent(m.id)}`;
         }
       }
     };
@@ -545,7 +550,8 @@ async function deleteCurrentMember() {
     members = members.filter(m => m.id !== currentMemberId);
     try {
       await pushToFirebase();
-      showHome();
+      if (document.body.dataset.page === 'member') window.location.href = 'index.html';
+      else showHome();
     } catch (err) {
       alert('Lỗi xóa dữ liệu: ' + err.message);
     }
@@ -565,6 +571,10 @@ function openDocsView(memberId = null, skipHistory = false) {
     return;
   }
   currentMemberId = targetId;
+  if (!skipHistory && document.body.dataset.page !== 'documents') {
+    window.location.href = `documents.html?id=${encodeURIComponent(targetId)}`;
+    return;
+  }
   if (!skipHistory) pushAppHistory('docs', { memberId: targetId });
 
   document.getElementById('homeView').classList.add('hidden');

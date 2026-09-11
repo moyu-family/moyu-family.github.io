@@ -71,7 +71,7 @@
     <!-- Trang Bảng Tổng Hợp Thông Tin -->
     <div id="tableView" class="table-view hidden">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <button class="btn-outline" onclick="goBackInApp()">← Quay lại danh sách</button>
+        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại danh sách</button>
         <button class="btn-primary" onclick="copyTableData()">📋 Sao chép bảng (Dán vào Excel)</button>
       </div>
       <h2 style="font-size:1.3rem; color:var(--navy); margin-bottom:8px;">Bảng tổng hợp thông tin gia đình</h2>
@@ -102,10 +102,10 @@
     <!-- Chi tiết thành viên -->
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button class="btn-outline" onclick="goBackInApp()">← Quay lại</button>
+        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại</button>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn-outline" onclick="editCurrentMember()">Chỉnh sửa</button>
-          <button class="btn-danger" onclick="deleteCurrentMember()">Xóa</button>
+          <button class="btn-outline" onclick="editCurrentMember()">✏️ Chỉnh sửa</button>
+          <button class="btn-danger" onclick="deleteCurrentMember()">🗑️ Xóa</button>
         </div>
       </div>
 
@@ -140,7 +140,7 @@
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-outline" onclick="goBackInApp()">← Quay lại hồ sơ</button>
+        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại hồ sơ</button>
         <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
       </div>
 
@@ -163,8 +163,8 @@
       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
         <h2 id="formHeading" style="font-size: 1.35rem; font-weight: 700; color: var(--navy); margin:0;">Thông tin thành viên</h2>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="submit" form="memberForm" class="btn-primary">Lưu hồ sơ</button>
-          <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
+          <button type="submit" form="memberForm" class="btn-primary">💾 Lưu hồ sơ</button>
+          <button type="button" class="btn-outline" onclick="cancelForm()">✕ Đóng</button>
         </div>
       </div>
       <form id="memberForm" onsubmit="saveMember(event)">
@@ -277,8 +277,8 @@
         </div>
 
         <div style="display:flex; gap:10px; margin-top:26px;">
-          <button type="submit" id="btnSaveMember" class="btn-primary">Lưu hồ sơ</button>
-          <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
+          <button type="submit" id="btnSaveMember" class="btn-primary">💾 Lưu hồ sơ</button>
+          <button type="button" class="btn-outline" onclick="cancelForm()">✕ Đóng</button>
         </div>
       </form>
     </div>

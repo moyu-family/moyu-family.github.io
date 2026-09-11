@@ -1,4 +1,5 @@
 const BIOMETRIC_STORAGE_KEY = 'moyu-family-biometric-v1';
+const SESSION_PASSWORD_KEY = 'moyu-family-session-password';
 
 function bytesToBase64Url(bytes) {
   let binary = '';
@@ -44,6 +45,10 @@ function getStoredBiometric() {
   }
 }
 
+function saveSessionPassword(password) {
+  sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
+}
+
 function updateBiometricButton() {
   const button = document.getElementById('btnBiometricUnlock');
   const registerButton = document.getElementById('btnRegisterBiometric');
@@ -69,6 +74,7 @@ async function loadDataWithPassword(pwd) {
 
   if (!cloudData) {
     masterPassword = pwd;
+    saveSessionPassword(pwd);
     members = [];
     customBankList = [...DEFAULT_BANKS];
     await pushToFirebase();
@@ -98,6 +104,7 @@ async function loadDataWithPassword(pwd) {
   }
 
   masterPassword = pwd;
+  saveSessionPassword(pwd);
 }
 
 function showAuthError(err) {
@@ -257,11 +264,13 @@ function unlockApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
   initAppHistory();
-  renderGrid();
+  if (typeof initializePage === 'function') initializePage();
+  else renderGrid();
 }
 
 function lockApp() {
   masterPassword = null;
+  sessionStorage.removeItem(SESSION_PASSWORD_KEY);
   members = [];
   selectedIds.clear();
   isSelectMode = false;
@@ -270,4 +279,16 @@ function lockApp() {
   document.getElementById('authScreen').classList.remove('hidden');
 }
 
+async function restoreSession() {
+  const savedPassword = sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  if (!savedPassword || !document.getElementById('authScreen')) return;
+  try {
+    await loadDataWithPassword(savedPassword);
+    unlockApp();
+  } catch {
+    sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+  }
+}
+
 updateBiometricButton();
+restoreSession();

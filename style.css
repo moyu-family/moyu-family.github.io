@@ -57,6 +57,8 @@ button {
 .btn-primary:hover { background: #1e293b; }
 .btn-outline { background: #ffffff; border-color: var(--border-color); color: var(--navy); }
 .btn-outline:hover { background: #f1f5f9; }
+.btn-back { background: #e0f2fe; border: 1px solid #7dd3fc; color: #075985; font-weight: 700; box-shadow: 0 2px 5px rgba(14, 116, 144, 0.12); }
+.btn-back:hover { background: #bae6fd; border-color: #38bdf8; transform: translateX(-2px); }
 .btn-danger { background: #fff1f2; color: #e11d48; border: 1px solid #ffe4e6; }
 .btn-danger:hover { background: #ffe4e6; }
 .btn-success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
