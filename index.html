@@ -6,7 +6,7 @@
   <title>Quản lý thông tin gia đình</title>
   <link rel="stylesheet" href="style.css">
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 </head>
 <body>
@@ -93,17 +93,18 @@
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <button class="btn-outline" onclick="showHome()">← Quay lại</button>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-outline" onclick="editCurrentMember()">Chỉnh sửa</button>
           <button class="btn-danger" onclick="deleteCurrentMember()">Xóa</button>
         </div>
       </div>
 
       <div class="detail-header">
-        <img id="dtAvatar" class="detail-avatar" src="" alt="Avatar">
+        <img id="dtAvatar" class="detail-avatar" src="" alt="Avatar" onclick="showImageModal(this.src, this.alt)">
         <div>
           <h2 id="dtName" style="color:var(--navy); font-size:1.45rem;"></h2>
           <span id="dtRole" class="member-role"></span>
+          <button class="btn-success" style="display:block; margin-top:12px;" onclick="openDocsView(currentMemberId)">📁 Hồ sơ cá nhân</button>
         </div>
       </div>
 
@@ -126,9 +127,36 @@
       <div id="dtBanks"></div>
     </div>
 
+    <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
+    <div id="docsView" class="detail-view hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <button class="btn-outline" onclick="viewDetails(currentMemberId)">← Quay lại hồ sơ</button>
+        <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
+      </div>
+
+      <div class="explorer-header">
+        <div>
+          <h2 id="docsOwnerName" style="color:var(--navy); font-size:1.35rem;">📁 Hồ sơ giấy tờ</h2>
+          <div id="docsBreadcrumb" class="docs-breadcrumb">Thư mục gốc</div>
+        </div>
+        <div id="folderBackBtn" class="hidden">
+          <button class="btn-outline" onclick="renderDocsFolders()">⇦ Danh mục giấy tờ</button>
+        </div>
+      </div>
+
+      <!-- Danh mục thư mục hoặc danh sách tệp -->
+      <div id="docsExplorerContent"></div>
+    </div>
+
     <!-- Form Nhập/Sửa -->
     <div id="formView" class="form-view hidden">
-      <h2 id="formHeading" style="font-size: 1.35rem; font-weight: 700; color: var(--navy); margin-bottom: 20px;">Thông tin thành viên</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+        <h2 id="formHeading" style="font-size: 1.35rem; font-weight: 700; color: var(--navy); margin:0;">Thông tin thành viên</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="submit" form="memberForm" class="btn-primary">Lưu hồ sơ</button>
+          <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
+        </div>
+      </div>
       <form id="memberForm" onsubmit="saveMember(event)">
         <input type="hidden" id="fId">
         <div class="form-group">
@@ -139,7 +167,13 @@
           </select>
         </div>
         <div class="form-group"><label>Họ và tên</label><input type="text" id="fName" required></div>
-        <div class="form-group"><label>URL Ảnh đại diện</label><input type="text" id="fAvatar" placeholder="https://..."></div>
+        <div class="form-group">
+          <label>Ảnh đại diện</label>
+          <input type="file" id="fAvatar" accept="image/*" onchange="previewAvatar(this)">
+          <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:5px;">Chọn ảnh JPG, PNG hoặc WebP, tối đa 3MB. Nếu chọn cả hai, ảnh upload sẽ được ưu tiên.</small>
+          <input type="url" id="fAvatarUrl" placeholder="Hoặc nhập URL ảnh: https://..." oninput="previewAvatarUrl(this)" style="margin-top:8px;">
+          <img id="fAvatarPreview" src="https://via.placeholder.com/150?text=No+Img" alt="Xem trước ảnh đại diện" style="display:block; width:84px; height:84px; margin-top:10px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
+        </div>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group">
@@ -253,6 +287,15 @@
   </div>
 </div>
 
+<!-- Modal xem ảnh đại diện -->
+<div id="imageModal" class="modal-overlay hidden" onclick="closeImageModal()">
+  <div class="image-modal-card" onclick="event.stopPropagation()">
+    <button type="button" class="image-modal-close" onclick="closeImageModal()" aria-label="Đóng">×</button>
+    <img id="imageModalImg" class="image-modal-img" src="" alt="Ảnh đại diện phóng to">
+    <div id="imageModalTitle" class="image-modal-title"></div>
+  </div>
+</div>
+
 <!-- Modal Thêm ngân hàng mới -->
 <div id="newBankModal" class="modal-overlay hidden" onclick="closeNewBankModal()">
   <div class="modal-card" onclick="event.stopPropagation()">
@@ -283,11 +326,53 @@
   </div>
 </div>
 
-<!-- Nạp các file JS với tham số ?v=3 để buộc làm mới cache -->
-<script src="js/config.js?v=4"></script>
-<script src="js/auth.js?v=4"></script>
-<script src="js/ui.js?v=4"></script>
-<script src="js/members.js?v=4"></script>
+<!-- Modal Thêm giấy tờ -->
+<div id="uploadDocModal" class="modal-overlay hidden" onclick="closeUploadDocModal()">
+  <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Tải lên tệp giấy tờ</h3>
+    
+    <div class="form-group">
+      <label>Loại giấy tờ (Thư mục)</label>
+      <select id="docTypeSelect" onchange="toggleCustomDocName(this.value)">
+        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
+        <option value="Giấy khai sinh">Giấy khai sinh</option>
+        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
+        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
+        <option value="Thẻ BHYT">Thẻ BHYT</option>
+        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
+        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="custom">-- Thêm loại giấy tờ mới --</option>
+      </select>
+    </div>
+
+    <div class="form-group hidden" id="customDocNameGroup">
+      <label>Tên loại giấy tờ mới</label>
+      <input type="text" id="docCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+
+    <div class="form-group">
+      <label>Tên trang / Nhãn nhận diện</label>
+      <input type="text" id="docDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục...">
+    </div>
+
+    <div class="form-group">
+      <label>Chọn tệp (Ảnh JPG/PNG hoặc tài liệu PDF)</label>
+      <input type="file" id="docFileInput" accept="image/*,application/pdf" style="background:#fff;">
+      <small style="color:var(--text-muted); font-size:0.75rem;">Mỗi file nên dưới 3MB để database đồng bộ mượt mà nhất.</small>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button type="button" id="btnSaveDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveDocument()">Tải lên & Lưu</button>
+      <button type="button" class="btn-outline" onclick="closeUploadDocModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nạp các file JS với tham số ?v=10 để làm mới cache -->
+<script src="js/config.js?v=10"></script>
+<script src="js/auth.js?v=10"></script>
+<script src="js/ui.js?v=10"></script>
+<script src="js/members.js?v=10"></script>
 
 </body>
 </html>

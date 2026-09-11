@@ -20,3 +20,12 @@ let currentMemberId = null;
 let isSelectMode = false;
 let selectedIds = new Set();
 let sortableInstance = null;
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

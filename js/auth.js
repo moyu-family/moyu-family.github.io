@@ -1,7 +1,7 @@
 // Đăng nhập và giải mã dữ liệu
 async function handleAuth(e) {
   e.preventDefault();
-  const pwd = document.getElementById('authPwd').value;
+  const pwd = document.getElementById('authPwd').value.trim();
   const btn = document.getElementById('btnUnlock');
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
@@ -9,6 +9,7 @@ async function handleAuth(e) {
   btn.innerText = 'Đang kiểm tra...';
   try {
     const res = await fetch(`${FIREBASE_DB_URL}data.json`);
+    if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
     const cloudData = await res.json();
 
     if (!cloudData) {
@@ -19,7 +20,16 @@ async function handleAuth(e) {
       unlockApp();
     } else {
       try {
-        const bytes = CryptoJS.AES.decrypt(cloudData, pwd);
+        if (typeof CryptoJS === 'undefined') {
+          throw new Error('Không tải được thư viện mã hóa CryptoJS. Hãy kiểm tra kết nối mạng rồi tải lại trang.');
+        }
+
+        const encryptedData = typeof cloudData === 'string' ? cloudData : cloudData.data;
+        if (!encryptedData || typeof encryptedData !== 'string') {
+          throw new Error('Dữ liệu Firebase không đúng định dạng mã hóa.');
+        }
+
+        const bytes = CryptoJS.AES.decrypt(encryptedData, pwd);
         const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
         if (!decryptedStr) throw new Error();
         
@@ -35,7 +45,12 @@ async function handleAuth(e) {
         masterPassword = pwd;
         unlockApp();
       } catch (err) {
-        errEl.innerText = 'Mật khẩu không chính xác!';
+        const isPasswordError = !err.message
+          || err.message.includes('Malformed UTF-8')
+          || err.message.includes('Unexpected end of JSON input');
+        errEl.innerText = isPasswordError
+          ? 'Mật khẩu không chính xác hoặc dữ liệu không thể giải mã.'
+          : err.message;
         errEl.style.display = 'block';
       }
     }

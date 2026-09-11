@@ -38,6 +38,16 @@ function closeQrModal() {
   document.getElementById('qrModal').classList.add('hidden');
 }
 
+function showImageModal(imageSrc, title = 'Ảnh đại diện') {
+  document.getElementById('imageModalImg').src = imageSrc;
+  document.getElementById('imageModalTitle').innerText = title;
+  document.getElementById('imageModal').classList.remove('hidden');
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').classList.add('hidden');
+}
+
 // Modal thêm Bank
 function openNewBankModal() {
   document.getElementById('nbName').value = '';
@@ -96,4 +106,28 @@ function showNoteModal(name, memberId) {
 
 function closeNoteModal() {
   document.getElementById('noteModal').classList.add('hidden');
+}
+
+// Quản lý Modal Upload Giấy tờ
+function openUploadDocModal() {
+  document.getElementById('docTypeSelect').value = "CCCD / Định danh";
+  document.getElementById('docCustomName').value = "";
+  document.getElementById('docDesc').value = "";
+  document.getElementById('docFileInput').value = "";
+  document.getElementById('customDocNameGroup').classList.add('hidden');
+  document.getElementById('uploadDocModal').classList.remove('hidden');
+}
+
+function closeUploadDocModal() {
+  document.getElementById('uploadDocModal').classList.add('hidden');
+}
+
+function toggleCustomDocName(val) {
+  const customGroup = document.getElementById('customDocNameGroup');
+  if (val === 'custom') {
+    customGroup.classList.remove('hidden');
+    document.getElementById('docCustomName').focus();
+  } else {
+    customGroup.classList.add('hidden');
+  }
 }
