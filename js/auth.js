@@ -1,5 +1,7 @@
 const BIOMETRIC_STORAGE_KEY = 'moyu-family-biometric-v1';
 const SESSION_PASSWORD_KEY = 'moyu-family-session-password';
+const SESSION_DATA_CACHE_KEY = 'moyu-family-data-cache-v1';
+const SESSION_TTL_MS = 60 * 60 * 1000;
 
 function bytesToBase64Url(bytes) {
   let binary = '';
@@ -47,6 +49,28 @@ function getStoredBiometric() {
 
 function saveSessionPassword(password) {
   sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
+  localStorage.setItem(SESSION_PASSWORD_KEY, JSON.stringify({
+    password,
+    expiresAt: Date.now() + SESSION_TTL_MS
+  }));
+}
+
+function getSessionPassword() {
+  const sessionPassword = sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  if (sessionPassword) return sessionPassword;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_PASSWORD_KEY) || 'null');
+    if (!saved || saved.expiresAt <= Date.now()) {
+      localStorage.removeItem(SESSION_PASSWORD_KEY);
+      return '';
+    }
+    sessionStorage.setItem(SESSION_PASSWORD_KEY, saved.password);
+    return saved.password;
+  } catch {
+    localStorage.removeItem(SESSION_PASSWORD_KEY);
+    return '';
+  }
 }
 
 function updateBiometricButton() {
@@ -68,9 +92,26 @@ function removeBiometric() {
 }
 
 async function loadDataWithPassword(pwd) {
-  const res = await fetch(`${FIREBASE_DB_URL}data.json`);
-  if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
-  const cloudData = await res.json();
+  let cloudData;
+  const cachedData = localStorage.getItem(SESSION_DATA_CACHE_KEY);
+  if (cachedData) {
+    try {
+      cloudData = JSON.parse(cachedData);
+    } catch {
+      localStorage.removeItem(SESSION_DATA_CACHE_KEY);
+    }
+  }
+
+  if (cloudData === undefined) {
+    const res = await fetch(`${FIREBASE_DB_URL}data.json`);
+    if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
+    cloudData = await res.json();
+    try {
+      localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cloudData));
+    } catch {
+      // Dữ liệu có thể vượt giới hạn sessionStorage, nhưng không được chặn đăng nhập.
+    }
+  }
 
   if (!cloudData) {
     masterPassword = pwd;
@@ -125,6 +166,7 @@ async function handleAuth(e) {
   document.getElementById('authError').style.display = 'none';
   btn.innerText = 'Đang kiểm tra...';
   try {
+    localStorage.removeItem(SESSION_DATA_CACHE_KEY);
     await loadDataWithPassword(pwd);
     unlockApp();
   } catch (err) {
@@ -258,19 +300,37 @@ async function pushToFirebase() {
     body: JSON.stringify(cipherText)
   });
   if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
+  try {
+    localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cipherText));
+  } catch {
+    // Bỏ qua nếu dữ liệu vượt giới hạn sessionStorage.
+  }
 }
 
 function unlockApp() {
+  document.documentElement.classList.remove('has-session');
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
   initAppHistory();
-  if (typeof initializePage === 'function') initializePage();
-  else renderGrid();
+  initializeUnlockedPage();
+}
+
+function initializeUnlockedPage() {
+  if (typeof initializePage === 'function') {
+    initializePage();
+  } else if (typeof renderGrid === 'function') {
+    renderGrid();
+  } else {
+    setTimeout(initializeUnlockedPage, 0);
+  }
 }
 
 function lockApp() {
+  document.documentElement.classList.remove('has-session');
   masterPassword = null;
   sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+  localStorage.removeItem(SESSION_DATA_CACHE_KEY);
+  localStorage.removeItem(SESSION_PASSWORD_KEY);
   members = [];
   selectedIds.clear();
   isSelectMode = false;
@@ -280,13 +340,22 @@ function lockApp() {
 }
 
 async function restoreSession() {
-  const savedPassword = sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  const savedPassword = getSessionPassword();
   if (!savedPassword || !document.getElementById('authScreen')) return;
   try {
     await loadDataWithPassword(savedPassword);
     unlockApp();
-  } catch {
-    sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+  } catch (err) {
+    const isAuthError = !err.message
+      || err.message.includes('Malformed UTF-8')
+      || err.message.includes('Unexpected end of JSON input')
+      || err.message.includes('Dữ liệu Firebase không đúng định dạng');
+    if (isAuthError) {
+      document.documentElement.classList.remove('has-session');
+      sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+      localStorage.removeItem(SESSION_DATA_CACHE_KEY);
+      localStorage.removeItem(SESSION_PASSWORD_KEY);
+    }
   }
 }
 

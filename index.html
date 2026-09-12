@@ -6,7 +6,8 @@
   <title>Quản lý thông tin gia đình</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
+  <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -40,7 +41,10 @@
   <div id="appScreen" class="hidden">
     <!-- Thanh Menu -->
     <div class="top-bar">
-      <div class="brand-title">👨‍👩‍👧‍👦 Quản lý gia đình</div>
+      <button type="button" class="brand-home" onclick="navigateApp('home')" title="Về trang chủ" aria-label="Về trang chủ">
+        <span class="brand-home-icon" aria-hidden="true">🏠</span>
+        <span>Quản lý gia đình</span>
+      </button>
       <div class="btn-group">
         <button class="btn-outline" id="btnToggleSelect" onclick="toggleSelectMode()">☑️ Quản lý / Chọn</button>
         <button class="btn-primary" onclick="openForm()">＋ Thêm thành viên</button>
@@ -182,7 +186,7 @@
           <input type="file" id="fAvatar" accept="image/*" onchange="previewAvatar(this)">
           <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:5px;">Chọn ảnh JPG, PNG hoặc WebP, tối đa 3MB. Nếu chọn cả hai, ảnh upload sẽ được ưu tiên.</small>
           <input type="url" id="fAvatarUrl" placeholder="Hoặc nhập URL ảnh: https://..." oninput="previewAvatarUrl(this)" style="margin-top:8px;">
-          <img id="fAvatarPreview" src="https://via.placeholder.com/150?text=No+Img" alt="Xem trước ảnh đại diện" style="display:block; width:84px; height:84px; margin-top:10px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
+          <img id="fAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 150 150%22%3E%3Crect width=%22150%22 height=%22150%22 fill=%22%23e2e8f0%22/%3E%3Ccircle cx=%2275%22 cy=%2258%22 r=%2225%22 fill=%22%2394a3b8%22/%3E%3Cpath d=%22M28 137c4-29 22-43 47-43s43 14 47 43%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E" alt="Xem trước ảnh đại diện" style="display:block; width:84px; height:84px; margin-top:10px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
         </div>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -378,11 +382,12 @@
   </div>
 </div>
 
-<!-- Nạp các file JS với tham số ?v=15 để làm mới cache -->
-<script src="js/config.js?v=15"></script>
-<script src="js/auth.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/members.js?v=15"></script>
+<!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
+<script src="js/config.js?v=18"></script>
+<script src="js/auth.js?v=18"></script>
+<script src="js/ui.js?v=18"></script>
+<script src="js/members.js?v=18"></script>
+<script src="js/page.js?v=18"></script>
 
 </body>
 </html>

@@ -2,38 +2,74 @@ function initializePage() {
   const page = document.body.dataset.page;
   const params = new URLSearchParams(window.location.search);
 
-  if (page === 'member') {
-    const memberId = params.get('id');
+    if (params.has('member')) {
+      const memberId = params.get('member');
     if (memberId) viewDetails(memberId, true);
-    else window.location.href = 'index.html';
+      else showHome(true);
     return;
   }
 
-  if (page === 'summary') {
+    if (params.has('summary')) {
     const selected = params.get('ids');
     if (selected) selected.split(',').filter(Boolean).forEach(id => selectedIds.add(id));
     openSummaryTable(true);
     return;
   }
 
-  if (page === 'documents') {
-    const memberId = params.get('id');
+    if (params.has('documents')) {
+      const memberId = params.get('documents');
     if (memberId) {
       const backLink = document.getElementById('docsBackLink');
-      if (backLink) backLink.href = `member.html?id=${encodeURIComponent(memberId)}`;
+        if (backLink) backLink.onclick = (event) => {
+          event.preventDefault();
+          navigateApp('member', { id: memberId });
+        };
       openDocsView(memberId, true);
     }
-    else window.location.href = 'index.html';
+      else showHome(true);
     return;
   }
 
-  renderGrid();
-  if (params.get('edit')) {
-    const member = members.find(item => item.id === params.get('edit'));
-    if (member) openForm(member, true);
+  if (params.has('edit')) {
+    const member = members.find(item => String(item.id) === params.get('edit'));
+    if (member) {
+      openForm(member, true);
+      return;
+    }
   }
+
+  renderGrid();
 }
 
+  function navigateApp(view, data = {}) {
+    const params = new URLSearchParams();
+    let state = { app: 'family', view };
+    if (view === 'member') {
+      params.set('member', data.id);
+      state.memberId = data.id;
+    } else if (view === 'summary') {
+      params.set('summary', '1');
+      if (data.ids) params.set('ids', data.ids);
+    } else if (view === 'documents') {
+      params.set('documents', data.id);
+      state.memberId = data.id;
+    } else if (view === 'form') {
+      params.set('edit', data.id);
+      state.memberId = data.id;
+    }
+    const query = params.toString();
+    history.pushState(state, '', `index.html${query ? `?${query}` : ''}`);
+    if (view === 'member') viewDetails(data.id, true);
+    else if (view === 'summary') openSummaryTable(true);
+    else if (view === 'documents') openDocsView(data.id, true);
+    else if (view === 'form') openForm(members.find(item => String(item.id) === String(data.id)), true);
+    else showHome(true);
+  }
+
 function editMemberFromPage() {
-  if (currentMemberId) window.location.href = `index.html?edit=${encodeURIComponent(currentMemberId)}`;
+  if (currentMemberId) navigateApp('form', { id: currentMemberId });
+}
+
+if (typeof masterPassword === 'string' && document.getElementById('appScreen') && !document.getElementById('appScreen').classList.contains('hidden')) {
+  initializePage();
 }

@@ -95,9 +95,9 @@ async function deleteSelectedMembers() {
 
 // Bảng tổng hợp[cite: 3]
 function openSummaryTable(skipHistory = false) {
-  if (!skipHistory && document.body.dataset.page !== 'summary') {
-    const selected = selectedIds.size > 0 ? `?ids=${encodeURIComponent([...selectedIds].join(','))}` : '';
-    window.location.href = `summary.html${selected}`;
+  if (!skipHistory) {
+    const ids = selectedIds.size > 0 ? [...selectedIds].join(',') : '';
+    navigateApp('summary', { ids });
     return;
   }
   if (!skipHistory) pushAppHistory('table');
@@ -223,18 +223,18 @@ function renderGrid() {
         toggleMemberSelection(m.id);
       } else {
         if (!e.target.classList.contains('drag-handle')) {
-          window.location.href = `member.html?id=${encodeURIComponent(m.id)}`;
+          navigateApp('member', { id: m.id });
         }
       }
     };
 
-    const avatarSrc = m.avatar || 'https://via.placeholder.com/150?text=No+Img';
+    const avatarSrc = m.avatar || DEFAULT_AVATAR;
     const memberRole = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
 
     card.innerHTML = `
       ${topControls}
       <div class="avatar-wrap">
-        <img src="${escapeHtml(avatarSrc)}" onerror="this.src='https://via.placeholder.com/150?text=Error'">
+        <img src="${escapeHtml(avatarSrc)}" onerror="this.src=DEFAULT_AVATAR">
       </div>
       <div class="member-name">${escapeHtml(m.name || '-')}</div>
       <span class="member-role">${escapeHtml(memberRole)}</span>
@@ -252,10 +252,10 @@ function renderGrid() {
 // Hiển thị chi tiết
 function viewDetails(id, skipHistory = false) {
   const targetId = id || currentMemberId;
-  const m = members.find(item => item.id === targetId);
+  const m = members.find(item => String(item.id) === String(targetId));
   if (!m) return;
-  currentMemberId = targetId;
-  if (!skipHistory) pushAppHistory('detail', { memberId: targetId });
+  currentMemberId = m.id;
+  if (!skipHistory) pushAppHistory('detail', { memberId: m.id });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -263,7 +263,7 @@ function viewDetails(id, skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('detailView').classList.remove('hidden');
 
-  document.getElementById('dtAvatar').src = m.avatar || 'https://via.placeholder.com/150?text=No+Img';
+  document.getElementById('dtAvatar').src = m.avatar || DEFAULT_AVATAR;
   document.getElementById('dtName').innerText = m.name;
   document.getElementById('dtRole').innerText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
   document.getElementById('dtDob').innerText = m.dob || '-';
@@ -289,7 +289,7 @@ function viewDetails(id, skipHistory = false) {
       bankCard.className = 'bank-card';
       bankCard.innerHTML = `
         <div class="bank-info-left">
-          <img class="bank-logo" src="${escapeHtml(b.logo || 'https://via.placeholder.com/50?text=Bank')}" onerror="this.src='https://via.placeholder.com/50?text=Bank'">
+          <img class="bank-logo" src="${escapeHtml(b.logo || DEFAULT_BANK_LOGO)}" onerror="this.src=DEFAULT_BANK_LOGO">
           <div>
             <div style="font-weight:700; color:var(--navy);">${escapeHtml(b.bankName || 'Ngân hàng')}</div>
             <div style="color:var(--text-muted); font-size:0.88rem;">STK: ${escapeHtml(b.accNum || '')}</div>
@@ -318,7 +318,7 @@ function previewAvatarUrl(input) {
   const preview = document.getElementById('fAvatarPreview');
   const fileInput = document.getElementById('fAvatar');
   if (!preview || (fileInput.files && fileInput.files.length > 0)) return;
-  preview.src = input.value.trim() || 'https://via.placeholder.com/150?text=No+Img';
+  preview.src = input.value.trim() || DEFAULT_AVATAR;
 }
 
 function readFileAsDataUrl(file) {
@@ -352,7 +352,7 @@ function openForm(member = null, skipHistory = false) {
   const form = document.getElementById('memberForm');
   form.reset();
   document.getElementById('bankInputs').innerHTML = '';
-  document.getElementById('fAvatarPreview').src = 'https://via.placeholder.com/150?text=No+Img';
+  document.getElementById('fAvatarPreview').src = DEFAULT_AVATAR;
 
   if (member) {
     document.getElementById('formHeading').innerText = 'Chỉnh sửa thông tin';
@@ -360,7 +360,7 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fType').value = member.type;
     document.getElementById('fName').value = member.name;
     document.getElementById('fAvatarUrl').value = member.avatar && !member.avatar.startsWith('data:') ? member.avatar : '';
-    document.getElementById('fAvatarPreview').src = member.avatar || 'https://via.placeholder.com/150?text=No+Img';
+    document.getElementById('fAvatarPreview').src = member.avatar || DEFAULT_AVATAR;
     document.getElementById('fDob').value = member.dob || '';
     document.getElementById('fPob').value = member.pob;
     document.getElementById('fCccd').value = member.cccd;
@@ -401,12 +401,12 @@ function addBankRow(name = '', acc = '', logo = '', qr = '') {
     optionsHtml += `<option value="${name}" data-logo="${logo}" selected>${name}</option>`;
   }
 
-  const currentLogo = logo || (customBankList.find(b => b.name.toLowerCase() === name.toLowerCase()) || {}).logo || 'https://via.placeholder.com/50?text=Bank';
+  const currentLogo = logo || (customBankList.find(b => b.name.toLowerCase() === name.toLowerCase()) || {}).logo || DEFAULT_BANK_LOGO;
 
   div.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <div class="bank-edit-preview">
-        <img class="bank-edit-logo-preview" src="${currentLogo}" onerror="this.src='https://via.placeholder.com/50?text=Bank'">
+        <img class="bank-edit-logo-preview" src="${currentLogo}" onerror="this.src=DEFAULT_BANK_LOGO">
         <span style="font-size:0.85rem; font-weight:700; color:var(--navy);">Thông tin tài khoản</span>
       </div>
       <button type="button" class="btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="removeBankRow(this)">🗑️ Xóa tài khoản này</button>
@@ -437,7 +437,7 @@ function addBankRow(name = '', acc = '', logo = '', qr = '') {
 
 function onBankSelectChange(selectEl) {
   const selectedOption = selectEl.options[selectEl.selectedIndex];
-  const logoUrl = selectedOption.getAttribute('data-logo') || 'https://via.placeholder.com/50?text=Bank';
+  const logoUrl = selectedOption.getAttribute('data-logo') || DEFAULT_BANK_LOGO;
   const row = selectEl.closest('.bank-edit-row');
   row.querySelector('.b-logo').value = logoUrl;
   row.querySelector('.bank-edit-logo-preview').src = logoUrl;
@@ -550,8 +550,7 @@ async function deleteCurrentMember() {
     members = members.filter(m => m.id !== currentMemberId);
     try {
       await pushToFirebase();
-      if (document.body.dataset.page === 'member') window.location.href = 'index.html';
-      else showHome();
+      navigateApp('home');
     } catch (err) {
       alert('Lỗi xóa dữ liệu: ' + err.message);
     }
@@ -571,8 +570,8 @@ function openDocsView(memberId = null, skipHistory = false) {
     return;
   }
   currentMemberId = targetId;
-  if (!skipHistory && document.body.dataset.page !== 'documents') {
-    window.location.href = `documents.html?id=${encodeURIComponent(targetId)}`;
+  if (!skipHistory) {
+    navigateApp('documents', { id: targetId });
     return;
   }
   if (!skipHistory) pushAppHistory('docs', { memberId: targetId });

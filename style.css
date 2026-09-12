@@ -15,6 +15,11 @@
 body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; padding: 24px 16px; }
 .container { max-width: 1060px; margin: 0 auto; }
 .hidden { display: none !important; }
+html.has-session #authScreen { display: none !important; }
+html.has-session body::after {
+  content: 'Đang tải hồ sơ...'; position: fixed; inset: 0; display: grid; place-items: center;
+  color: var(--text-muted); font-size: 0.9rem; pointer-events: none;
+}
 
 /* Màn hình Khóa */
 .modal-box {
@@ -40,6 +45,9 @@ body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; 
   flex-wrap: wrap; gap: 10px;
 }
 .brand-title { font-size: 1.25rem; font-weight: 700; color: var(--navy); }
+.brand-home { gap: 8px; padding: 4px 8px; border: 0; background: transparent; color: var(--navy); font-size: 1.25rem; }
+.brand-home:hover { background: #f1f5f9; }
+.brand-home-icon { font-size: 1.45rem; line-height: 1; }
 .btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 /* Thanh tác vụ hàng loạt */

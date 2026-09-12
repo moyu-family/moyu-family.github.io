@@ -52,6 +52,8 @@ function restoreAppView(state) {
 window.addEventListener('popstate', (event) => {
   if (typeof masterPassword === 'string' && event.state && event.state.app === 'family') {
     restoreAppView(event.state);
+  } else if (typeof masterPassword === 'string') {
+    initializePage();
   }
 });
 
