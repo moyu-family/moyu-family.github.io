@@ -39,6 +39,39 @@ function withTimeout(promise, milliseconds, message) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+async function uploadFileToStorage(file, path) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('folder', path.split('/').slice(0, -1).join('/') || 'moyu-family');
+  formData.append('public_id', path.split('/').pop().replace(/\.[^.]+$/, ''));
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/auto/upload`,
+    { method: 'POST', body: formData }
+  );
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const errorBody = await response.json();
+      detail = errorBody.error?.message ? `: ${errorBody.error.message}` : '';
+    } catch {
+      // Giữ thông báo chung nếu Cloudinary không trả JSON lỗi.
+    }
+    throw new Error(`Không thể tải tệp lên Cloudinary (HTTP ${response.status})${detail}.`);
+  }
+  const result = await response.json();
+  return result.secure_url || result.url;
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [header, encoded] = dataUrl.split(',', 2);
+  const mime = header.match(/data:([^;]+)/)?.[1] || 'application/octet-stream';
+  const binary = atob(encoded);
+  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+  return new Blob([bytes], { type: mime });
+}
+
 function getStoredBiometric() {
   try {
     return JSON.parse(localStorage.getItem(BIOMETRIC_STORAGE_KEY) || 'null');
@@ -144,6 +177,18 @@ async function loadDataWithPassword(pwd) {
     customBankList = parsed.customBankList || [...DEFAULT_BANKS];
   }
 
+  const agribankLogo = 'https://cdn.vietqr.io/img/VBA.png';
+  customBankList = customBankList.map(bank =>
+    bank.name?.toLowerCase() === 'agribank' || bank.logo?.includes('/AGR.png')
+      ? { ...bank, name: 'Agribank', logo: agribankLogo }
+      : bank
+  );
+  members.forEach(member => member.banks?.forEach(bank => {
+    if (bank.bankName?.toLowerCase() === 'agribank' || bank.logo?.includes('/AGR.png')) {
+      bank.logo = agribankLogo;
+    }
+  }));
+
   masterPassword = pwd;
   saveSessionPassword(pwd);
 }
@@ -166,7 +211,6 @@ async function handleAuth(e) {
   document.getElementById('authError').style.display = 'none';
   btn.innerText = 'Đang kiểm tra...';
   try {
-    localStorage.removeItem(SESSION_DATA_CACHE_KEY);
     await loadDataWithPassword(pwd);
     unlockApp();
   } catch (err) {
@@ -294,17 +338,28 @@ async function pushToFirebase() {
     customBankList: customBankList
   };
   const cipherText = CryptoJS.AES.encrypt(JSON.stringify(payload), masterPassword).toString();
-  const res = await fetch(`${FIREBASE_DB_URL}data.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cipherText)
-  });
-  if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
   try {
     localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cipherText));
   } catch {
-    // Bỏ qua nếu dữ liệu vượt giới hạn sessionStorage.
+    // Cache cục bộ không được chặn việc đồng bộ lên Firebase.
   }
+
+  if (cipherText === lastUploadedCipherText) return;
+  if (activeSavePromise) await activeSavePromise;
+  if (cipherText === lastUploadedCipherText) return;
+
+  activeSavePromise = fetch(`${FIREBASE_DB_URL}data.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cipherText)
+  }).then(res => {
+    if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
+    lastUploadedCipherText = cipherText;
+  }).finally(() => {
+    activeSavePromise = null;
+  });
+
+  await activeSavePromise;
 }
 
 function unlockApp() {
@@ -360,4 +415,3 @@ async function restoreSession() {
 }
 
 updateBiometricButton();
-restoreSession();

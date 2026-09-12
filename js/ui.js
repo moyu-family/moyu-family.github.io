@@ -58,16 +58,46 @@ window.addEventListener('popstate', (event) => {
 });
 
 // Modal QR
+function getVietQrBankCode(bankName) {
+  const name = String(bankName || '').toLowerCase();
+  const bankCodes = [
+    ['vietcombank', 'VCB'],
+    ['techcombank', 'TCB'],
+    ['agribank', 'VBA'],
+    ['vietinbank', 'ICB'],
+    ['wooribank', 'Woori'],
+    ['vib', 'VIB'],
+    ['acb', 'ACB'],
+    ['tpbank', 'TPB'],
+    ['ocb', 'OCB'],
+    ['mb bank', 'MB'],
+    ['mbbank', 'MB'],
+    ['bidv', 'BIDV'],
+    ['sacombank', 'STB'],
+    ['vpbank', 'VPB'],
+    ['shb', 'SHB']
+  ];
+  const match = bankCodes.find(([label]) => name.includes(label));
+  return match ? match[1] : String(bankName || '').trim().replace(/\s+/g, '');
+}
+
 function showQrModal(bankName, accNum, qrUrl, ownerName) {
   document.getElementById('qrModalTitle').innerText = bankName;
   document.getElementById('qrModalSubtitle').innerText = `${ownerName} - STK: ${accNum}`;
   
   let finalQrSrc = qrUrl;
   if (!finalQrSrc) {
-    finalQrSrc = `https://api.vietqr.io/${encodeURIComponent(bankName)}/${encodeURIComponent(accNum)}/compact.png?accountName=${encodeURIComponent(ownerName)}`;
+    const bankCode = getVietQrBankCode(bankName);
+    finalQrSrc = `https://img.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(accNum)}-compact2.png?accountName=${encodeURIComponent(ownerName)}`;
   }
   
-  document.getElementById('qrModalImg').src = finalQrSrc;
+  const qrImage = document.getElementById('qrModalImg');
+  qrImage.alt = `Mã QR ${bankName} ${accNum}`;
+  qrImage.onerror = () => {
+    qrImage.alt = 'Không thể tải mã QR';
+    qrImage.src = '';
+  };
+  qrImage.src = finalQrSrc;
   document.getElementById('qrModal').classList.remove('hidden');
 }
 
@@ -83,6 +113,17 @@ function showImageModal(imageSrc, title = 'Ảnh đại diện') {
 
 function closeImageModal() {
   document.getElementById('imageModal').classList.add('hidden');
+}
+
+function showDocumentPreview(doc) {
+  document.getElementById('documentPreviewTitle').innerText = doc.desc || 'Xem giấy tờ';
+  document.getElementById('documentPreviewImage').src = doc.data;
+  document.getElementById('documentPreviewModal').classList.remove('hidden');
+}
+
+function closeDocumentPreview() {
+  document.getElementById('documentPreviewModal').classList.add('hidden');
+  document.getElementById('documentPreviewImage').src = '';
 }
 
 // Modal thêm Bank

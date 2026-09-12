@@ -266,6 +266,8 @@ function viewDetails(id, skipHistory = false) {
   document.getElementById('dtAvatar').src = m.avatar || DEFAULT_AVATAR;
   document.getElementById('dtName').innerText = m.name;
   document.getElementById('dtRole').innerText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
+  document.getElementById('dtEmail').innerText = m.email || '-';
+  document.getElementById('dtPhone').innerText = m.phone || '-';
   document.getElementById('dtDob').innerText = m.dob || '-';
   document.getElementById('dtPob').innerText = m.pob || '-';
   document.getElementById('dtCccd').innerText = m.cccd || '-';
@@ -349,6 +351,10 @@ function openForm(member = null, skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('formView').classList.remove('hidden');
 
+  const notesGroup = document.querySelector('.form-notes-group');
+  const bankGroup = document.querySelector('.form-bank-group');
+  if (notesGroup && bankGroup) notesGroup.parentNode.insertBefore(bankGroup, notesGroup);
+
   const form = document.getElementById('memberForm');
   form.reset();
   document.getElementById('bankInputs').innerHTML = '';
@@ -359,6 +365,8 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fId').value = member.id;
     document.getElementById('fType').value = member.type;
     document.getElementById('fName').value = member.name;
+    document.getElementById('fEmail').value = member.email || '';
+    document.getElementById('fPhone').value = member.phone || '';
     document.getElementById('fAvatarUrl').value = member.avatar && !member.avatar.startsWith('data:') ? member.avatar : '';
     document.getElementById('fAvatarPreview').src = member.avatar || DEFAULT_AVATAR;
     document.getElementById('fDob').value = member.dob || '';
@@ -371,10 +379,12 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fSpecialCode').value = member.specialCode;
     document.getElementById('fNotesEditor').innerHTML = member.notes || '';
 
-    if (member.banks) member.banks.forEach(b => addBankRow(b.bankName, b.accNum, b.logo, b.qrUrl));
+    if (member.banks) member.banks.forEach(b => addBankRow(b.bankName, b.accNum, b.logo));
   } else {
     document.getElementById('formHeading').innerText = 'Thêm thành viên mới';
     document.getElementById('fId').value = '';
+    document.getElementById('fEmail').value = '';
+    document.getElementById('fPhone').value = '';
     document.getElementById('fBhxh').value = '';
     document.getElementById('fNotesEditor').innerHTML = '';
   }
@@ -386,7 +396,7 @@ function toggleSpecialInput() {
   document.getElementById('fSpecialLabel').innerText = type === 'child' ? 'Mã học sinh' : 'Mã nhân viên';
 }
 
-function addBankRow(name = '', acc = '', logo = '', qr = '') {
+function addBankRow(name = '', acc = '', logo = '') {
   const wrap = document.getElementById('bankInputs');
   const div = document.createElement('div');
   div.className = 'bank-edit-row';
@@ -407,7 +417,6 @@ function addBankRow(name = '', acc = '', logo = '', qr = '') {
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <div class="bank-edit-preview">
         <img class="bank-edit-logo-preview" src="${currentLogo}" onerror="this.src=DEFAULT_BANK_LOGO">
-        <span style="font-size:0.85rem; font-weight:700; color:var(--navy);">Thông tin tài khoản</span>
       </div>
       <button type="button" class="btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="removeBankRow(this)">🗑️ Xóa tài khoản này</button>
     </div>
@@ -426,11 +435,6 @@ function addBankRow(name = '', acc = '', logo = '', qr = '') {
     </div>
 
     <input type="hidden" class="b-logo" value="${currentLogo}">
-
-    <div>
-      <label style="font-size:0.75rem;">Link ảnh mã QR riêng (tùy chọn, để trống sẽ tự tạo QR chuẩn)</label>
-      <input type="text" placeholder="https://..." value="${qr || ''}" class="b-qr">
-    </div>
   `;
   wrap.appendChild(div);
 }
@@ -470,7 +474,7 @@ async function saveMember(e) {
   let avatarData = '';
   if (avatarFile) {
     try {
-      avatarData = await readFileAsDataUrl(avatarFile);
+      avatarData = await uploadFileToStorage(avatarFile, `avatars/${id}`);
     } catch (err) {
       alert(err.message);
       return;
@@ -480,6 +484,14 @@ async function saveMember(e) {
   } else {
     const existingMember = members.find(m => m.id === id);
     avatarData = existingMember ? existingMember.avatar || '' : '';
+    if (avatarData.startsWith('data:')) {
+      try {
+        avatarData = await uploadFileToStorage(dataUrlToBlob(avatarData), `avatars/${id}`);
+      } catch (err) {
+        alert(err.message);
+        return;
+      }
+    }
   }
 
   const bankRows = document.querySelectorAll('.bank-edit-row');
@@ -489,10 +501,8 @@ async function saveMember(e) {
     const bankName = row.querySelector('.b-select').value.trim();
     const accNum = row.querySelector('.b-acc').value.trim();
     const logo = row.querySelector('.b-logo').value.trim();
-    const qrUrl = row.querySelector('.b-qr').value.trim();
-
     if (bankName && accNum) {
-      banks.push({ bankName, accNum, logo, qrUrl });
+      banks.push({ bankName, accNum, logo });
     }
   });
 
@@ -502,6 +512,8 @@ async function saveMember(e) {
     id: id,
     type: document.getElementById('fType').value,
     name: document.getElementById('fName').value,
+    email: document.getElementById('fEmail').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
     avatar: avatarData,
     dob: dobVal,
     pob: document.getElementById('fPob').value,
@@ -518,6 +530,18 @@ async function saveMember(e) {
   const idx = members.findIndex(m => m.id === id);
   if (idx >= 0) {
     memberObj.documents = members[idx].documents || [];
+    for (const document of memberObj.documents) {
+      if (!document.data || !document.data.startsWith('data:')) continue;
+      try {
+        document.data = await uploadFileToStorage(
+          dataUrlToBlob(document.data),
+          `documents/${id}/${document.id}-${document.fileName || 'document'}`
+        );
+      } catch (err) {
+        alert(err.message);
+        return;
+      }
+    }
     members[idx] = memberObj;
   } else {
     memberObj.documents = [];
@@ -525,9 +549,10 @@ async function saveMember(e) {
   }
 
   const btn = document.getElementById('btnSaveMember');
-  btn.innerText = 'Đang lưu lên Firebase...';
+  btn.innerText = avatarFile ? 'Đang tải ảnh & lưu hồ sơ...' : 'Đang lưu hồ sơ...';
   try {
     await pushToFirebase();
+    alert('Đã lưu hồ sơ thành công!');
     viewDetails(id, true);
   } catch (err) {
     alert('Lỗi lưu dữ liệu: ' + err.message);
@@ -660,60 +685,38 @@ function openFolderDetails(docType) {
     return;
   }
 
-  const tableWrap = document.createElement('div');
-  tableWrap.className = 'files-table-wrap';
+  const filesList = document.createElement('div');
+  filesList.className = 'files-list';
 
-  let rowsHtml = '';
   files.forEach((doc, idx) => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
-    const thumbHtml = isPdf
-      ? `<div class="file-thumb-pdf">PDF</div>`
-      : `<img src="${doc.data}" class="file-thumb" alt="Thumbnail">`;
-
-    const labelName = doc.desc ? `<strong>${escapeHtml(doc.desc)}</strong> (${escapeHtml(doc.fileName)})` : `<strong>${escapeHtml(doc.fileName)}</strong>`;
-
-    rowsHtml += `
-      <tr>
-        <td style="width: 40px; text-align: center; color: var(--text-muted);">${idx + 1}</td>
-        <td style="width: 50px; text-align: center;">${thumbHtml}</td>
-        <td>
-          <div style="font-size:0.92rem; color:var(--navy);">${labelName}</div>
-          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Loại: ${isPdf ? 'Tài liệu PDF' : 'Hình ảnh'}</div>
-        </td>
-        <td style="color: var(--text-muted); font-size: 0.82rem; width: 110px;">${escapeHtml(doc.createdAt || '-')}</td>
-        <td style="text-align: right; width: 140px; white-space: nowrap;">
-          <a class="btn-view-link btn-view-file" data-id="${doc.id}">👁️ View</a>
-          <button type="button" class="btn-danger btn-del-file" data-id="${doc.id}" style="padding: 4px 8px; font-size: 0.75rem; margin-left: 10px;">🗑️ Xóa</button>
-        </td>
-      </tr>
+    const card = document.createElement('article');
+    card.className = 'file-card';
+    const thumb = isPdf
+      ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
+      : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+    card.innerHTML = `
+      <div class="file-card-index">${idx + 1}</div>
+      <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
+      <div class="file-card-info">
+        <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
+        <span>${escapeHtml(doc.createdAt || '-')}</span>
+      </div>
+      <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
+        <button type="button" class="btn-view-link btn-view-file">👁️ View</button>
+        <button type="button" class="btn-danger btn-del-file">🗑️ Xóa</button>
+      </div>
     `;
+    card.querySelector('.file-preview-button').onclick = () => {
+      if (isPdf) openDocumentInNewTab(doc.id);
+      else showDocumentPreview(doc);
+    };
+    card.querySelector('.btn-view-file').onclick = () => openDocumentInNewTab(doc.id);
+    card.querySelector('.btn-del-file').onclick = () => deleteDocument(doc.id);
+    filesList.appendChild(card);
   });
 
-  tableWrap.innerHTML = `
-    <table class="files-table">
-      <thead>
-        <tr>
-          <th style="text-align:center;">#</th>
-          <th style="text-align:center;">Xem trước</th>
-          <th>Tên tệp / Trang mô tả</th>
-          <th>Ngày tải lên</th>
-          <th style="text-align:right;">Thao tác</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-  `;
-
-  // Gán sự kiện cho từng dòng
-  tableWrap.querySelectorAll('.btn-view-file').forEach(btn => {
-    btn.onclick = () => openDocumentInNewTab(btn.getAttribute('data-id'));
-  });
-
-  tableWrap.querySelectorAll('.btn-del-file').forEach(btn => {
-    btn.onclick = () => deleteDocument(btn.getAttribute('data-id'));
-  });
-
-  container.appendChild(tableWrap);
+  container.appendChild(filesList);
 }
 
 // Lưu tài liệu mới
@@ -736,45 +739,30 @@ async function saveDocument() {
 
   const file = fileInput.files[0];
   const btn = document.getElementById('btnSaveDoc');
-  btn.innerText = 'Đang mã hóa & lưu...';
-
-  const reader = new FileReader();
-  reader.onload = async function (e) {
-    const base64Data = e.target.result;
-    
+  btn.innerText = 'Đang tải tệp & lưu...';
+  try {
+    const documentId = String(Date.now());
+    const storageUrl = await uploadFileToStorage(file, `documents/${currentMemberId}/${documentId}-${file.name}`);
     if (!m.documents) m.documents = [];
-    
-    const newDoc = {
-      id: String(Date.now()),
-      docType: docType,
+    m.documents.push({
+      id: documentId,
+      docType,
       fileName: file.name,
       fileType: file.type,
-      desc: desc,
-      data: base64Data,
+      desc,
+      data: storageUrl,
       createdAt: new Date().toLocaleDateString('vi-VN')
-    };
-
-    m.documents.push(newDoc);
-
-    try {
-      await pushToFirebase();
-      closeUploadDocModal();
-      
-      // Nếu đang đứng trong thư mục đó thì refresh tại chỗ, ngược lại về danh mục ngoài
-      if (currentDocsFolder && currentDocsFolder === docType) {
-        openFolderDetails(docType);
-      } else {
-        renderDocsFolders();
-      }
-      alert('Đã tải lên và lưu giấy tờ thành công!');
-    } catch (err) {
-      alert('Lỗi khi lưu tài liệu: ' + err.message);
-    } finally {
-      btn.innerText = 'Tải lên & Lưu';
-    }
-  };
-
-  reader.readAsDataURL(file);
+    });
+    await pushToFirebase();
+    closeUploadDocModal();
+    if (currentDocsFolder && currentDocsFolder === docType) openFolderDetails(docType);
+    else renderDocsFolders();
+    alert('Đã tải lên và lưu giấy tờ thành công!');
+  } catch (err) {
+    alert('Lỗi khi lưu tài liệu: ' + err.message);
+  } finally {
+    btn.innerText = 'Tải lên & Lưu';
+  }
 }
 
 // Mở tài liệu ở tab mới

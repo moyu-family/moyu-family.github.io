@@ -7,10 +7,9 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="stylesheet" href="style.css?v=3">
-  <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -35,7 +34,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.0 · 12/09/2026</div>
+    <div class="app-version">Phiên bản 1.1 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -124,6 +123,8 @@
       </div>
 
       <div class="info-group">
+        <div class="info-item"><div class="info-label">Email</div><div class="info-val" id="dtEmail"></div></div>
+        <div class="info-item"><div class="info-label">Số điện thoại</div><div class="info-val" id="dtPhone"></div></div>
         <div class="info-item"><div class="info-label">Ngày sinh</div><div class="info-val" id="dtDob"></div></div>
         <div class="info-item"><div class="info-label">Nơi sinh</div><div class="info-val" id="dtPob"></div></div>
         <div class="info-item"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
@@ -132,14 +133,14 @@
         <div class="info-item"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
         <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
         <div class="info-item"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
-        <div class="info-item" style="grid-column: 1 / -1;">
-          <div class="info-label">📝 Ghi chú tự do</div>
-          <div class="info-val rich-display" id="dtNotes"></div>
-        </div>
       </div>
 
       <div style="font-weight:700; color:var(--navy); margin-bottom:12px;">💳 Tài khoản ngân hàng</div>
       <div id="dtBanks"></div>
+      <div class="detail-notes">
+        <div class="info-label">📝 Ghi chú tự do</div>
+        <div class="info-val rich-display" id="dtNotes"></div>
+      </div>
     </div>
 
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
@@ -191,6 +192,11 @@
         </div>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group"><label>Email</label><input type="email" id="fEmail" placeholder="example@email.com"></div>
+          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="fPhone" placeholder="09xxxxxxxx"></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group">
             <label>Ngày sinh (dd/mm/yyyy)</label>
             <input type="text" id="fDob" placeholder="dd/mm/yyyy" maxlength="10" oninput="maskDateInput(this)">
@@ -219,7 +225,7 @@
         </div>
 
         <!-- Trình soạn thảo Rich Textbox -->
-        <div class="form-group">
+        <div class="form-group form-notes-group">
           <label>📝 Ghi chú tự do</label>
           <div class="rich-editor-wrapper">
             <div class="rich-toolbar">
@@ -272,7 +278,7 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top:20px;">
+        <div class="form-group form-bank-group" style="margin-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <label style="margin:0;">Tài khoản ngân hàng</label>
             <button type="button" class="btn-outline" style="font-size:0.78rem; padding:4px 8px;" onclick="openNewBankModal()">+ Thêm ngân hàng mới vào danh mục</button>
@@ -308,6 +314,14 @@
     <button type="button" class="image-modal-close" onclick="closeImageModal()" aria-label="Đóng">×</button>
     <img id="imageModalImg" class="image-modal-img" src="" alt="Ảnh đại diện phóng to">
     <div id="imageModalTitle" class="image-modal-title"></div>
+  </div>
+</div>
+
+<div id="documentPreviewModal" class="modal-overlay hidden" onclick="closeDocumentPreview()">
+  <div class="document-preview-card" onclick="event.stopPropagation()">
+    <div class="document-preview-header"><strong id="documentPreviewTitle">Xem giấy tờ</strong><button type="button" class="image-modal-close" onclick="closeDocumentPreview()" aria-label="Đóng">×</button></div>
+    <img id="documentPreviewImage" class="document-preview-image" src="" alt="Xem giấy tờ">
+    <button type="button" class="btn-primary document-preview-close" onclick="closeDocumentPreview()">Đóng</button>
   </div>
 </div>
 
@@ -384,11 +398,11 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script src="js/config.js?v=18"></script>
-<script src="js/auth.js?v=18"></script>
-<script src="js/ui.js?v=18"></script>
-<script src="js/members.js?v=18"></script>
-<script src="js/page.js?v=18"></script>
+<script defer src="js/config.js?v=22"></script>
+<script defer src="js/auth.js?v=24"></script>
+<script defer src="js/ui.js?v=20"></script>
+<script defer src="js/members.js?v=20"></script>
+<script defer src="js/page.js?v=18"></script>
 
 </body>
 </html>
