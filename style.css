@@ -72,6 +72,7 @@ html.has-session body::after {
 .brand-home:hover .brand-home-icon { background: var(--gradient-primary); color: #ffffff; }
 .brand-home-icon svg { width: 20px; height: 20px; }
 .brand-home-text { position: absolute; left: 56px; top: 50%; transform: translateY(-50%); font-weight: 700; animation: brand-title-scroll 6s linear infinite; }
+.brand-home-text-mobile { display: none; font-weight: 700; }
 .btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; margin-left: auto; }
 
 @keyframes brand-title-scroll {
@@ -156,8 +157,9 @@ button:active { transform: scale(0.97); }
 
 @media(max-width: 640px) {
   .top-bar { padding: 10px 12px; gap: 6px; }
-  .brand-home { min-width: 0; flex: 0 0 auto; width: 38px; }
+  .brand-home { min-width: 0; flex: 0 0 auto; width: auto; gap: 6px; padding: 4px 10px 4px 4px; }
   .brand-home-text { display: none; }
+  .brand-home-text-mobile { display: inline-block; }
   .btn-group { gap: 6px; }
   .btn-group button { padding: 9px 10px; }
   .btn-group .btn-text { display: none; }
