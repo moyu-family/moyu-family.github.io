@@ -248,16 +248,56 @@ async function loadDataWithPassword(pwd) {
     });
   });
 
+  // Di chuyển dữ liệu cũ: chuẩn hoá tên danh mục (docType) của tài liệu/thư mục đang tồn tại
+  // sang đúng 1 trong 7 nhóm chuẩn (CATEGORY_MIGRATION_MAP trong config.js), chỉ khi tên cũ
+  // khớp trong bảng ánh xạ - không tự tạo danh mục hay thư mục rỗng nào.
+  const hasMigratedCategoryNames = migrateCategoryNames(members);
+
+  // Di chuyển dữ liệu cũ: bỏ emoji khỏi tên hiển thị của Hồ sơ chung gia đình (nếu hồ sơ này
+  // đã từng được tạo trước khi FAMILY_SHARED_NAME bỏ emoji), để đồng nhất với phần còn lại
+  // của giao diện (không dùng emoji, chỉ dùng bộ icon SVG dùng chung).
+  let hasMigratedFamilySharedName = false;
+  const familyShared = members.find(m => m.id === FAMILY_SHARED_ID);
+  if (familyShared && familyShared.name !== FAMILY_SHARED_NAME) {
+    familyShared.name = FAMILY_SHARED_NAME;
+    hasMigratedFamilySharedName = true;
+  }
+
   masterPassword = pwd;
   saveSessionPassword(pwd);
 
-  if (hasMigratedMissingDesc) {
+  if (hasMigratedMissingDesc || hasMigratedCategoryNames || hasMigratedFamilySharedName) {
     try {
       await pushToFirebase();
     } catch {
       // Không chặn đăng nhập nếu lưu thất bại; dữ liệu sẽ được lưu lại ở lần chỉnh sửa kế tiếp.
     }
   }
+}
+
+// Ánh xạ lại tên danh mục (docType) cũ của các tài liệu/thư mục đang thực sự tồn tại sang
+// tên nhóm chuẩn mới, theo CATEGORY_MIGRATION_MAP (config.js). Chỉ sửa đúng trường docType
+// của những tài liệu/thư mục đang mang tên cũ đó - không thêm/xoá tài liệu, không tạo thư
+// mục con hay danh mục rỗng nào. Trả về true nếu có ít nhất 1 docType được đổi.
+function migrateCategoryNames(memberList) {
+  let changed = false;
+  memberList.forEach(member => {
+    (member.documents || []).forEach(doc => {
+      const newType = CATEGORY_MIGRATION_MAP[doc.docType];
+      if (newType && newType !== doc.docType) {
+        doc.docType = newType;
+        changed = true;
+      }
+    });
+    (member.folders || []).forEach(folder => {
+      const newType = CATEGORY_MIGRATION_MAP[folder.docType];
+      if (newType && newType !== folder.docType) {
+        folder.docType = newType;
+        changed = true;
+      }
+    });
+  });
+  return changed;
 }
 
 function showAuthError(err) {

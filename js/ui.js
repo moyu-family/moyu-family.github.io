@@ -244,21 +244,9 @@ function closeNoteModal() {
   document.getElementById('noteModal').classList.add('hidden');
 }
 
-// Danh sách loại giấy tờ mặc định (thứ tự hiển thị gốc)
-const DEFAULT_DOC_TYPES = [
-  'CCCD / Định danh cá nhân',
-  'Giấy khai sinh',
-  'Giấy đăng ký kết hôn',
-  'Sổ đỏ / Sổ hồng nhà đất',
-  'Thẻ BHYT',
-  'Sổ BHXH / Hợp đồng',
-  'Hồ sơ tiêm chủng / Sức khỏe',
-  'Giấy tờ tùy thân',
-  'Chi phí',
-  'Học tập',
-  'Y tế',
-  'Hộ tịch'
-];
+// Danh sách loại giấy tờ mặc định hiển thị làm gợi ý trong dropdown chọn danh mục
+// (7 nhóm chuẩn - xem STANDARD_CATEGORIES trong config.js).
+const DEFAULT_DOC_TYPES = STANDARD_CATEGORIES;
 
 // Thu thập các loại giấy tờ tùy chỉnh mà người dùng đã thêm (dựa trên toàn bộ dữ liệu hiện có)
 // Xét cả tài liệu lẫn thư mục con, vì 1 danh mục có thể chỉ còn tồn tại qua các thư mục con của nó
@@ -297,7 +285,7 @@ function populateDocTypeSelect(selectId) {
   });
   const customOpt = document.createElement('option');
   customOpt.value = 'custom';
-  customOpt.textContent = '-- Thêm loại giấy tờ mới --';
+  customOpt.textContent = '+ Tạo danh mục mới...';
   select.appendChild(customOpt);
 
   const knownValues = Array.from(select.options).map(o => o.value);
@@ -329,7 +317,7 @@ function openUploadDocModal() {
       customNameInput.value = folder;
     }
   } else {
-    typeSelect.value = "CCCD / Định danh cá nhân";
+    typeSelect.value = "Định danh & Tùy thân";
     customNameInput.value = "";
   }
 
@@ -405,7 +393,7 @@ function populateUploadFolderSelect(docType) {
   select.innerHTML = '';
   const rootOpt = document.createElement('option');
   rootOpt.value = '';
-  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  rootOpt.textContent = '(Thư mục gốc của danh mục)';
   select.appendChild(rootOpt);
 
   if (m && docType) {
@@ -414,7 +402,7 @@ function populateUploadFolderSelect(docType) {
 
   const newFolderOpt = document.createElement('option');
   newFolderOpt.value = '__new__';
-  newFolderOpt.textContent = '➕ Tạo thư mục mới...';
+  newFolderOpt.textContent = '+ Tạo thư mục con mới...';
   select.appendChild(newFolderOpt);
 
   document.getElementById('docNewFolderNameGroup').classList.add('hidden');
@@ -501,7 +489,7 @@ function openMoveDocsModal(preselectDocType = null, preselectFolderId = null) {
   const typeSelect = document.getElementById('moveDocsTypeSelect');
   const customNameInput = document.getElementById('moveDocsCustomName');
   const knownTypes = Array.from(typeSelect.options).map(o => o.value);
-  const defaultType = (preselectDocType && knownTypes.includes(preselectDocType)) ? preselectDocType : 'CCCD / Định danh cá nhân';
+  const defaultType = (preselectDocType && knownTypes.includes(preselectDocType)) ? preselectDocType : 'Định danh & Tùy thân';
   typeSelect.value = defaultType;
   customNameInput.value = '';
   toggleCustomDocName(typeSelect.value, 'moveDocsCustomNameGroup');
@@ -559,7 +547,7 @@ function populateMoveFolderSelect(docType) {
   select.innerHTML = '';
   const rootOpt = document.createElement('option');
   rootOpt.value = '';
-  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  rootOpt.textContent = '(Thư mục gốc của danh mục)';
   select.appendChild(rootOpt);
   appendFolderTreeOptions(select, m.folders, docType);
 }
@@ -576,7 +564,7 @@ function openGlobalUploadModal() {
 
   globalSelectedTags = [];
   document.getElementById('guCustomTagInput').value = '';
-  renderGlobalTagChips();
+  renderGlobalTagPicker();
 
   globalUploadFile = null;
   document.getElementById('guFileInput').value = '';
@@ -586,7 +574,7 @@ function openGlobalUploadModal() {
   populateDocTypeSelect('guCategorySelect');
   const categorySelect = document.getElementById('guCategorySelect');
   const knownCategories = Array.from(categorySelect.options).map(o => o.value);
-  if (knownCategories.includes('Giấy tờ tùy thân')) categorySelect.value = 'Giấy tờ tùy thân';
+  if (knownCategories.includes('Định danh & Tùy thân')) categorySelect.value = 'Định danh & Tùy thân';
   toggleCustomDocName(categorySelect.value, 'guCustomCategoryGroup');
   document.getElementById('guCustomCategoryName').value = '';
   populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, categorySelect.value === 'custom' ? null : categorySelect.value);
@@ -636,7 +624,7 @@ function populateGlobalFolderSelect(ownerId, docType) {
   select.innerHTML = '';
   const rootOpt = document.createElement('option');
   rootOpt.value = '';
-  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  rootOpt.textContent = '(Thư mục gốc của danh mục)';
   select.appendChild(rootOpt);
 
   const m = members.find(item => String(item.id) === String(ownerId));
@@ -644,7 +632,7 @@ function populateGlobalFolderSelect(ownerId, docType) {
 
   const newFolderOpt = document.createElement('option');
   newFolderOpt.value = '__new__';
-  newFolderOpt.textContent = '➕ Tạo thư mục con mới...';
+  newFolderOpt.textContent = '+ Tạo thư mục con mới...';
   select.appendChild(newFolderOpt);
 
   document.getElementById('guNewFolderNameGroup').classList.add('hidden');
@@ -655,29 +643,33 @@ function onGlobalFolderChange(val) {
   if (val === '__new__') document.getElementById('guNewFolderName').focus();
 }
 
-// Chip chọn nhanh tên thành viên để gắn tag (bấm lại để bỏ chọn)
-function renderGlobalTagChips() {
-  const chipRow = document.getElementById('guTagChips');
-  if (!chipRow) return;
-  chipRow.innerHTML = '';
-  displayMembers().forEach(m => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'tag-chip' + (globalSelectedTags.includes(m.name) ? ' is-active' : '');
-    chip.textContent = m.name;
-    chip.onclick = () => toggleGlobalTag(m.name);
-    chipRow.appendChild(chip);
-  });
+// Dropdown chọn nhanh tên thành viên để gắn tag (gọn hơn dãy chip khi nhà đông thành
+// viên): chỉ liệt kê thành viên chưa được gắn tag, chọn xong tự thêm ngay và trở về gợi ý.
+function renderGlobalTagPicker() {
+  const select = document.getElementById('guTagMemberSelect');
+  if (select) {
+    select.innerHTML = '';
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = '-- Chọn thành viên để gắn thẻ --';
+    select.appendChild(placeholderOpt);
+    displayMembers()
+      .filter(m => !globalSelectedTags.includes(m.name))
+      .forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.name;
+        opt.textContent = m.name;
+        select.appendChild(opt);
+      });
+  }
   renderGlobalSelectedTags();
 }
 
-function toggleGlobalTag(name) {
+function addGlobalMemberTag(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) return;
-  const idx = globalSelectedTags.indexOf(trimmed);
-  if (idx >= 0) globalSelectedTags.splice(idx, 1);
-  else globalSelectedTags.push(trimmed);
-  renderGlobalTagChips();
+  if (!globalSelectedTags.includes(trimmed)) globalSelectedTags.push(trimmed);
+  renderGlobalTagPicker();
 }
 
 function addGlobalCustomTag() {
@@ -686,7 +678,7 @@ function addGlobalCustomTag() {
   if (!value) return;
   if (!globalSelectedTags.includes(value)) globalSelectedTags.push(value);
   input.value = '';
-  renderGlobalTagChips();
+  renderGlobalTagPicker();
   input.focus();
 }
 
@@ -699,7 +691,7 @@ function handleGlobalTagInputKeydown(e) {
 
 function removeGlobalTag(name) {
   globalSelectedTags = globalSelectedTags.filter(t => t !== name);
-  renderGlobalTagChips();
+  renderGlobalTagPicker();
 }
 
 // Danh sách các tag đã chọn, mỗi tag kèm nút "x" để xoá.

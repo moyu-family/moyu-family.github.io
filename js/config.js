@@ -21,7 +21,49 @@ const DEFAULT_BANK_LOGO = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/
 // toàn bộ máy móc quản lý giấy tờ/thư mục sẵn có), nhưng bị loại khỏi lưới thành viên,
 // bảng tổng hợp và các thao tác hàng loạt trên trang chủ (xem displayMembers()).
 const FAMILY_SHARED_ID = 'family_shared';
-const FAMILY_SHARED_NAME = '👨‍👩‍👧‍👦 Hồ sơ chung gia đình';
+// Không dùng emoji để đồng nhất với phần còn lại của giao diện (chỉ dùng bộ icon SVG dùng chung, xem ICONS bên dưới).
+const FAMILY_SHARED_NAME = 'Hồ sơ chung gia đình';
+
+// 7 nhóm danh mục chuẩn: chỉ là gợi ý hiển thị trong dropdown chọn danh mục (kèm
+// "+ Tạo danh mục mới..."), không tự tạo sẵn thư mục con nào bên trong.
+const STANDARD_CATEGORIES = [
+  'Định danh & Tùy thân',
+  'Hộ tịch & Gia đình',
+  'Y tế & Sức khỏe',
+  'Học tập & Công việc',
+  'Thuế & Tài chính',
+  'Chi phí & Hóa đơn',
+  'Tài sản & Pháp lý'
+];
+
+// Ánh xạ tên danh mục (docType) cũ sang đúng 1 trong 7 nhóm chuẩn ở trên, dùng khi
+// di trú dữ liệu cũ (xem migrateCategoryNames() trong auth.js). Chỉ áp dụng cho các
+// tài liệu/thư mục đang thực sự tồn tại và đang mang đúng tên cũ này - không tự tạo
+// danh mục hay thư mục rỗng nào.
+const CATEGORY_MIGRATION_MAP = {
+  'CCCD / Định danh cá nhân': 'Định danh & Tùy thân',
+  'Giấy tờ tùy thân': 'Định danh & Tùy thân',
+  'Passport': 'Định danh & Tùy thân',
+  'Giấy phép lái xe': 'Định danh & Tùy thân',
+
+  'Giấy khai sinh': 'Hộ tịch & Gia đình',
+  'Giấy đăng ký kết hôn': 'Hộ tịch & Gia đình',
+  'Hộ tịch': 'Hộ tịch & Gia đình',
+
+  'Thẻ BHYT': 'Y tế & Sức khỏe',
+  'Y tế': 'Y tế & Sức khỏe',
+  'Hồ sơ tiêm chủng / Sức khỏe': 'Y tế & Sức khỏe',
+
+  'Bằng cấp': 'Học tập & Công việc',
+  'Học tập': 'Học tập & Công việc',
+  'Hồ sơ học tập': 'Học tập & Công việc',
+  'Sổ BHXH / Hợp đồng': 'Học tập & Công việc',
+
+  'Sổ đỏ / Sổ hồng nhà đất': 'Tài sản & Pháp lý',
+  'Giấy tờ nhà đất': 'Tài sản & Pháp lý',
+
+  'Chi phí': 'Chi phí & Hóa đơn'
+};
 
 // Biến trạng thái toàn cục
 let masterPassword = null;

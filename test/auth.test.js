@@ -77,6 +77,80 @@ test('pushToFirebase() mã hoá state hiện tại bằng masterPassword và PUT
   assert.equal(decrypted.members[0].name, 'A');
 });
 
+test('loadDataWithPassword() di trú docType cũ sang 1 trong 7 nhóm chuẩn cho tài liệu/thư mục đang có, giữ nguyên danh mục tự đặt không nằm trong bảng ánh xạ, và đồng bộ lại Firebase', async () => {
+  const { window } = createApp();
+  const payload = {
+    members: [
+      {
+        id: '1',
+        name: 'Bố',
+        documents: [
+          { id: 'd1', docType: 'CCCD / Định danh cá nhân', desc: 'Mặt trước' },
+          { id: 'd2', docType: 'Chi phí', desc: 'Hóa đơn điện' },
+          { id: 'd3', docType: 'Ông ngoại đặt tên', desc: 'Giấy tờ tự đặt' }
+        ],
+        folders: [
+          { id: 'f1', docType: 'Giấy khai sinh', name: 'Bản gốc' }
+        ]
+      }
+    ],
+    customBankList: []
+  };
+  const cipherText = window.CryptoJS.AES.encrypt(JSON.stringify(payload), 'pass123').toString();
+
+  const putCalls = [];
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') {
+      putCalls.push(JSON.parse(options.body));
+      return { ok: true, headers: { get: () => null } };
+    }
+    return { ok: true, json: async () => cipherText, headers: { get: () => null } };
+  };
+
+  await window.loadDataWithPassword('pass123');
+
+  const member = window.__state.members[0];
+  assert.equal(member.documents.find(d => d.id === 'd1').docType, 'Định danh & Tùy thân');
+  assert.equal(member.documents.find(d => d.id === 'd2').docType, 'Chi phí & Hóa đơn');
+  assert.equal(member.documents.find(d => d.id === 'd3').docType, 'Ông ngoại đặt tên', 'danh mục tự đặt không khớp bảng ánh xạ phải được giữ nguyên');
+  assert.equal(member.folders.find(f => f.id === 'f1').docType, 'Hộ tịch & Gia đình');
+
+  assert.equal(putCalls.length, 1, 'phải gọi pushToFirebase() đúng 1 lần vì có tài liệu được di trú');
+  const decrypted = JSON.parse(
+    window.CryptoJS.AES.decrypt(putCalls[0], 'pass123').toString(window.CryptoJS.enc.Utf8)
+  );
+  assert.equal(decrypted.members[0].documents.find(d => d.id === 'd1').docType, 'Định danh & Tùy thân');
+});
+
+test('loadDataWithPassword() không gọi pushToFirebase() nếu không có docType/mô tả nào cần di trú', async () => {
+  const { window } = createApp();
+  const payload = {
+    members: [
+      {
+        id: '1',
+        name: 'Bố',
+        documents: [{ id: 'd1', docType: 'Chi phí & Hóa đơn', desc: 'Hóa đơn điện' }],
+        folders: []
+      }
+    ],
+    customBankList: []
+  };
+  const cipherText = window.CryptoJS.AES.encrypt(JSON.stringify(payload), 'pass123').toString();
+
+  const putCalls = [];
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') {
+      putCalls.push(options);
+      return { ok: true, headers: { get: () => null } };
+    }
+    return { ok: true, json: async () => cipherText, headers: { get: () => null } };
+  };
+
+  await window.loadDataWithPassword('pass123');
+
+  assert.equal(putCalls.length, 0, 'dữ liệu đã chuẩn hoá từ trước thì không cần ghi lại Firebase');
+});
+
 test('pushToFirebase() gọi chồng chéo phải chờ chung request đang chạy, không bắn song song', async () => {
   const { window } = createApp();
   window.__state.masterPassword = 'pass123';

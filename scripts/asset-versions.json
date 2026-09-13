@@ -4,16 +4,16 @@
     "hash": "a94fbac9ef9dd2e36355421c50d3b071b8082f2e"
   },
   "js/config.js": {
-    "version": 27,
-    "hash": "cc19a0dcdd4f051c597b27674cc2ced370b1b66f"
+    "version": 29,
+    "hash": "4e960a784c839bbfe8f406720cd976e1647e6f68"
   },
   "js/auth.js": {
-    "version": 30,
-    "hash": "a05c114324f9faae3b201e7ec5799abd68b53248"
+    "version": 32,
+    "hash": "011ccf6693153f2bf9fed6a750322cdec1f2685e"
   },
   "js/ui.js": {
-    "version": 27,
-    "hash": "2f09b25d60c3bd315f34563ca5c71f31921f21f9"
+    "version": 29,
+    "hash": "621a594c24a2ea62e3199703eb473308547d8e22"
   },
   "js/members.js": {
     "version": 28,

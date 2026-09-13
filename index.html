@@ -41,7 +41,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.5.1 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.5.2 · 14/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -474,13 +474,13 @@
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục)</label>
       <select id="docTypeSelect" onchange="onUploadDocTypeChange(this.value)">
-        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
-        <option value="Giấy khai sinh">Giấy khai sinh</option>
-        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
-        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
-        <option value="Thẻ BHYT">Thẻ BHYT</option>
-        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
-        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
+        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
+        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
+        <option value="Học tập & Công việc">Học tập & Công việc</option>
+        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
+        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
+        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
         <option value="custom">-- Thêm loại giấy tờ mới --</option>
       </select>
     </div>
@@ -522,7 +522,7 @@
 <!-- Modal Tải nhanh (FAB): chụp/chọn 1 ảnh giấy tờ từ bất kỳ màn hình nào -->
 <div id="globalUploadModal" class="modal-overlay hidden" onclick="closeGlobalUploadModal()">
   <div class="modal-card" style="max-width: 460px; text-align: left;" onclick="event.stopPropagation()">
-    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">📸 Tải nhanh giấy tờ</h3>
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Tải nhanh giấy tờ</h3>
 
     <div class="form-group">
       <label>Chủ sở hữu chính</label>
@@ -531,10 +531,10 @@
 
     <div class="form-group">
       <label>Thành viên liên quan / Nhãn gắn kèm (tags)</label>
-      <div id="guTagChips" class="tag-chip-row"></div>
+      <select id="guTagMemberSelect" onchange="addGlobalMemberTag(this.value)"></select>
       <div style="display:flex; gap:8px; margin-top:8px;">
         <input type="text" id="guCustomTagInput" placeholder="Nhập tag tự do (ví dụ: Ông ngoại, Bà nội...)" onkeydown="handleGlobalTagInputKeydown(event)" style="flex:1;">
-        <button type="button" class="btn-outline" style="flex:0 0 auto; padding:9px 14px;" onclick="addGlobalCustomTag()" aria-label="Thêm tag">+</button>
+        <button type="button" class="btn-outline" style="flex:0 0 auto; padding:9px 14px;" onclick="addGlobalCustomTag()" aria-label="Thêm tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
       </div>
       <div id="guSelectedTags" class="tag-pill-row" style="margin-top:8px;"></div>
     </div>
@@ -585,13 +585,13 @@
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục)</label>
       <select id="editDocTypeSelect" onchange="toggleCustomDocName(this.value, 'editCustomDocNameGroup')">
-        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
-        <option value="Giấy khai sinh">Giấy khai sinh</option>
-        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
-        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
-        <option value="Thẻ BHYT">Thẻ BHYT</option>
-        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
-        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
+        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
+        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
+        <option value="Học tập & Công việc">Học tập & Công việc</option>
+        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
+        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
+        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
         <option value="custom">-- Thêm loại giấy tờ mới --</option>
       </select>
     </div>
@@ -652,13 +652,13 @@
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục đích)</label>
       <select id="moveDocsTypeSelect" onchange="onMoveDocsTypeChange(this.value)">
-        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
-        <option value="Giấy khai sinh">Giấy khai sinh</option>
-        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
-        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
-        <option value="Thẻ BHYT">Thẻ BHYT</option>
-        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
-        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
+        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
+        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
+        <option value="Học tập & Công việc">Học tập & Công việc</option>
+        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
+        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
+        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
         <option value="custom">-- Thêm loại giấy tờ mới --</option>
       </select>
     </div>
@@ -681,9 +681,9 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=27"></script>
-<script defer src="js/auth.js?v=30"></script>
-<script defer src="js/ui.js?v=27"></script>
+<script defer src="js/config.js?v=29"></script>
+<script defer src="js/auth.js?v=32"></script>
+<script defer src="js/ui.js?v=29"></script>
 <script defer src="js/members.js?v=28"></script>
 <script defer src="js/page.js?v=21"></script>
 

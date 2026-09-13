@@ -15,6 +15,27 @@ function setupModalDom(window, { owner = 'family_shared', category = 'Chi phí',
   window.__state.globalUploadFile = { file: file || { name: 'bill.jpg', type: 'image/jpeg' }, previewUrl: null };
 }
 
+test('renderGlobalTagPicker()/addGlobalMemberTag()/removeGlobalTag(): dropdown chỉ gợi ý thành viên chưa gắn tag, chọn xong tự thêm và ẩn khỏi danh sách, bỏ tag thì hiện lại', () => {
+  const { window } = createApp();
+  window.__state.members = [
+    { id: '1', name: 'Bố', documents: [], folders: [] },
+    { id: '2', name: 'Mẹ', documents: [], folders: [] }
+  ];
+  window.__state.globalSelectedTags = [];
+
+  window.renderGlobalTagPicker();
+  const optionValues = () => Array.from(window.document.getElementById('guTagMemberSelect').options).map(o => o.value);
+  assert.deepEqual(optionValues(), ['', 'Bố', 'Mẹ']);
+
+  window.addGlobalMemberTag('Bố');
+  assert.deepEqual(Array.from(window.__state.globalSelectedTags), ['Bố']);
+  assert.deepEqual(optionValues(), ['', 'Mẹ'], 'Bố đã được gắn tag thì không còn xuất hiện trong dropdown nữa');
+
+  window.removeGlobalTag('Bố');
+  assert.deepEqual(Array.from(window.__state.globalSelectedTags), []);
+  assert.deepEqual(optionValues(), ['', 'Bố', 'Mẹ'], 'bỏ tag thì thành viên đó phải hiện lại trong dropdown');
+});
+
 test('saveGlobalDocument(): tạo mới Hồ sơ chung gia đình khi lần đầu upload cho family_shared, kèm tag đã chọn', async () => {
   const { window } = createApp();
   window.__state.masterPassword = 'pass123';
