@@ -18,14 +18,7 @@ function initializePage() {
 
     if (params.has('documents')) {
       const memberId = params.get('documents');
-    if (memberId) {
-      const backLink = document.getElementById('docsBackLink');
-        if (backLink) backLink.onclick = (event) => {
-          event.preventDefault();
-          navigateApp('member', { id: memberId });
-        };
-      openDocsView(memberId, true);
-    }
+      if (memberId) openDocsView(memberId, true);
       else showHome(true);
     return;
   }

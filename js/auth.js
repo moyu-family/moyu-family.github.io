@@ -39,15 +39,15 @@ function withTimeout(promise, milliseconds, message) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function uploadFileToStorage(file, path) {
+async function uploadFileToStorage(file, path, resourceType = 'auto') {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', file, path.split('/').pop());
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
   formData.append('folder', path.split('/').slice(0, -1).join('/') || 'moyu-family');
   formData.append('public_id', path.split('/').pop().replace(/\.[^.]+$/, ''));
 
   const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/auto/upload`,
+    `https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/${resourceType}/upload`,
     { method: 'POST', body: formData }
   );
   if (!response.ok) {
@@ -70,6 +70,45 @@ function dataUrlToBlob(dataUrl) {
   const binary = atob(encoded);
   const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
   return new Blob([bytes], { type: mime });
+}
+
+function wordArrayToUint8Array(wordArray) {
+  const { words, sigBytes } = wordArray;
+  const bytes = new Uint8Array(sigBytes);
+  for (let i = 0; i < sigBytes; i++) {
+    bytes[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+  }
+  return bytes;
+}
+
+// Mã hóa nội dung tệp giấy tờ trước khi tải lên, để dữ liệu trên Cloudinary
+// chỉ là chuỗi mã hóa vô nghĩa nếu không có mật khẩu hồ sơ gia đình.
+async function uploadEncryptedFileToStorage(file, path) {
+  const buffer = await file.arrayBuffer();
+  const wordArray = CryptoJS.lib.WordArray.create(new Uint8Array(buffer));
+  const cipherText = CryptoJS.AES.encrypt(wordArray, masterPassword).toString();
+  const cipherBlob = new Blob([cipherText], { type: 'text/plain' });
+  return uploadFileToStorage(cipherBlob, `${path}.enc`, 'raw');
+}
+
+const decryptedDocumentUrlCache = new Map();
+
+// Trả về URL để hiển thị tài liệu: tự giải mã (và cache lại) nếu tài liệu đã mã hóa,
+// hoặc trả thẳng URL gốc với các tài liệu cũ tải lên trước khi có mã hóa.
+async function getDocumentDisplayUrl(doc) {
+  if (!doc.encrypted) return doc.data;
+  if (decryptedDocumentUrlCache.has(doc.id)) return decryptedDocumentUrlCache.get(doc.id);
+
+  const response = await fetch(doc.data, { cache: 'no-store' });
+  if (!response.ok) throw new Error('Không thể tải tệp giấy tờ đã mã hóa.');
+  const cipherText = await response.text();
+  const decrypted = CryptoJS.AES.decrypt(cipherText, masterPassword);
+  const bytes = wordArrayToUint8Array(decrypted);
+  if (bytes.length === 0) throw new Error('Không thể giải mã tệp giấy tờ.');
+  const blob = new Blob([bytes], { type: doc.fileType || 'application/octet-stream' });
+  const blobUrl = URL.createObjectURL(blob);
+  decryptedDocumentUrlCache.set(doc.id, blobUrl);
+  return blobUrl;
 }
 
 function getStoredBiometric() {
@@ -168,11 +207,15 @@ async function loadDataWithPassword(pwd) {
     throw new Error('Dữ liệu Firebase không đúng định dạng mã hóa.');
   }
 
-  const bytes = CryptoJS.AES.decrypt(encryptedData, pwd);
-  const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
-  if (!decryptedStr) throw new Error();
-
-  const parsed = JSON.parse(decryptedStr);
+  let parsed;
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedData, pwd);
+    const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
+    if (!decryptedStr) throw new Error();
+    parsed = JSON.parse(decryptedStr);
+  } catch {
+    throw new Error();
+  }
   if (Array.isArray(parsed)) {
     members = parsed;
     customBankList = [...DEFAULT_BANKS];
@@ -402,6 +445,8 @@ function lockApp() {
   sessionStorage.removeItem(SESSION_PASSWORD_KEY);
   localStorage.removeItem(SESSION_DATA_CACHE_KEY);
   localStorage.removeItem(SESSION_PASSWORD_KEY);
+  decryptedDocumentUrlCache.forEach(url => URL.revokeObjectURL(url));
+  decryptedDocumentUrlCache.clear();
   members = [];
   selectedIds.clear();
   isSelectMode = false;

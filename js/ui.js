@@ -148,9 +148,18 @@ function renderDocumentPreview() {
   const doc = documentPreviewItems[documentPreviewIndex];
   if (!doc) return;
   const hasNavigation = documentPreviewItems.length > 1;
+  const imageEl = document.getElementById('documentPreviewImage');
   document.getElementById('documentPreviewTitle').innerText = doc.desc || 'Xem giấy tờ';
-  document.getElementById('documentPreviewImage').src = doc.data;
-  document.getElementById('documentPreviewImage').alt = doc.desc || 'Xem giấy tờ';
+  imageEl.alt = doc.desc || 'Xem giấy tờ';
+  imageEl.src = '';
+  const requestedDocId = doc.id;
+  getDocumentDisplayUrl(doc).then(url => {
+    if (documentPreviewItems[documentPreviewIndex]?.id !== requestedDocId) return;
+    imageEl.src = url;
+  }).catch(err => {
+    if (documentPreviewItems[documentPreviewIndex]?.id !== requestedDocId) return;
+    alert(err.message || 'Không thể giải mã tệp giấy tờ.');
+  });
   document.getElementById('documentPreviewMeta').innerText = `${doc.fileName || 'Tài liệu'} · Ngày tải lên: ${doc.createdAt || '-'}`;
   document.getElementById('documentPreviewPrevious').classList.toggle('hidden', !hasNavigation);
   document.getElementById('documentPreviewNext').classList.toggle('hidden', !hasNavigation);
@@ -233,13 +242,84 @@ function closeNoteModal() {
   document.getElementById('noteModal').classList.add('hidden');
 }
 
+// Danh sách loại giấy tờ mặc định (thứ tự hiển thị gốc)
+const DEFAULT_DOC_TYPES = [
+  'CCCD / Định danh cá nhân',
+  'Giấy khai sinh',
+  'Giấy đăng ký kết hôn',
+  'Sổ đỏ / Sổ hồng nhà đất',
+  'Thẻ BHYT',
+  'Sổ BHXH / Hợp đồng',
+  'Hồ sơ tiêm chủng / Sức khỏe'
+];
+
+// Thu thập các loại giấy tờ tùy chỉnh mà người dùng đã thêm (dựa trên toàn bộ dữ liệu hiện có)
+function getCustomDocTypes() {
+  const found = [];
+  (typeof members !== 'undefined' ? members : []).forEach(m => {
+    (m.documents || []).forEach(d => {
+      const type = d.docType;
+      if (type && !DEFAULT_DOC_TYPES.includes(type) && !found.includes(type)) {
+        found.push(type);
+      }
+    });
+  });
+  return found;
+}
+
+// Đồng bộ các option của 1 select loại giấy tờ, giữ nguyên lựa chọn hiện tại nếu có thể
+function populateDocTypeSelect(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const previousValue = select.value;
+  const customTypes = getCustomDocTypes();
+  select.innerHTML = '';
+  DEFAULT_DOC_TYPES.concat(customTypes).forEach(type => {
+    const opt = document.createElement('option');
+    opt.value = type;
+    opt.textContent = type;
+    select.appendChild(opt);
+  });
+  const customOpt = document.createElement('option');
+  customOpt.value = 'custom';
+  customOpt.textContent = '-- Thêm loại giấy tờ mới --';
+  select.appendChild(customOpt);
+
+  const knownValues = Array.from(select.options).map(o => o.value);
+  if (previousValue && knownValues.includes(previousValue)) {
+    select.value = previousValue;
+  }
+}
+
+// Đồng bộ đồng thời cả 3 select loại giấy tờ (thêm mới, sửa, chuyển thư mục)
+function refreshAllDocTypeSelects() {
+  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect'].forEach(populateDocTypeSelect);
+}
+
 // Quản lý Modal Upload Giấy tờ
 function openUploadDocModal() {
-  document.getElementById('docTypeSelect').value = "CCCD / Định danh cá nhân";
-  document.getElementById('docCustomName').value = "";
-  document.getElementById('docDesc').value = "";
+  populateDocTypeSelect('docTypeSelect');
+  const typeSelect = document.getElementById('docTypeSelect');
+  const customNameInput = document.getElementById('docCustomName');
+  const folder = typeof currentDocsFolder !== 'undefined' ? currentDocsFolder : null;
+
+  if (folder) {
+    const knownTypes = Array.from(typeSelect.options).map(o => o.value);
+    if (knownTypes.includes(folder)) {
+      typeSelect.value = folder;
+      customNameInput.value = "";
+    } else {
+      typeSelect.value = "custom";
+      customNameInput.value = folder;
+    }
+  } else {
+    typeSelect.value = "CCCD / Định danh cá nhân";
+    customNameInput.value = "";
+  }
+
   document.getElementById('docFileInput').value = "";
-  document.getElementById('customDocNameGroup').classList.add('hidden');
+  document.getElementById('docFileDescList').innerHTML = "";
+  toggleCustomDocName(typeSelect.value);
   document.getElementById('uploadDocModal').classList.remove('hidden');
 }
 
@@ -247,12 +327,73 @@ function closeUploadDocModal() {
   document.getElementById('uploadDocModal').classList.add('hidden');
 }
 
-function toggleCustomDocName(val) {
-  const customGroup = document.getElementById('customDocNameGroup');
+function renderDocFileDescList(input) {
+  const container = document.getElementById('docFileDescList');
+  container.innerHTML = "";
+  const files = Array.from(input.files || []);
+  files.forEach((file, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
+    row.innerHTML = `
+      <span style="flex:0 0 110px; font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+      <input type="text" class="doc-file-desc-input" data-index="${i}" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1..." style="flex:1;">
+    `;
+    container.appendChild(row);
+  });
+}
+
+function toggleCustomDocName(val, groupId = 'customDocNameGroup') {
+  const customGroup = document.getElementById(groupId);
+  const inputIdMap = {
+    editCustomDocNameGroup: 'editDocCustomName',
+    moveDocsCustomNameGroup: 'moveDocsCustomName'
+  };
+  const inputId = inputIdMap[groupId] || 'docCustomName';
   if (val === 'custom') {
     customGroup.classList.remove('hidden');
-    document.getElementById('docCustomName').focus();
+    document.getElementById(inputId).focus();
   } else {
     customGroup.classList.add('hidden');
   }
+}
+
+// Quản lý Modal Sửa Giấy tờ
+function openEditDocModal(docType, desc) {
+  populateDocTypeSelect('editDocTypeSelect');
+  const typeSelect = document.getElementById('editDocTypeSelect');
+  const knownTypes = Array.from(typeSelect.options).map(o => o.value);
+  if (knownTypes.includes(docType)) {
+    typeSelect.value = docType;
+    document.getElementById('editDocCustomName').value = "";
+  } else {
+    typeSelect.value = "custom";
+    document.getElementById('editDocCustomName').value = docType;
+  }
+  document.getElementById('editDocDesc').value = desc || "";
+  toggleCustomDocName(typeSelect.value, 'editCustomDocNameGroup');
+  document.getElementById('editDocModal').classList.remove('hidden');
+}
+
+function closeEditDocModal() {
+  document.getElementById('editDocModal').classList.add('hidden');
+}
+
+// Quản lý Modal Chuyển nhiều tệp sang thư mục khác
+function openMoveDocsModal() {
+  if (selectedDocIds.size === 0) {
+    alert('Vui lòng chọn ít nhất 1 tệp để chuyển thư mục!');
+    return;
+  }
+  populateDocTypeSelect('moveDocsTypeSelect');
+  const typeSelect = document.getElementById('moveDocsTypeSelect');
+  const customNameInput = document.getElementById('moveDocsCustomName');
+  typeSelect.value = 'CCCD / Định danh cá nhân';
+  customNameInput.value = '';
+  toggleCustomDocName(typeSelect.value, 'moveDocsCustomNameGroup');
+  document.getElementById('moveDocsSummary').innerText = `Đã chọn ${selectedDocIds.size} tệp.`;
+  document.getElementById('moveDocsModal').classList.remove('hidden');
+}
+
+function closeMoveDocsModal() {
+  document.getElementById('moveDocsModal').classList.add('hidden');
 }

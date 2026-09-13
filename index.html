@@ -6,7 +6,11 @@
   <title>Quản lý thông tin gia đình</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=8">
+  <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -34,7 +38,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.3 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.4 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -150,8 +154,26 @@
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-back" onclick="navigateApp('member', { id: currentMemberId })">↩ Quay lại hồ sơ</button>
-        <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
+        <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()">↩ Quay lại hồ sơ</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-outline" id="btnToggleDocSelect" onclick="toggleDocSelectMode()">☑️ Chọn nhiều tệp</button>
+          <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
+        </div>
+      </div>
+
+      <!-- Thanh tác vụ hàng loạt cho tệp giấy tờ -->
+      <div id="docsBatchToolbar" class="batch-bar hidden">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
+            <input type="checkbox" id="docSelectAllCheckbox" onchange="toggleDocSelectAll(this.checked)" style="width:20px; height:20px; accent-color:var(--navy); cursor:pointer;">
+            Chọn tất cả
+          </label>
+          <span id="docSelectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-success" onclick="openMoveDocsModal()">📁 Chuyển thư mục</button>
+          <button class="btn-danger" onclick="deleteSelectedDocuments()">🗑️ Xóa đã chọn</button>
+        </div>
       </div>
 
       <div class="explorer-header">
@@ -398,14 +420,15 @@
     </div>
 
     <div class="form-group">
-      <label>Tên trang / Nhãn nhận diện</label>
-      <input type="text" id="docDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục...">
+      <label>Chọn tệp (Ảnh JPG/PNG hoặc tài liệu PDF)</label>
+      <input type="file" id="docFileInput" accept="image/*,application/pdf" multiple style="background:#fff;" onchange="renderDocFileDescList(this)">
+      <small style="color:var(--text-muted); font-size:0.75rem;">Có thể chọn nhiều tệp cùng lúc. Mỗi file nên dưới 3MB để database đồng bộ mượt mà nhất.</small>
     </div>
 
-    <div class="form-group">
-      <label>Chọn tệp (Ảnh JPG/PNG hoặc tài liệu PDF)</label>
-      <input type="file" id="docFileInput" accept="image/*,application/pdf" style="background:#fff;">
-      <small style="color:var(--text-muted); font-size:0.75rem;">Mỗi file nên dưới 3MB để database đồng bộ mượt mà nhất.</small>
+    <div class="form-group" id="docFileDescGroup">
+      <label>Tên trang / Nhãn nhận diện</label>
+      <div id="docFileDescList"></div>
+      <small style="color:var(--text-muted); font-size:0.75rem;">Chọn tệp ở trên trước, sau đó đặt nhãn riêng cho từng tệp, ví dụ: Mặt trước, Mặt sau...</small>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:18px;">
@@ -415,12 +438,80 @@
   </div>
 </div>
 
+<!-- Modal Sửa thông tin giấy tờ -->
+<div id="editDocModal" class="modal-overlay hidden" onclick="closeEditDocModal()">
+  <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Sửa thông tin giấy tờ</h3>
+
+    <div class="form-group">
+      <label>Loại giấy tờ (Thư mục)</label>
+      <select id="editDocTypeSelect" onchange="toggleCustomDocName(this.value, 'editCustomDocNameGroup')">
+        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
+        <option value="Giấy khai sinh">Giấy khai sinh</option>
+        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
+        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
+        <option value="Thẻ BHYT">Thẻ BHYT</option>
+        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
+        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="custom">-- Thêm loại giấy tờ mới --</option>
+      </select>
+    </div>
+
+    <div class="form-group hidden" id="editCustomDocNameGroup">
+      <label>Tên loại giấy tờ mới</label>
+      <input type="text" id="editDocCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+
+    <div class="form-group">
+      <label>Tên trang / Nhãn nhận diện</label>
+      <input type="text" id="editDocDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục... (để trống sẽ dùng tên loại giấy tờ)">
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button type="button" id="btnSaveDocEdit" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveDocumentEdit()">Lưu thay đổi</button>
+      <button type="button" class="btn-outline" onclick="closeEditDocModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Chuyển nhiều tệp sang thư mục khác -->
+<div id="moveDocsModal" class="modal-overlay hidden" onclick="closeMoveDocsModal()">
+  <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Chuyển tệp đã chọn sang thư mục khác</h3>
+    <div id="moveDocsSummary" style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;"></div>
+
+    <div class="form-group">
+      <label>Loại giấy tờ (Thư mục đích)</label>
+      <select id="moveDocsTypeSelect" onchange="toggleCustomDocName(this.value, 'moveDocsCustomNameGroup')">
+        <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
+        <option value="Giấy khai sinh">Giấy khai sinh</option>
+        <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
+        <option value="Sổ đỏ / Sổ hồng nhà đất">Sổ đỏ / Sổ hồng nhà đất</option>
+        <option value="Thẻ BHYT">Thẻ BHYT</option>
+        <option value="Sổ BHXH / Hợp đồng">Sổ BHXH / Hợp đồng lao động</option>
+        <option value="Hồ sơ tiêm chủng / Sức khỏe">Hồ sơ tiêm chủng / Sức khỏe</option>
+        <option value="custom">-- Thêm loại giấy tờ mới --</option>
+      </select>
+    </div>
+
+    <div class="form-group hidden" id="moveDocsCustomNameGroup">
+      <label>Tên loại giấy tờ mới</label>
+      <input type="text" id="moveDocsCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button type="button" id="btnMoveDocs" class="btn-primary" style="flex:1; justify-content:center;" onclick="moveSelectedDocuments()">Di chuyển</button>
+      <button type="button" class="btn-outline" onclick="closeMoveDocsModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=23"></script>
-<script defer src="js/auth.js?v=27"></script>
-<script defer src="js/ui.js?v=23"></script>
-<script defer src="js/members.js?v=24"></script>
-<script defer src="js/page.js?v=19"></script>
+<script defer src="js/config.js?v=25"></script>
+<script defer src="js/auth.js?v=29"></script>
+<script defer src="js/ui.js?v=25"></script>
+<script defer src="js/members.js?v=26"></script>
+<script defer src="js/page.js?v=20"></script>
 
 </body>
 </html>

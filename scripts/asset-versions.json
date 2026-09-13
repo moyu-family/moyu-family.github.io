@@ -1,0 +1,26 @@
+{
+  "style.css": {
+    "version": 8,
+    "hash": "97c6ac01b6d52bb1a9ca360ee3d1bb692545175b"
+  },
+  "js/config.js": {
+    "version": 25,
+    "hash": "0016079d046cac6e2821801b8fffcf091018f3a4"
+  },
+  "js/auth.js": {
+    "version": 29,
+    "hash": "56d8d090d96fee469404586dba3f5493759f7685"
+  },
+  "js/ui.js": {
+    "version": 25,
+    "hash": "203bf19ee4b1f1f015d427932e03166440900ba1"
+  },
+  "js/members.js": {
+    "version": 26,
+    "hash": "49f77bd91f50e6b015e882322e34881bdd22d7cd"
+  },
+  "js/page.js": {
+    "version": 20,
+    "hash": "cff85c03c4c842d06088bd253af41d17f8ab7489"
+  }
+}

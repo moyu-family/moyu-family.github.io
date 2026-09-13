@@ -1,5 +1,7 @@
 // Biến theo dõi thư mục giấy tờ hiện tại
 let currentDocsFolder = null;
+let editingDocId = null;
+let docsSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'desc-asc'
 
 function setMemberManagementButtonVisible(visible) {
   ['btnToggleSelect', 'btnAddMember'].forEach(buttonId => {
@@ -108,7 +110,6 @@ function openSummaryTable(skipHistory = false) {
     navigateApp('summary', { ids });
     return;
   }
-  if (!skipHistory) pushAppHistory('summary');
   let targetMembers = members;
   if (selectedIds.size > 0) {
     targetMembers = members.filter(m => selectedIds.has(m.id));
@@ -294,10 +295,13 @@ function renderPhoneField(elementId, phone, contactName) {
 
 // Hiển thị chi tiết
 function viewDetails(id, skipHistory = false) {
-  setMemberManagementButtonVisible(false);
   const targetId = id || currentMemberId;
   const m = members.find(item => String(item.id) === String(targetId));
-  if (!m) return;
+  if (!m) {
+    showHome(true);
+    return;
+  }
+  setMemberManagementButtonVisible(false);
   currentMemberId = m.id;
   if (!skipHistory) pushAppHistory('member', { memberId: m.id });
 
@@ -561,6 +565,7 @@ async function saveMember(e) {
         avatarData = await uploadFileToStorage(dataUrlToBlob(avatarData), `avatars/${id}`);
       } catch (err) {
         alert(err.message);
+        saveButtons.forEach(button => { button.disabled = false; });
         return;
       }
     }
@@ -607,13 +612,14 @@ async function saveMember(e) {
   const idx = members.findIndex(m => String(m.id) === String(id));
   if (idx >= 0) {
     memberObj.documents = members[idx].documents || [];
-    for (const document of memberObj.documents) {
-      if (!document.data || !document.data.startsWith('data:')) continue;
+    for (const doc of memberObj.documents) {
+      if (!doc.data || !doc.data.startsWith('data:')) continue;
       try {
-        document.data = await uploadFileToStorage(
-          dataUrlToBlob(document.data),
-          `documents/${id}/${document.id}-${document.fileName || 'document'}`
+        doc.data = await uploadEncryptedFileToStorage(
+          dataUrlToBlob(doc.data),
+          `documents/${id}/${doc.id}-${doc.fileName || 'document'}`
         );
+        doc.encrypted = true;
       } catch (err) {
         alert(err.message);
         saveButtons.forEach(button => { button.disabled = false; });
@@ -667,19 +673,19 @@ async function deleteCurrentMember() {
 
 // Mở màn hình Hồ sơ cá nhân
 function openDocsView(memberId = null, skipHistory = false) {
-  setMemberManagementButtonVisible(false);
   const targetId = memberId || currentMemberId;
   const m = members.find(item => String(item.id) === String(targetId));
   if (!m) {
     alert('Không tìm thấy thông tin thành viên!');
+    showHome(true);
     return;
   }
+  setMemberManagementButtonVisible(false);
   currentMemberId = targetId;
   if (!skipHistory) {
     navigateApp('documents', { id: targetId });
     return;
   }
-  if (!skipHistory) pushAppHistory('documents', { memberId: targetId });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -687,13 +693,36 @@ function openDocsView(memberId = null, skipHistory = false) {
   document.getElementById('formView').classList.add('hidden');
   document.getElementById('docsView').classList.remove('hidden');
 
+  isDocSelectMode = false;
+  selectedDocIds.clear();
+  document.getElementById('docsBatchToolbar').classList.add('hidden');
+  document.getElementById('btnToggleDocSelect').innerText = '☑️ Chọn nhiều tệp';
+
   document.getElementById('docsOwnerName').innerText = `📁 Hồ sơ cá nhân: ${m.name}`;
   renderDocsFolders();
+}
+
+// Nút "Quay lại" trong Hồ sơ cá nhân: nếu đang trong 1 danh mục thì quay lại danh sách danh mục,
+// nếu đang ở danh sách danh mục thì quay lại trang cá nhân của thành viên.
+// Dùng goBackInApp() (lịch sử trình duyệt) thay vì pushState mới để không làm lệch ngăn xếp lịch sử,
+// nếu không nút "Quay lại" ở trang cá nhân sau đó sẽ không còn trỏ đúng về trang chủ.
+function goBackFromDocsView() {
+  if (currentDocsFolder) renderDocsFolders();
+  else goBackInApp();
+}
+
+function updateDocsBackBtnLabel() {
+  const btn = document.getElementById('docsBackBtn');
+  if (!btn) return;
+  btn.innerText = currentDocsFolder ? '↩ Quay lại danh mục' : '↩ Quay lại hồ sơ';
 }
 
 // 1. Màn hình ngoài: Danh sách các thư mục loại giấy tờ
 function renderDocsFolders() {
   currentDocsFolder = null;
+  selectedDocIds.clear();
+  document.getElementById('docsBatchToolbar').classList.add('hidden');
+  updateDocsBackBtnLabel();
   const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
@@ -725,7 +754,7 @@ function renderDocsFolders() {
   const grid = document.createElement('div');
   grid.className = 'folder-grid';
 
-  Object.keys(folderMap).forEach(type => {
+  Object.keys(folderMap).sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' })).forEach(type => {
     const files = folderMap[type];
     const card = document.createElement('div');
     card.className = 'folder-card';
@@ -746,12 +775,140 @@ function renderDocsFolders() {
   container.appendChild(grid);
 }
 
+// Sắp xếp danh sách tệp theo ngày tải lên hoặc theo mô tả (A-Z)
+function sortDocsList(files, mode) {
+  const arr = [...files];
+  if (mode === 'desc-asc') {
+    arr.sort((a, b) => (a.desc || '').localeCompare(b.desc || '', 'vi', { sensitivity: 'base' }));
+  } else if (mode === 'date-asc') {
+    arr.sort((a, b) => Number(a.id) - Number(b.id));
+  } else {
+    arr.sort((a, b) => Number(b.id) - Number(a.id));
+  }
+  return arr;
+}
+
+// Chế độ chọn nhiều tệp giấy tờ / Bulk Actions cho hồ sơ cá nhân
+function toggleDocSelectMode() {
+  isDocSelectMode = !isDocSelectMode;
+  selectedDocIds.clear();
+  const selectAllCb = document.getElementById('docSelectAllCheckbox');
+  if (selectAllCb) selectAllCb.checked = false;
+  document.getElementById('docsBatchToolbar').classList.toggle('hidden', !isDocSelectMode);
+  document.getElementById('btnToggleDocSelect').innerText = isDocSelectMode ? '✕ Thoát chọn' : '☑️ Chọn nhiều tệp';
+  if (currentDocsFolder) openFolderDetails(currentDocsFolder);
+  else updateDocSelectedCount();
+}
+
+function getCurrentFolderFiles() {
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  if (!m || !currentDocsFolder) return [];
+  return (m.documents || []).filter(d => (d.docType || 'Giấy tờ khác') === currentDocsFolder);
+}
+
+function updateDocSelectedCount() {
+  const countEl = document.getElementById('docSelectedCountText');
+  if (countEl) countEl.innerText = `(Đã chọn: ${selectedDocIds.size}/${getCurrentFolderFiles().length})`;
+}
+
+function toggleDocSelection(id) {
+  if (selectedDocIds.has(id)) selectedDocIds.delete(id);
+  else selectedDocIds.add(id);
+
+  const card = document.querySelector(`.file-card[data-doc-id="${id}"]`);
+  if (card) {
+    const isSelected = selectedDocIds.has(id);
+    card.classList.toggle('is-selected', isSelected);
+    const cb = card.querySelector('.file-card-checkbox');
+    if (cb) cb.checked = isSelected;
+  }
+
+  const totalInFolder = getCurrentFolderFiles().length;
+  const selectAllCb = document.getElementById('docSelectAllCheckbox');
+  if (selectAllCb) selectAllCb.checked = (selectedDocIds.size === totalInFolder && totalInFolder > 0);
+  updateDocSelectedCount();
+}
+
+function toggleDocSelectAll(checked) {
+  selectedDocIds.clear();
+  if (checked) {
+    getCurrentFolderFiles().forEach(d => selectedDocIds.add(d.id));
+  }
+  document.querySelectorAll('.file-card').forEach(card => {
+    card.classList.toggle('is-selected', checked);
+    const cb = card.querySelector('.file-card-checkbox');
+    if (cb) cb.checked = checked;
+  });
+  updateDocSelectedCount();
+}
+
+async function deleteSelectedDocuments() {
+  if (selectedDocIds.size === 0) {
+    alert('Vui lòng chọn ít nhất 1 tệp để xóa!');
+    return;
+  }
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  if (!m || !m.documents) return;
+
+  if (confirm(`Bạn có chắc chắn muốn xóa ${selectedDocIds.size} tệp giấy tờ đã chọn?`)) {
+    m.documents = m.documents.filter(d => {
+      const shouldDelete = selectedDocIds.has(d.id);
+      if (shouldDelete && decryptedDocumentUrlCache.has(d.id)) {
+        URL.revokeObjectURL(decryptedDocumentUrlCache.get(d.id));
+        decryptedDocumentUrlCache.delete(d.id);
+      }
+      return !shouldDelete;
+    });
+    selectedDocIds.clear();
+    try {
+      await pushToFirebase();
+      if (currentDocsFolder) openFolderDetails(currentDocsFolder);
+      else renderDocsFolders();
+    } catch (err) {
+      alert('Lỗi xóa tệp giấy tờ: ' + err.message);
+    }
+  }
+}
+
+async function moveSelectedDocuments() {
+  if (selectedDocIds.size === 0) {
+    alert('Vui lòng chọn ít nhất 1 tệp để chuyển thư mục!');
+    return;
+  }
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  if (!m || !m.documents) return;
+
+  const typeSel = document.getElementById('moveDocsTypeSelect').value;
+  const docType = typeSel === 'custom'
+    ? (document.getElementById('moveDocsCustomName').value.trim() || 'Tài liệu khác')
+    : typeSel;
+
+  m.documents.forEach(d => {
+    if (selectedDocIds.has(d.id)) d.docType = docType;
+  });
+
+  const btn = document.getElementById('btnMoveDocs');
+  btn.innerText = 'Đang chuyển...';
+  try {
+    await pushToFirebase();
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    closeMoveDocsModal();
+    selectedDocIds.clear();
+    openFolderDetails(docType);
+  } catch (err) {
+    alert('Lỗi chuyển thư mục: ' + err.message);
+  } finally {
+    btn.innerText = 'Di chuyển';
+  }
+}
+
 // 2. Màn hình trong: Chi tiết danh sách các ảnh/tệp của loại giấy tờ đó (File Explorer Detail View)
 function openFolderDetails(docType) {
   currentDocsFolder = docType;
   const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
+  updateDocsBackBtnLabel();
   document.getElementById('docsBreadcrumb').innerHTML = `📂 Thư mục gốc ➔ <strong style="color:var(--navy);">${escapeHtml(docType)}</strong>`;
   document.getElementById('folderBackBtn').classList.remove('hidden');
 
@@ -765,17 +922,45 @@ function openFolderDetails(docType) {
     return;
   }
 
+  const sortBar = document.createElement('div');
+  sortBar.className = 'docs-sort-bar';
+  sortBar.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:14px;';
+  sortBar.innerHTML = `
+    <label for="docsSortSelect" style="font-size:0.85rem; color:var(--text-muted); white-space:nowrap;">Sắp xếp:</label>
+    <select id="docsSortSelect" style="max-width:220px;">
+      <option value="date-desc">Ngày tải lên (mới nhất trước)</option>
+      <option value="date-asc">Ngày tải lên (cũ nhất trước)</option>
+      <option value="desc-asc">Mô tả (A-Z)</option>
+    </select>
+  `;
+  sortBar.querySelector('#docsSortSelect').value = docsSortMode;
+  sortBar.querySelector('#docsSortSelect').onchange = (e) => {
+    docsSortMode = e.target.value;
+    openFolderDetails(docType);
+  };
+  container.appendChild(sortBar);
+
+  const sortedFiles = sortDocsList(files, docsSortMode);
+
   const filesList = document.createElement('div');
   filesList.className = 'files-list';
 
-  files.forEach(doc => {
+  sortedFiles.forEach(doc => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const isSelected = selectedDocIds.has(doc.id);
     const card = document.createElement('article');
-    card.className = 'file-card';
+    card.className = 'file-card' + (isSelected ? ' is-selected' : '');
+    card.setAttribute('data-doc-id', doc.id);
     const thumb = isPdf
       ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
-      : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+      : (doc.encrypted
+        ? '<div class="file-thumb file-thumb-loading">⏳</div>'
+        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
+    const checkboxHtml = isDocSelectMode
+      ? `<input type="checkbox" class="file-card-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleDocSelection('${doc.id}')">`
+      : '';
     card.innerHTML = `
+      ${checkboxHtml}
       <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
       <div class="file-card-info">
         <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
@@ -786,13 +971,21 @@ function openFolderDetails(docType) {
         <button type="button" class="btn-danger file-action-button btn-del-file" title="Xóa tài liệu" aria-label="Xóa tài liệu">🗑️</button>
       </div>
     `;
+    if (!isPdf && doc.encrypted) {
+      const previewButton = card.querySelector('.file-preview-button');
+      getDocumentDisplayUrl(doc).then(url => {
+        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+      }).catch(() => {
+        previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
+      });
+    }
     card.querySelector('.file-preview-button').onclick = () => {
       if (isPdf) openDocumentInNewTab(doc.id);
-      else showDocumentPreview(doc, files);
+      else showDocumentPreview(doc, sortedFiles);
     };
     card.querySelector('.btn-view-file').onclick = () => {
       if (isPdf) openDocumentInNewTab(doc.id);
-      else showDocumentPreview(doc, files);
+      else showDocumentPreview(doc, sortedFiles);
     };
     card.querySelector('.btn-edit-file').onclick = () => editDocumentDescription(doc.id);
     card.querySelector('.btn-del-file').onclick = () => deleteDocument(doc.id);
@@ -800,22 +993,54 @@ function openFolderDetails(docType) {
   });
 
   container.appendChild(filesList);
+
+  document.getElementById('docsBatchToolbar').classList.toggle('hidden', !isDocSelectMode);
+  const selectAllCb = document.getElementById('docSelectAllCheckbox');
+  if (selectAllCb) selectAllCb.checked = (selectedDocIds.size === sortedFiles.length && sortedFiles.length > 0);
+  updateDocSelectedCount();
 }
 
-async function editDocumentDescription(docId) {
+function editDocumentDescription(docId) {
   const m = members.find(item => String(item.id) === String(currentMemberId));
   const doc = m?.documents?.find(item => String(item.id) === String(docId));
   if (!doc) return;
 
-  const description = prompt('Nhập mô tả mới cho tài liệu:', doc.desc || '');
-  if (description === null) return;
+  editingDocId = docId;
+  openEditDocModal(doc.docType || 'Giấy tờ khác', doc.desc);
+}
 
-  doc.desc = description.trim();
+async function saveDocumentEdit() {
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  const doc = m?.documents?.find(item => String(item.id) === String(editingDocId));
+  if (!doc) return;
+
+  const typeSel = document.getElementById('editDocTypeSelect').value;
+  const docType = typeSel === 'custom'
+    ? (document.getElementById('editDocCustomName').value.trim() || 'Tài liệu khác')
+    : typeSel;
+  const desc = document.getElementById('editDocDesc').value.trim();
+
+  const previousFolder = currentDocsFolder;
+  doc.docType = docType;
+  doc.desc = desc || docType;
+
+  const btn = document.getElementById('btnSaveDocEdit');
+  btn.innerText = 'Đang lưu...';
   try {
     await pushToFirebase();
-    openFolderDetails(currentDocsFolder);
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    closeEditDocModal();
+    if (previousFolder && previousFolder !== docType) {
+      openFolderDetails(docType);
+    } else if (currentDocsFolder) {
+      openFolderDetails(currentDocsFolder);
+    } else {
+      renderDocsFolders();
+    }
   } catch (err) {
-    alert('Lỗi lưu mô tả: ' + err.message);
+    alert('Lỗi lưu thông tin giấy tờ: ' + err.message);
+  } finally {
+    btn.innerText = 'Lưu thay đổi';
   }
 }
 
@@ -829,35 +1054,43 @@ async function saveDocument() {
     ? (document.getElementById('docCustomName').value.trim() || 'Tài liệu khác')
     : typeSel;
   
-  const desc = document.getElementById('docDesc').value.trim();
   const fileInput = document.getElementById('docFileInput');
 
   if (!fileInput.files || fileInput.files.length === 0) {
-    alert('Vui lòng chọn 1 tệp hình ảnh hoặc PDF để tải lên!');
+    alert('Vui lòng chọn ít nhất 1 tệp hình ảnh hoặc PDF để tải lên!');
     return;
   }
 
-  const file = fileInput.files[0];
+  const files = Array.from(fileInput.files);
+  const descInputs = document.querySelectorAll('#docFileDescList .doc-file-desc-input');
+  const descList = files.map((_, i) => (descInputs[i] ? descInputs[i].value.trim() : ""));
   const btn = document.getElementById('btnSaveDoc');
-  btn.innerText = 'Đang tải tệp & lưu...';
+  if (!m.documents) m.documents = [];
   try {
-    const documentId = String(Date.now());
-    const storageUrl = await uploadFileToStorage(file, `documents/${currentMemberId}/${documentId}-${file.name}`);
-    if (!m.documents) m.documents = [];
-    m.documents.push({
-      id: documentId,
-      docType,
-      fileName: file.name,
-      fileType: file.type,
-      desc,
-      data: storageUrl,
-      createdAt: new Date().toLocaleDateString('vi-VN')
-    });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      btn.innerText = files.length > 1
+        ? `Đang tải tệp ${i + 1}/${files.length}...`
+        : 'Đang tải tệp & lưu...';
+      const documentId = String(Date.now() + i);
+      const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${currentMemberId}/${documentId}-${file.name}`);
+      m.documents.push({
+        id: documentId,
+        docType,
+        fileName: file.name,
+        fileType: file.type,
+        desc: descList[i],
+        data: storageUrl,
+        encrypted: true,
+        createdAt: new Date().toLocaleDateString('vi-VN')
+      });
+    }
     await pushToFirebase();
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
     closeUploadDocModal();
     if (currentDocsFolder && currentDocsFolder === docType) openFolderDetails(docType);
     else renderDocsFolders();
-    alert('Đã tải lên và lưu giấy tờ thành công!');
+    alert(files.length > 1 ? `Đã tải lên và lưu ${files.length} tệp thành công!` : 'Đã tải lên và lưu giấy tờ thành công!');
   } catch (err) {
     alert('Lỗi khi lưu tài liệu: ' + err.message);
   } finally {
@@ -866,7 +1099,7 @@ async function saveDocument() {
 }
 
 // Mở tài liệu ở tab mới
-function openDocumentInNewTab(docId) {
+async function openDocumentInNewTab(docId) {
   const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m || !m.documents) return;
 
@@ -882,13 +1115,22 @@ function openDocumentInNewTab(docId) {
     return;
   }
 
+  let displayUrl;
+  try {
+    displayUrl = await getDocumentDisplayUrl(doc);
+  } catch (err) {
+    newTab.close();
+    alert(err.message || 'Không thể giải mã tệp giấy tờ.');
+    return;
+  }
+
   if (doc.fileType && doc.fileType.includes('pdf')) {
     newTab.document.write(`
       <!DOCTYPE html>
       <html>
       <head><title>${escapeHtml(doc.fileName)}</title></head>
       <body style="margin:0; padding:0; height:100vh; overflow:hidden;">
-        <iframe src="${doc.data}" frameborder="0" style="width:100%; height:100%; border:none;"></iframe>
+        <iframe src="${displayUrl}" frameborder="0" style="width:100%; height:100%; border:none;"></iframe>
       </body>
       </html>
     `);
@@ -906,7 +1148,7 @@ function openDocumentInNewTab(docId) {
       </head>
       <body>
         <div class="top-info">${escapeHtml(doc.docType)}: <b>${escapeHtml(doc.desc || doc.fileName)}</b></div>
-        <img src="${doc.data}" alt="Preview">
+        <img src="${displayUrl}" alt="Preview">
       </body>
       </html>
     `);
@@ -921,6 +1163,11 @@ async function deleteDocument(docId) {
 
   if (confirm('Bạn có chắc chắn muốn xóa tệp giấy tờ này?')) {
     m.documents = m.documents.filter(d => String(d.id) !== String(docId));
+    selectedDocIds.delete(docId);
+    if (decryptedDocumentUrlCache.has(docId)) {
+      URL.revokeObjectURL(decryptedDocumentUrlCache.get(docId));
+      decryptedDocumentUrlCache.delete(docId);
+    }
     try {
       await pushToFirebase();
       if (currentDocsFolder) {
