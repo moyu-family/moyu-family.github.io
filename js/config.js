@@ -17,6 +17,12 @@ const DEFAULT_BANKS = [
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 150 150%22%3E%3Crect width=%22150%22 height=%22150%22 fill=%22%23e2e8f0%22/%3E%3Ccircle cx=%2275%22 cy=%2258%22 r=%2225%22 fill=%22%2394a3b8%22/%3E%3Cpath d=%22M28 137c4-29 22-43 47-43s43 14 47 43%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E';
 const DEFAULT_BANK_LOGO = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 50 50%22%3E%3Crect width=%2250%22 height=%2250%22 rx=%228%22 fill=%22%23e2e8f0%22/%3E%3Cpath d=%22M10 22h30L25 12 10 22zm4 4h4v12h-4V26zm9 0h4v12h-4V26zm9 0h4v12h-4V26zM9 42h32v-4H9v4z%22 fill=%22%2364758b%22/%3E%3C/svg%3E';
 
+// Hồ sơ chung gia đình: một "thành viên ảo" sống chung trong mảng `members` (để tái dùng
+// toàn bộ máy móc quản lý giấy tờ/thư mục sẵn có), nhưng bị loại khỏi lưới thành viên,
+// bảng tổng hợp và các thao tác hàng loạt trên trang chủ (xem displayMembers()).
+const FAMILY_SHARED_ID = 'family_shared';
+const FAMILY_SHARED_NAME = '👨‍👩‍👧‍👦 Hồ sơ chung gia đình';
+
 // Biến trạng thái toàn cục
 let masterPassword = null;
 let members = [];
@@ -29,6 +35,9 @@ let selectedDocIds = new Set();
 let selectedFolderIds = new Set();
 let currentSubfolderId = null;
 let pendingUploadFiles = []; // { file, desc } - danh sách tệp đang chờ tải lên trong modal upload, có thể bỏ bớt từng tệp
+let globalUploadFile = null; // { file, previewUrl } - tệp đang chờ tải lên trong modal Tải nhanh (FAB)
+let globalSelectedTags = []; // Các tag (tên thành viên hoặc tag tự do) đã chọn trong modal Tải nhanh
+let currentConsolidatedTagFilter = null; // { kind:'family' } | { kind:'member', id, name } | { kind:'custom', name }
 let docsViewMode = (function () {
   try { return localStorage.getItem('docsViewMode') || 'grid'; } catch (e) { return 'grid'; }
 })();
@@ -59,7 +68,8 @@ const ICONS = {
   fingerprint: '<path d="M2 12a10 10 0 0 1 18-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2v2"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M2 16h.01"></path>',
   creditCard: '<rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line>',
   info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
-  notebook: '<path d="M4 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><line x1="8" y1="7" x2="15" y2="7"></line><line x1="8" y1="11" x2="15" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line><line x1="4" y1="7" x2="4" y2="7.01"></line><line x1="4" y1="17" x2="4" y2="17.01"></line>'
+  notebook: '<path d="M4 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><line x1="8" y1="7" x2="15" y2="7"></line><line x1="8" y1="11" x2="15" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line><line x1="4" y1="7" x2="4" y2="7.01"></line><line x1="4" y1="17" x2="4" y2="17.01"></line>',
+  camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>'
 };
 
 function svgIcon(name) {
@@ -84,6 +94,27 @@ function escapeHtml(value = "") {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// Danh sách thành viên "hiển thị được" trên trang chủ/bảng tổng hợp/thao tác hàng loạt:
+// loại bỏ Hồ sơ chung gia đình (không phải 1 thành viên thật, không có CCCD/ngân hàng...).
+function displayMembers() {
+  return members.filter(m => m.id !== FAMILY_SHARED_ID);
+}
+
+// Tìm (hoặc tạo mới nếu chưa từng có) "thành viên ảo" Hồ sơ chung gia đình trong mảng members,
+// để có thể tái dùng nguyên vẹn toàn bộ máy móc upload/quản lý giấy tờ theo từng member.
+// Chỉ tạo trong bộ nhớ khi thực sự cần lưu tài liệu đầu tiên (không tự tạo lúc tải dữ liệu),
+// tránh phát sinh 1 lượt ghi Firebase thừa mỗi lần mở khoá ứng dụng.
+function ensureFamilySharedMember() {
+  let m = members.find(item => String(item.id) === FAMILY_SHARED_ID);
+  if (!m) {
+    m = { id: FAMILY_SHARED_ID, type: 'family', name: FAMILY_SHARED_NAME, documents: [], folders: [] };
+    members.push(m);
+  }
+  if (!m.documents) m.documents = [];
+  if (!m.folders) m.folders = [];
+  return m;
 }
 
 function sanitizeRichText(html = '') {

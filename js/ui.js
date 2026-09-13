@@ -252,7 +252,12 @@ const DEFAULT_DOC_TYPES = [
   'Sổ đỏ / Sổ hồng nhà đất',
   'Thẻ BHYT',
   'Sổ BHXH / Hợp đồng',
-  'Hồ sơ tiêm chủng / Sức khỏe'
+  'Hồ sơ tiêm chủng / Sức khỏe',
+  'Giấy tờ tùy thân',
+  'Chi phí',
+  'Học tập',
+  'Y tế',
+  'Hộ tịch'
 ];
 
 // Thu thập các loại giấy tờ tùy chỉnh mà người dùng đã thêm (dựa trên toàn bộ dữ liệu hiện có)
@@ -301,9 +306,9 @@ function populateDocTypeSelect(selectId) {
   }
 }
 
-// Đồng bộ đồng thời cả 3 select loại giấy tờ (thêm mới, sửa, chuyển thư mục)
+// Đồng bộ đồng thời cả 4 select loại giấy tờ (thêm mới, sửa, chuyển thư mục, tải nhanh FAB)
 function refreshAllDocTypeSelects() {
-  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect'].forEach(populateDocTypeSelect);
+  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect', 'guCategorySelect'].forEach(populateDocTypeSelect);
 }
 
 // Quản lý Modal Upload Giấy tờ
@@ -453,7 +458,8 @@ function toggleCustomDocName(val, groupId = 'customDocNameGroup') {
   const customGroup = document.getElementById(groupId);
   const inputIdMap = {
     editCustomDocNameGroup: 'editDocCustomName',
-    moveDocsCustomNameGroup: 'moveDocsCustomName'
+    moveDocsCustomNameGroup: 'moveDocsCustomName',
+    guCustomCategoryGroup: 'guCustomCategoryName'
   };
   const inputId = inputIdMap[groupId] || 'docCustomName';
   if (val === 'custom') {
@@ -556,4 +562,181 @@ function populateMoveFolderSelect(docType) {
   rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
   select.appendChild(rootOpt);
   appendFolderTreeOptions(select, m.folders, docType);
+}
+
+// ============================================================
+// MODAL TẢI NHANH (FAB): chụp/chọn ảnh giấy tờ từ bất kỳ màn hình nào, chọn nhanh
+// chủ sở hữu (kể cả "Hồ sơ chung gia đình"), gắn tag đa thành viên, chọn/tạo mới
+// danh mục + thư mục con ngay tại chỗ.
+// ============================================================
+
+function openGlobalUploadModal() {
+  populateGlobalOwnerSelect();
+  document.getElementById('guOwnerSelect').value = FAMILY_SHARED_ID;
+
+  globalSelectedTags = [];
+  document.getElementById('guCustomTagInput').value = '';
+  renderGlobalTagChips();
+
+  globalUploadFile = null;
+  document.getElementById('guFileInput').value = '';
+  document.getElementById('guFilePreview').innerHTML = '';
+  document.getElementById('guDesc').value = '';
+
+  populateDocTypeSelect('guCategorySelect');
+  const categorySelect = document.getElementById('guCategorySelect');
+  const knownCategories = Array.from(categorySelect.options).map(o => o.value);
+  if (knownCategories.includes('Giấy tờ tùy thân')) categorySelect.value = 'Giấy tờ tùy thân';
+  toggleCustomDocName(categorySelect.value, 'guCustomCategoryGroup');
+  document.getElementById('guCustomCategoryName').value = '';
+  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, categorySelect.value === 'custom' ? null : categorySelect.value);
+  document.getElementById('guNewFolderName').value = '';
+  document.getElementById('guNewFolderNameGroup').classList.add('hidden');
+
+  document.getElementById('globalUploadModal').classList.remove('hidden');
+}
+
+function closeGlobalUploadModal() {
+  document.getElementById('globalUploadModal').classList.add('hidden');
+  if (globalUploadFile && globalUploadFile.previewUrl) URL.revokeObjectURL(globalUploadFile.previewUrl);
+  globalUploadFile = null;
+}
+
+// Chủ sở hữu chính: Hồ sơ chung gia đình luôn đứng đầu, sau đó tới từng thành viên hiện có.
+function populateGlobalOwnerSelect() {
+  const select = document.getElementById('guOwnerSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  const familyOpt = document.createElement('option');
+  familyOpt.value = FAMILY_SHARED_ID;
+  familyOpt.textContent = FAMILY_SHARED_NAME;
+  select.appendChild(familyOpt);
+  displayMembers().forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name;
+    select.appendChild(opt);
+  });
+}
+
+function onGlobalOwnerChange() {
+  const categorySel = document.getElementById('guCategorySelect').value;
+  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, categorySel === 'custom' ? null : categorySel);
+}
+
+function onGlobalCategoryChange(val) {
+  toggleCustomDocName(val, 'guCustomCategoryGroup');
+  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, val === 'custom' ? null : val);
+}
+
+// Dựng danh sách thư mục con (tùy theo chủ sở hữu + danh mục đang chọn) cho modal Tải nhanh.
+function populateGlobalFolderSelect(ownerId, docType) {
+  const select = document.getElementById('guFolderSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  const rootOpt = document.createElement('option');
+  rootOpt.value = '';
+  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  select.appendChild(rootOpt);
+
+  const m = members.find(item => String(item.id) === String(ownerId));
+  if (m && docType) appendFolderTreeOptions(select, m.folders, docType);
+
+  const newFolderOpt = document.createElement('option');
+  newFolderOpt.value = '__new__';
+  newFolderOpt.textContent = '➕ Tạo thư mục con mới...';
+  select.appendChild(newFolderOpt);
+
+  document.getElementById('guNewFolderNameGroup').classList.add('hidden');
+}
+
+function onGlobalFolderChange(val) {
+  document.getElementById('guNewFolderNameGroup').classList.toggle('hidden', val !== '__new__');
+  if (val === '__new__') document.getElementById('guNewFolderName').focus();
+}
+
+// Chip chọn nhanh tên thành viên để gắn tag (bấm lại để bỏ chọn)
+function renderGlobalTagChips() {
+  const chipRow = document.getElementById('guTagChips');
+  if (!chipRow) return;
+  chipRow.innerHTML = '';
+  displayMembers().forEach(m => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tag-chip' + (globalSelectedTags.includes(m.name) ? ' is-active' : '');
+    chip.textContent = m.name;
+    chip.onclick = () => toggleGlobalTag(m.name);
+    chipRow.appendChild(chip);
+  });
+  renderGlobalSelectedTags();
+}
+
+function toggleGlobalTag(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return;
+  const idx = globalSelectedTags.indexOf(trimmed);
+  if (idx >= 0) globalSelectedTags.splice(idx, 1);
+  else globalSelectedTags.push(trimmed);
+  renderGlobalTagChips();
+}
+
+function addGlobalCustomTag() {
+  const input = document.getElementById('guCustomTagInput');
+  const value = input.value.trim();
+  if (!value) return;
+  if (!globalSelectedTags.includes(value)) globalSelectedTags.push(value);
+  input.value = '';
+  renderGlobalTagChips();
+  input.focus();
+}
+
+function handleGlobalTagInputKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addGlobalCustomTag();
+  }
+}
+
+function removeGlobalTag(name) {
+  globalSelectedTags = globalSelectedTags.filter(t => t !== name);
+  renderGlobalTagChips();
+}
+
+// Danh sách các tag đã chọn, mỗi tag kèm nút "x" để xoá.
+function renderGlobalSelectedTags() {
+  const wrap = document.getElementById('guSelectedTags');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (globalSelectedTags.length === 0) {
+    wrap.innerHTML = '<span style="color:var(--text-muted); font-size:0.78rem;">Chưa gắn thẻ nào.</span>';
+    return;
+  }
+  globalSelectedTags.forEach(tag => {
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill';
+    pill.innerHTML = `${escapeHtml(tag)} <button type="button" aria-label="Xóa thẻ ${escapeHtml(tag)}">${svgIcon('close')}</button>`;
+    pill.querySelector('button').onclick = () => removeGlobalTag(tag);
+    wrap.appendChild(pill);
+  });
+}
+
+// Xem trước tệp vừa chọn/chụp (ảnh hiện thumbnail, PDF hiện huy hiệu)
+function onGlobalFileSelected(input) {
+  const file = input.files && input.files[0];
+  const preview = document.getElementById('guFilePreview');
+  if (globalUploadFile && globalUploadFile.previewUrl) URL.revokeObjectURL(globalUploadFile.previewUrl);
+  preview.innerHTML = '';
+  if (!file) {
+    globalUploadFile = null;
+    return;
+  }
+  const isPdf = (file.type || '').includes('pdf');
+  if (isPdf) {
+    globalUploadFile = { file, previewUrl: null };
+    preview.innerHTML = '<div class="file-thumb file-thumb-pdf gu-file-thumb">PDF</div>';
+  } else {
+    const url = URL.createObjectURL(file);
+    globalUploadFile = { file, previewUrl: url };
+    preview.innerHTML = `<img src="${url}" alt="Xem trước ảnh vừa chọn" class="file-thumb gu-file-thumb">`;
+  }
 }

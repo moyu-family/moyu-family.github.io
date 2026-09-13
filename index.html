@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -250,6 +250,9 @@
         </div>
       </div>
 
+      <!-- Bộ lọc nhanh theo tag: Hồ sơ chung gia đình / tên thành viên / tag tự do -->
+      <div id="consolidatedTagFilterBar" class="tag-filter-bar"></div>
+
       <!-- Danh mục thư mục hoặc danh sách tệp tổng hợp -->
       <div id="consolidatedExplorerContent"></div>
     </div>
@@ -394,6 +397,9 @@
         </div>
       </form>
     </div>
+
+    <!-- Nút nổi (FAB): chụp/tải nhanh 1 giấy tờ từ bất kỳ màn hình nào -->
+    <button type="button" id="globalUploadFab" class="fab-upload" onclick="openGlobalUploadModal()" title="Tải nhanh giấy tờ" aria-label="Tải nhanh giấy tờ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button>
   </div>
 </div>
 
@@ -513,6 +519,64 @@
   </div>
 </div>
 
+<!-- Modal Tải nhanh (FAB): chụp/chọn 1 ảnh giấy tờ từ bất kỳ màn hình nào -->
+<div id="globalUploadModal" class="modal-overlay hidden" onclick="closeGlobalUploadModal()">
+  <div class="modal-card" style="max-width: 460px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">📸 Tải nhanh giấy tờ</h3>
+
+    <div class="form-group">
+      <label>Chủ sở hữu chính</label>
+      <select id="guOwnerSelect" onchange="onGlobalOwnerChange()"></select>
+    </div>
+
+    <div class="form-group">
+      <label>Thành viên liên quan / Nhãn gắn kèm (tags)</label>
+      <div id="guTagChips" class="tag-chip-row"></div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <input type="text" id="guCustomTagInput" placeholder="Nhập tag tự do (ví dụ: Ông ngoại, Bà nội...)" onkeydown="handleGlobalTagInputKeydown(event)" style="flex:1;">
+        <button type="button" class="btn-outline" style="flex:0 0 auto; padding:9px 14px;" onclick="addGlobalCustomTag()" aria-label="Thêm tag">+</button>
+      </div>
+      <div id="guSelectedTags" class="tag-pill-row" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Danh mục chính (Category)</label>
+      <select id="guCategorySelect" onchange="onGlobalCategoryChange(this.value)"></select>
+    </div>
+
+    <div class="form-group hidden" id="guCustomCategoryGroup">
+      <label>Tên danh mục mới</label>
+      <input type="text" id="guCustomCategoryName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+
+    <div class="form-group">
+      <label>Thư mục con (Subcategory)</label>
+      <select id="guFolderSelect" onchange="onGlobalFolderChange(this.value)"></select>
+    </div>
+
+    <div class="form-group hidden" id="guNewFolderNameGroup">
+      <label>Tên thư mục con mới</label>
+      <input type="text" id="guNewFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng...">
+    </div>
+
+    <div class="form-group">
+      <label>Chọn ảnh / Chụp ảnh (hoặc tệp PDF)</label>
+      <input type="file" id="guFileInput" accept="image/*,application/pdf" capture="environment" onchange="onGlobalFileSelected(this)">
+      <div id="guFilePreview" class="gu-file-preview"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Mô tả / Ghi chú ngắn</label>
+      <input type="text" id="guDesc" placeholder="ví dụ: Học phí kỳ 1, Bản scan khai sinh...">
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button type="button" id="btnSaveGlobalDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveGlobalDocument()">Tải lên & Lưu</button>
+      <button type="button" class="btn-outline" onclick="closeGlobalUploadModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Sửa thông tin giấy tờ -->
 <div id="editDocModal" class="modal-overlay hidden" onclick="closeEditDocModal()">
   <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
@@ -617,10 +681,10 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=26"></script>
+<script defer src="js/config.js?v=27"></script>
 <script defer src="js/auth.js?v=30"></script>
-<script defer src="js/ui.js?v=26"></script>
-<script defer src="js/members.js?v=27"></script>
+<script defer src="js/ui.js?v=27"></script>
+<script defer src="js/members.js?v=28"></script>
 <script defer src="js/page.js?v=21"></script>
 
 </body>

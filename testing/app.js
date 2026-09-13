@@ -60,7 +60,10 @@ function createApp({ url = 'https://moyu-family.github.io/index.html' } = {}) {
       get selectedIds() { return selectedIds; },
       get isSelectMode() { return isSelectMode; },
       get currentMemberId() { return currentMemberId; }, set currentMemberId(v) { currentMemberId = v; },
-      get lastUploadedCipherText() { return lastUploadedCipherText; }
+      get lastUploadedCipherText() { return lastUploadedCipherText; },
+      get globalUploadFile() { return globalUploadFile; }, set globalUploadFile(v) { globalUploadFile = v; },
+      get globalSelectedTags() { return globalSelectedTags; }, set globalSelectedTags(v) { globalSelectedTags = v; },
+      get currentConsolidatedTagFilter() { return currentConsolidatedTagFilter; }, set currentConsolidatedTagFilter(v) { currentConsolidatedTagFilter = v; }
     };
   `;
 

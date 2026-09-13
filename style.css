@@ -402,3 +402,54 @@ table.files-table tr:hover { background: #f1f5f9; }
   font-size: 1.2rem; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid #cbd5e1;
 }
+
+/* ============================================================ */
+/* NÚT NỔI (FAB) TẢI NHANH GIẤY TỜ */
+/* ============================================================ */
+.fab-upload {
+  position: fixed; bottom: 24px; right: 24px; z-index: 99;
+  width: 58px; height: 58px; padding: 0; border-radius: 50%; border: none;
+  background: var(--gradient-primary); color: #ffffff; box-shadow: var(--shadow-glow), 0 10px 25px -6px rgba(79, 70, 229, 0.5);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.fab-upload svg { width: 26px; height: 26px; display: block; }
+.fab-upload:hover { transform: translateY(-2px) scale(1.05); box-shadow: var(--shadow-glow), 0 14px 30px -6px rgba(79, 70, 229, 0.6); }
+.fab-upload:active { transform: scale(0.95); }
+@media(max-width: 640px) {
+  .fab-upload { bottom: 16px; right: 16px; width: 52px; height: 52px; }
+  .fab-upload svg { width: 22px; height: 22px; }
+}
+
+/* ============================================================ */
+/* TAG CHIP / TAG PILL: dùng chung cho modal Tải nhanh và bộ lọc Hồ sơ tổng hợp */
+/* ============================================================ */
+.tag-filter-bar, .tag-chip-row {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px;
+}
+.tag-chip {
+  background: #ffffff; border: 1px solid var(--border-color); color: var(--navy);
+  padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.tag-chip:hover { background: #f5f3ff; border-color: #c4b5fd; transform: translateY(-1px); }
+.tag-chip.is-active { background: var(--gradient-primary); color: #ffffff; border-color: transparent; box-shadow: var(--shadow-glow); }
+.tag-chip-family { border-style: dashed; }
+.tag-chip-clear { background: #fff1f2; border-color: #ffe4e6; color: #e11d48; }
+.tag-chip-clear:hover { background: #ffe1e6; }
+
+.tag-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-pill {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft);
+  color: var(--accent-2); padding: 5px 6px 5px 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 600;
+}
+.tag-pill button {
+  padding: 0; width: 20px; height: 20px; border: none; border-radius: 50%;
+  background: rgba(67, 56, 202, 0.12); color: var(--accent-2); justify-content: center;
+}
+.tag-pill button:hover { background: rgba(67, 56, 202, 0.22); }
+.tag-pill button svg { width: 11px; height: 11px; display: block; }
+
+/* Xem trước tệp vừa chọn/chụp trong modal Tải nhanh */
+.gu-file-preview:not(:empty) { margin-top: 10px; }
+.gu-file-thumb { width: 84px; height: 84px; }

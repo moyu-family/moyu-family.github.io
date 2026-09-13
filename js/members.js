@@ -58,7 +58,7 @@ function toggleSelectMode() {
 }
 
 function updateSelectedCount() {
-  document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${members.length})`;
+  document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${displayMembers().length})`;
 }
 
 function toggleMemberSelection(id) {
@@ -80,7 +80,7 @@ function toggleMemberSelection(id) {
 function toggleSelectAll(checked) {
   selectedIds.clear();
   if (checked) {
-    members.forEach(m => selectedIds.add(m.id));
+    displayMembers().forEach(m => selectedIds.add(m.id));
   }
   document.querySelectorAll('.member-card').forEach(card => {
     card.classList.toggle('is-selected', checked);
@@ -117,7 +117,7 @@ function openSummaryTable(skipHistory = false) {
     navigateApp('summary', { ids });
     return;
   }
-  let targetMembers = members;
+  let targetMembers = displayMembers();
   if (selectedIds.size > 0) {
     targetMembers = members.filter(m => selectedIds.has(m.id));
   }
@@ -171,7 +171,7 @@ function openSummaryTable(skipHistory = false) {
 
 // Sao chép bảng cho Excel[cite: 3]
 function copyTableData() {
-  let targetMembers = members;
+  let targetMembers = displayMembers();
   if (selectedIds.size > 0) {
     targetMembers = members.filter(m => selectedIds.has(m.id));
   }
@@ -217,12 +217,13 @@ function copyTableData() {
 function renderGrid() {
   const grid = document.getElementById('memberGrid');
   grid.innerHTML = '';
-  if (members.length === 0) {
+  const gridMembers = displayMembers();
+  if (gridMembers.length === 0) {
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: var(--text-muted);">Chưa có thành viên nào. Bấm "+ Thêm thành viên" để bắt đầu!</div>';
     return;
   }
-  
-  members.forEach(m => {
+
+  gridMembers.forEach(m => {
     const card = document.createElement('div');
     card.className = 'member-card';
     card.setAttribute('data-id', m.id);
@@ -713,7 +714,8 @@ function openDocsView(memberId = null, skipHistory = false) {
   document.getElementById('docsBatchToolbar').classList.add('hidden');
   setBtnLabel(document.getElementById('btnToggleDocSelect'), 'checkSquare', 'Chọn nhiều tệp');
 
-  document.getElementById('docsOwnerName').querySelector('.btn-text').innerText = `Hồ sơ cá nhân: ${m.name}`;
+  document.getElementById('docsOwnerName').querySelector('.btn-text').innerText =
+    m.id === FAMILY_SHARED_ID ? m.name : `Hồ sơ cá nhân: ${m.name}`;
   renderDocsFolders();
 }
 
@@ -737,6 +739,7 @@ function openConsolidatedView(skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.remove('hidden');
 
+  currentConsolidatedTagFilter = null;
   renderConsolidatedCategories();
 }
 
@@ -748,18 +751,92 @@ function goBackFromConsolidatedView() {
 }
 
 // Gom toàn bộ tệp giấy tờ của tất cả thành viên thành 1 map: docType -> [ {...doc, ownerId, ownerName} ]
-function buildConsolidatedMap() {
+// filterFn (tùy chọn): nhận vào 1 tệp đã gắn ownerId/ownerName, trả về false để loại khỏi map
+// (dùng cho bộ lọc theo tag/thành viên/Hồ sơ chung gia đình trong màn hình tổng hợp).
+function buildConsolidatedMap(filterFn = null) {
   const map = {};
   members.forEach(m => {
     (m.documents || []).forEach(d => {
+      const entry = { ...d, ownerId: m.id, ownerName: m.name };
+      if (filterFn && !filterFn(entry)) return;
       const type = d.docType || 'Giấy tờ khác';
       if (!map[type]) map[type] = [];
-      map[type].push({ ...d, ownerId: m.id, ownerName: m.name });
+      map[type].push(entry);
     });
-    (m.folders || []).forEach(f => { if (!map[f.docType]) map[f.docType] = []; });
-    (m.categories || []).forEach(name => { if (!map[name]) map[name] = []; });
+    // Chỉ chèn danh mục/thư mục rỗng khi KHÔNG có bộ lọc đang bật, để không hiện danh mục
+    // "trống" chỉ vì nó tồn tại thư mục con, trong khi không có tệp nào khớp bộ lọc.
+    if (!filterFn) {
+      (m.folders || []).forEach(f => { if (!map[f.docType]) map[f.docType] = []; });
+      (m.categories || []).forEach(name => { if (!map[name]) map[name] = []; });
+    }
   });
   return map;
+}
+
+// Trả về hàm lọc tương ứng với bộ lọc tag/thành viên/Hồ sơ chung gia đình đang chọn
+// trong màn hình tổng hợp (null nếu không có bộ lọc nào đang bật).
+function consolidatedFilterPredicate() {
+  const f = currentConsolidatedTagFilter;
+  if (!f) return null;
+  if (f.kind === 'family') return d => d.ownerId === FAMILY_SHARED_ID;
+  if (f.kind === 'member') return d => d.ownerId === f.id || (d.tags || []).includes(f.name);
+  return d => (d.tags || []).includes(f.name);
+}
+
+// Vẽ thanh chip lọc nhanh theo tag: "Hồ sơ chung gia đình", tên từng thành viên, và các tag tự do
+// (ví dụ "Ông ngoại") đã từng được gắn cho ít nhất 1 tệp. Bấm lại 1 chip đang chọn để bỏ lọc.
+function renderConsolidatedTagFilterBar() {
+  const bar = document.getElementById('consolidatedTagFilterBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  const addChip = (label, active, onClick, extraClass = '') => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `tag-chip${active ? ' is-active' : ''}${extraClass ? ' ' + extraClass : ''}`;
+    chip.textContent = label;
+    chip.onclick = onClick;
+    bar.appendChild(chip);
+  };
+
+  const isFamilyActive = currentConsolidatedTagFilter?.kind === 'family';
+  addChip(FAMILY_SHARED_NAME, isFamilyActive, () => {
+    currentConsolidatedTagFilter = isFamilyActive ? null : { kind: 'family' };
+    rerenderConsolidatedCurrentScreen();
+  }, 'tag-chip-family');
+
+  displayMembers().forEach(m => {
+    const active = currentConsolidatedTagFilter?.kind === 'member' && currentConsolidatedTagFilter.id === m.id;
+    addChip(m.name, active, () => {
+      currentConsolidatedTagFilter = active ? null : { kind: 'member', id: m.id, name: m.name };
+      rerenderConsolidatedCurrentScreen();
+    });
+  });
+
+  const memberNames = new Set(displayMembers().map(m => m.name));
+  const customTags = new Set();
+  members.forEach(m => (m.documents || []).forEach(d => (d.tags || []).forEach(tag => {
+    if (tag && !memberNames.has(tag)) customTags.add(tag);
+  })));
+  Array.from(customTags).sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' })).forEach(tag => {
+    const active = currentConsolidatedTagFilter?.kind === 'custom' && currentConsolidatedTagFilter.name === tag;
+    addChip(tag, active, () => {
+      currentConsolidatedTagFilter = active ? null : { kind: 'custom', name: tag };
+      rerenderConsolidatedCurrentScreen();
+    });
+  });
+
+  if (currentConsolidatedTagFilter) {
+    addChip('✕ Xóa lọc', false, () => {
+      currentConsolidatedTagFilter = null;
+      rerenderConsolidatedCurrentScreen();
+    }, 'tag-chip-clear');
+  }
+}
+
+function rerenderConsolidatedCurrentScreen() {
+  if (currentConsolidatedCategory) openConsolidatedCategoryDetails(currentConsolidatedCategory);
+  else renderConsolidatedCategories();
 }
 
 // 1. Màn hình ngoài: danh sách danh mục giấy tờ, gộp từ mọi thành viên
@@ -767,18 +844,19 @@ function renderConsolidatedCategories() {
   currentConsolidatedCategory = null;
   setBtnLabel(document.getElementById('consolidatedBackBtn'), 'arrowLeft', 'Quay lại trang chủ');
   document.getElementById('consolidatedBreadcrumb').innerHTML = `${svgIcon('folder')}<span>Toàn bộ danh mục giấy tờ (tổng hợp từ mọi thành viên)</span>`;
+  renderConsolidatedTagFilterBar();
 
   const container = document.getElementById('consolidatedExplorerContent');
   container.innerHTML = '';
 
-  const map = buildConsolidatedMap();
+  const map = buildConsolidatedMap(consolidatedFilterPredicate());
   const types = Object.keys(map);
 
   if (types.length === 0) {
     container.innerHTML = `
       <div style="text-align:center; padding:45px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">
         <div style="display:flex; justify-content:center; margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:40px; height:40px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
-        Chưa có giấy tờ nào được lưu trữ trong hệ thống.
+        ${currentConsolidatedTagFilter ? 'Không có giấy tờ nào khớp với bộ lọc đang chọn.' : 'Chưa có giấy tờ nào được lưu trữ trong hệ thống.'}
       </div>`;
     return;
   }
@@ -812,18 +890,19 @@ function openConsolidatedCategoryDetails(docType) {
   setBtnLabel(document.getElementById('consolidatedBackBtn'), 'arrowLeft', 'Quay lại danh mục');
   document.getElementById('consolidatedBreadcrumb').innerHTML =
     `${svgIcon('folder')}<a href="javascript:void(0)" onclick="renderConsolidatedCategories()" style="color:var(--accent-2); text-decoration:underline; cursor:pointer;">Toàn bộ danh mục</a>${svgIcon('arrowRight')}<strong style="color:var(--navy);">${escapeHtml(docType)}</strong>`;
+  renderConsolidatedTagFilterBar();
 
   const container = document.getElementById('consolidatedExplorerContent');
   container.innerHTML = '';
 
-  const map = buildConsolidatedMap();
+  const map = buildConsolidatedMap(consolidatedFilterPredicate());
   const files = (map[docType] || []).slice().sort((a, b) => {
     const byOwner = (a.ownerName || '').localeCompare(b.ownerName || '', 'vi', { sensitivity: 'base' });
     return byOwner !== 0 ? byOwner : Number(b.id) - Number(a.id);
   });
 
   if (files.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">Chưa có tệp nào trong danh mục này.</div>`;
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">${currentConsolidatedTagFilter ? 'Không có tệp nào trong danh mục này khớp với bộ lọc đang chọn.' : 'Chưa có tệp nào trong danh mục này.'}</div>`;
     return;
   }
 
@@ -1828,6 +1907,111 @@ async function saveDocument() {
     alert(files.length > 1 ? `Đã tải lên và lưu ${files.length} tệp thành công!` : 'Đã tải lên và lưu giấy tờ thành công!');
   } catch (err) {
     if (createdFolder) m.folders = m.folders.filter(f => f.id !== createdFolder.id);
+    alert('Lỗi khi lưu tài liệu: ' + err.message);
+  } finally {
+    btn.innerText = 'Tải lên & Lưu';
+  }
+}
+
+// ============================================================
+// MODAL TẢI NHANH (FAB): upload 1 tệp cho bất kỳ thành viên nào hoặc cho
+// Hồ sơ chung gia đình, kèm chọn danh mục/thư mục con và gắn tag đa thành viên.
+// Tái dùng chung 1 kho documents[]/folders[] với modal upload cũ (mỗi tệp chỉ
+// khác ở chỗ có thêm mảng tags[]).
+// ============================================================
+async function saveGlobalDocument() {
+  const ownerId = document.getElementById('guOwnerSelect').value;
+  if (!ownerId) {
+    alert('Vui lòng chọn chủ sở hữu chính!');
+    return;
+  }
+  if (!globalUploadFile || !globalUploadFile.file) {
+    alert('Vui lòng chọn ảnh/tệp hoặc chụp ảnh tài liệu để tải lên!');
+    return;
+  }
+
+  const categorySel = document.getElementById('guCategorySelect').value;
+  const docType = categorySel === 'custom'
+    ? (document.getElementById('guCustomCategoryName').value.trim() || 'Tài liệu khác')
+    : categorySel;
+
+  const isNewFamilyProfile = ownerId === FAMILY_SHARED_ID && !members.some(item => String(item.id) === FAMILY_SHARED_ID);
+  const m = ownerId === FAMILY_SHARED_ID
+    ? ensureFamilySharedMember()
+    : members.find(item => String(item.id) === String(ownerId));
+  if (!m) {
+    alert('Không tìm thấy hồ sơ chủ sở hữu đã chọn!');
+    return;
+  }
+  if (!m.documents) m.documents = [];
+  if (!m.folders) m.folders = [];
+
+  const folderSel = document.getElementById('guFolderSelect').value;
+  let targetFolderId = null;
+  let createdFolder = null;
+  if (folderSel === '__new__') {
+    const newFolderName = document.getElementById('guNewFolderName').value.trim();
+    if (!newFolderName) {
+      alert('Vui lòng nhập tên thư mục con mới, hoặc chọn "Thư mục gốc của danh mục"!');
+      return;
+    }
+    const existing = m.folders.find(f => f.docType === docType && !f.parentId && f.name.toLowerCase() === newFolderName.toLowerCase());
+    if (existing) {
+      targetFolderId = existing.id;
+    } else {
+      createdFolder = {
+        id: String(Date.now()),
+        docType,
+        parentId: null,
+        name: newFolderName,
+        createdAt: new Date().toLocaleDateString('vi-VN')
+      };
+      m.folders.push(createdFolder);
+      targetFolderId = createdFolder.id;
+    }
+  } else if (folderSel) {
+    targetFolderId = folderSel;
+  }
+
+  const desc = document.getElementById('guDesc').value.trim();
+  const file = globalUploadFile.file;
+  const btn = document.getElementById('btnSaveGlobalDoc');
+  btn.innerText = 'Đang tải tệp & lưu...';
+  try {
+    const documentId = 'doc_' + Date.now();
+    const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
+    m.documents.push({
+      id: documentId,
+      ownerId: m.id,
+      docType,
+      folderId: targetFolderId,
+      fileName: file.name,
+      fileType: file.type,
+      desc: desc || file.name,
+      tags: [...globalSelectedTags],
+      data: storageUrl,
+      encrypted: true,
+      createdAt: new Date().toLocaleDateString('vi-VN'),
+      uploadedAt: new Date().toISOString()
+    });
+    await pushToFirebase();
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    closeGlobalUploadModal();
+    alert('Đã tải lên và lưu giấy tờ thành công!');
+
+    // Làm mới màn hình đang xem nếu có liên quan, để người dùng thấy ngay tệp vừa thêm.
+    if (!document.getElementById('consolidatedView').classList.contains('hidden')) {
+      rerenderConsolidatedCurrentScreen();
+    }
+    if (!document.getElementById('docsView').classList.contains('hidden') && String(currentMemberId) === String(m.id)) {
+      if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
+      else renderDocsFolders();
+    }
+  } catch (err) {
+    if (createdFolder) m.folders = m.folders.filter(f => f.id !== createdFolder.id);
+    if (isNewFamilyProfile && m.documents.length === 0 && m.folders.length === 0) {
+      members = members.filter(item => item !== m);
+    }
     alert('Lỗi khi lưu tài liệu: ' + err.message);
   } finally {
     btn.innerText = 'Tải lên & Lưu';
