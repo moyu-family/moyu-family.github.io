@@ -237,8 +237,27 @@ async function loadDataWithPassword(pwd) {
     }
   }));
 
+  // Di chuyển dữ liệu cũ: mọi tệp giấy tờ chưa có mô tả sẽ được gán tạm mô tả bằng tên tệp
+  let hasMigratedMissingDesc = false;
+  members.forEach(member => {
+    (member.documents || []).forEach(doc => {
+      if (!doc.desc || !doc.desc.trim()) {
+        doc.desc = doc.fileName || doc.desc || '';
+        hasMigratedMissingDesc = true;
+      }
+    });
+  });
+
   masterPassword = pwd;
   saveSessionPassword(pwd);
+
+  if (hasMigratedMissingDesc) {
+    try {
+      await pushToFirebase();
+    } catch {
+      // Không chặn đăng nhập nếu lưu thất bại; dữ liệu sẽ được lưu lại ở lần chỉnh sửa kế tiếp.
+    }
+  }
 }
 
 function showAuthError(err) {

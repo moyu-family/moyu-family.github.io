@@ -4,12 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quản lý thông tin gia đình</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -31,14 +34,14 @@
     </form>
     <div class="auth-biometric-actions">
       <div id="biometricRegisteredActions" class="hidden">
-        <button type="button" id="btnBiometricUnlock" class="biometric-icon-button" onclick="unlockWithBiometric()" title="Mở khóa bằng Face ID / vân tay" aria-label="Mở khóa bằng Face ID hoặc vân tay">🫆</button>
-        <button type="button" id="btnRemoveBiometric" class="btn-danger" onclick="removeBiometric()">Xóa Face ID / vân tay</button>
+        <button type="button" id="btnBiometricUnlock" class="biometric-icon-button" onclick="unlockWithBiometric()" title="Mở khóa bằng Face ID / vân tay" aria-label="Mở khóa bằng Face ID hoặc vân tay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 0 1 18-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2v2"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M2 16h.01"></path></svg></button>
+        <button type="button" id="btnRemoveBiometric" class="btn-danger" onclick="removeBiometric()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa Face ID / vân tay</button>
       </div>
-      <button type="button" id="btnRegisterBiometric" class="btn-outline" onclick="registerBiometric()">📱 Đăng ký Face ID / vân tay</button>
+      <button type="button" id="btnRegisterBiometric" class="btn-outline" onclick="registerBiometric()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 0 1 18-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2v2"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M2 16h.01"></path></svg></span>Đăng ký Face ID / vân tay</button>
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.4 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.5 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -46,13 +49,23 @@
     <!-- Thanh Menu -->
     <div class="top-bar">
       <button type="button" class="brand-home" onclick="navigateApp('home')" title="Về trang chủ" aria-label="Về trang chủ">
-        <span class="brand-home-icon" aria-hidden="true">🏠</span>
+        <span class="brand-home-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path></svg></span>
         <span class="brand-home-text">Quản lý gia đình</span>
       </button>
       <div class="btn-group">
-        <button class="btn-outline" id="btnToggleSelect" onclick="toggleSelectMode()">☑️ Quản lý / Chọn</button>
-        <button class="btn-primary" id="btnAddMember" onclick="openForm()">＋ Thêm thành viên</button>
-        <button class="btn-danger" onclick="lockApp()">🔒 Khóa</button>
+        <button class="btn-tool" id="btnToggleSelect" onclick="toggleSelectMode()">
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span>
+          <span class="btn-text">Quản lý / Chọn</span>
+        </button>
+        <button class="btn-tool" onclick="navigateApp('consolidated')">
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
+          <span class="btn-text">Hồ sơ tổng hợp</span>
+        </button>
+        <button class="btn-primary" id="btnAddMember" onclick="openForm()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>Thêm thành viên</button>
+        <button class="btn-lock" onclick="lockApp()">
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+          <span class="btn-text">Khóa</span>
+        </button>
       </div>
     </div>
 
@@ -66,8 +79,8 @@
         <span id="selectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
       </div>
       <div style="display:flex; gap:8px;">
-        <button class="btn-success" onclick="openSummaryTable()">📊 Xem bảng tổng hợp</button>
-        <button class="btn-danger" onclick="deleteSelectedMembers()">🗑️ Xóa đã chọn</button>
+        <button class="btn-success" onclick="openSummaryTable()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>Xem bảng tổng hợp</button>
+        <button class="btn-danger" onclick="deleteSelectedMembers()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa đã chọn</button>
       </div>
     </div>
 
@@ -79,8 +92,8 @@
     <!-- Trang Bảng Tổng Hợp Thông Tin -->
     <div id="tableView" class="table-view hidden">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại danh sách</button>
-        <button class="btn-primary" onclick="copyTableData()">📋 Sao chép bảng (Dán vào Excel)</button>
+        <button class="btn-back" onclick="goBackInApp()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Quay lại danh sách</button>
+        <button class="btn-primary" onclick="copyTableData()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path></svg></span>Sao chép bảng (Dán vào Excel)</button>
       </div>
       <h2 style="font-size:1.3rem; color:var(--navy); margin-bottom:8px;">Bảng tổng hợp thông tin gia đình</h2>
       <div class="table-container">
@@ -89,6 +102,7 @@
             <tr>
               <th style="width: 40px; text-align: center;">STT</th>
               <th>Họ và Tên</th>
+              <th>Số điện thoại</th>
               <th>Đối tượng</th>
               <th>Ngày sinh</th>
               <th>Nơi sinh</th>
@@ -110,10 +124,10 @@
     <!-- Chi tiết thành viên -->
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại</button>
+        <button class="btn-back" onclick="goBackInApp()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Quay lại</button>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn-outline" onclick="editCurrentMember()">✏️ Chỉnh sửa</button>
-          <button class="btn-danger" onclick="deleteCurrentMember()">🗑️ Xóa</button>
+          <button class="btn-outline" onclick="editCurrentMember()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span>Chỉnh sửa</button>
+          <button class="btn-danger" onclick="deleteCurrentMember()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa</button>
         </div>
       </div>
 
@@ -122,42 +136,74 @@
         <div>
           <h2 id="dtName" style="color:var(--navy); font-size:1.45rem;"></h2>
           <span id="dtRole" class="member-role"></span>
-          <button class="btn-success" style="display:block; margin-top:12px;" onclick="openDocsView(currentMemberId)">📁 Hồ sơ cá nhân</button>
+          <button class="btn-success" style="display:block; margin-top:12px;" onclick="openDocsView(currentMemberId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Hồ sơ cá nhân</button>
         </div>
       </div>
 
-      <div class="info-group">
-        <div class="info-item"><div class="info-label">Ngày sinh</div><div class="info-val" id="dtDob"></div></div>
-        <div class="info-item"><div class="info-label">Nơi sinh</div><div class="info-val" id="dtPob"></div></div>
-        <div class="info-item document-info-item" id="dtCccdField" tabindex="0"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
-        <div class="info-item document-info-item" id="dtCccdDateField" tabindex="0"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div>
-        <div class="info-item"><div class="info-label">Email</div><div class="info-val" id="dtEmail"></div></div>
-        <div class="info-item phone-info-item"><div class="info-label">Số điện thoại</div><div class="info-val" id="dtPhone"></div></div>
-        <div class="info-item child-detail-field"><div class="info-label">Tên trường / lớp</div><div class="info-val" id="dtSchoolClass"></div></div>
-        <div class="info-item child-detail-field"><div class="info-label">Mã học sinh</div><div class="info-val" id="dtChildCode"></div></div>
-        <div class="info-item child-detail-field"><div class="info-label">Tên cô chủ nhiệm</div><div class="info-val" id="dtTeacherName"></div></div>
-        <div class="info-item child-detail-field phone-info-item"><div class="info-label">Số điện thoại cô chủ nhiệm</div><div class="info-val" id="dtTeacherPhone"></div></div>
-        <div class="info-item document-info-item" id="dtBhytField" tabindex="0"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
-        <div class="info-item document-info-item" id="dtBhxhField" tabindex="0"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
-        <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
-        <div class="info-item adult-detail-field"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
-      </div>
+      <details class="collapsible-section" open>
+        <summary>
+          <div class="section-heading">
+            <span class="section-heading-main">
+              <span class="section-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
+              <span class="section-heading-text">Thông tin cơ bản</span>
+            </span>
+            <span class="section-toggle" aria-hidden="true"></span>
+          </div>
+        </summary>
+        <div class="info-group">
+          <div class="info-item"><div class="info-label">Ngày sinh</div><div class="info-val" id="dtDob"></div></div>
+          <div class="info-item"><div class="info-label">Nơi sinh</div><div class="info-val" id="dtPob"></div></div>
+          <div class="info-item document-info-item" id="dtCccdField" tabindex="0"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
+          <div class="info-item document-info-item" id="dtCccdDateField" tabindex="0"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div>
+          <div class="info-item"><div class="info-label">Email</div><div class="info-val" id="dtEmail"></div></div>
+          <div class="info-item phone-info-item"><div class="info-label">Số điện thoại</div><div class="info-val" id="dtPhone"></div></div>
+          <div class="info-item child-detail-field"><div class="info-label">Tên trường / lớp</div><div class="info-val" id="dtSchoolClass"></div></div>
+          <div class="info-item child-detail-field"><div class="info-label">Mã học sinh</div><div class="info-val" id="dtChildCode"></div></div>
+          <div class="info-item child-detail-field"><div class="info-label">Tên cô chủ nhiệm</div><div class="info-val" id="dtTeacherName"></div></div>
+          <div class="info-item child-detail-field phone-info-item"><div class="info-label">Số điện thoại cô chủ nhiệm</div><div class="info-val" id="dtTeacherPhone"></div></div>
+          <div class="info-item document-info-item" id="dtBhytField" tabindex="0"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
+          <div class="info-item document-info-item" id="dtBhxhField" tabindex="0"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
+          <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
+          <div class="info-item adult-detail-field"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
+        </div>
+      </details>
 
-      <div style="font-weight:700; color:var(--navy); margin-bottom:12px;">💳 Tài khoản ngân hàng</div>
-      <div id="dtBanks"></div>
-      <div class="detail-notes">
-        <div class="info-label">📝 Ghi chú tự do</div>
-        <div class="info-val rich-display" id="dtNotes"></div>
-      </div>
+      <details class="collapsible-section" open>
+        <summary>
+          <div class="section-heading">
+            <span class="section-heading-main">
+              <span class="section-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg></span>
+              <span class="section-heading-text">Tài khoản ngân hàng</span>
+            </span>
+            <span class="section-toggle" aria-hidden="true"></span>
+          </div>
+        </summary>
+        <div id="dtBanks"></div>
+      </details>
+
+      <details class="collapsible-section" open>
+        <summary>
+          <div class="section-heading">
+            <span class="section-heading-main">
+              <span class="section-heading-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><line x1="8" y1="7" x2="15" y2="7"></line><line x1="8" y1="11" x2="15" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line><line x1="4" y1="7" x2="4" y2="7.01"></line><line x1="4" y1="17" x2="4" y2="17.01"></line></svg></span>
+              <span class="section-heading-text">Ghi chú</span>
+            </span>
+            <span class="section-toggle" aria-hidden="true"></span>
+          </div>
+        </summary>
+        <div class="detail-notes">
+          <div class="info-val rich-display" id="dtNotes"></div>
+        </div>
+      </details>
     </div>
 
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()">↩ Quay lại hồ sơ</button>
+        <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span><span class="btn-text">Quay lại hồ sơ</span></button>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn-outline" id="btnToggleDocSelect" onclick="toggleDocSelectMode()">☑️ Chọn nhiều tệp</button>
-          <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
+          <button class="btn-outline" id="btnToggleDocSelect" onclick="toggleDocSelectMode()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span class="btn-text">Chọn nhiều tệp</span></button>
+          <button class="btn-primary" onclick="openUploadDocModal()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>Tải lên tệp giấy tờ</button>
         </div>
       </div>
 
@@ -171,18 +217,18 @@
           <span id="docSelectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn-success" onclick="openMoveDocsModal()">📁 Chuyển thư mục</button>
-          <button class="btn-danger" onclick="deleteSelectedDocuments()">🗑️ Xóa đã chọn</button>
+          <button class="btn-success" onclick="openMoveDocsModal(currentDocsFolder, currentSubfolderId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg></span>Chuyển thư mục</button>
+          <button class="btn-danger" onclick="deleteSelectedDocuments()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa đã chọn</button>
         </div>
       </div>
 
       <div class="explorer-header">
         <div>
-          <h2 id="docsOwnerName" style="color:var(--navy); font-size:1.35rem;">📁 Hồ sơ giấy tờ</h2>
+          <h2 id="docsOwnerName" class="view-heading" style="color:var(--navy); font-size:1.35rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span class="btn-text">Hồ sơ giấy tờ</span></h2>
           <div id="docsBreadcrumb" class="docs-breadcrumb">Thư mục gốc</div>
         </div>
         <div id="folderBackBtn" class="hidden">
-          <button class="btn-outline" onclick="renderDocsFolders()">⇦ Danh mục giấy tờ</button>
+          <button class="btn-back" onclick="folderBackBtnClick()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Danh mục giấy tờ</button>
         </div>
       </div>
 
@@ -190,13 +236,30 @@
       <div id="docsExplorerContent"></div>
     </div>
 
+    <!-- Màn hình Hồ sơ tổng hợp toàn gia đình -->
+    <div id="consolidatedView" class="detail-view hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <button class="btn-back" id="consolidatedBackBtn" onclick="goBackFromConsolidatedView()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span><span class="btn-text">Quay lại trang chủ</span></button>
+      </div>
+
+      <div class="explorer-header">
+        <div>
+          <h2 class="view-heading" style="color:var(--navy); font-size:1.35rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span class="btn-text">Hồ sơ tổng hợp</span></h2>
+          <div id="consolidatedBreadcrumb" class="docs-breadcrumb">Toàn bộ danh mục giấy tờ (tổng hợp từ mọi thành viên)</div>
+        </div>
+      </div>
+
+      <!-- Danh mục thư mục hoặc danh sách tệp tổng hợp -->
+      <div id="consolidatedExplorerContent"></div>
+    </div>
+
     <!-- Form Nhập/Sửa -->
     <div id="formView" class="form-view hidden">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
         <h2 id="formHeading" style="font-size: 1.35rem; font-weight: 700; color: var(--navy); margin:0;">Thông tin thành viên</h2>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="submit" form="memberForm" class="btn-primary">💾 Lưu hồ sơ</button>
-          <button type="button" class="btn-outline" onclick="cancelForm()">✕ Đóng</button>
+          <button type="submit" form="memberForm" class="btn-primary">Lưu hồ sơ</button>
+          <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
         </div>
       </div>
       <form id="memberForm" onsubmit="saveMember(event)">
@@ -212,7 +275,7 @@
         <div class="form-group">
           <label>Ảnh đại diện</label>
           <input type="file" id="fAvatar" accept="image/*" onchange="previewAvatar(this)">
-          <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:5px;">Chọn ảnh JPG, PNG hoặc WebP, tối đa 3MB. Nếu chọn cả hai, ảnh upload sẽ được ưu tiên.</small>
+          <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:5px;">Chọn ảnh JPG, PNG hoặc WebP, tối đa 10MB. Nếu chọn cả hai, ảnh upload sẽ được ưu tiên.</small>
           <input type="url" id="fAvatarUrl" placeholder="Hoặc nhập URL ảnh: https://..." oninput="previewAvatarUrl(this)" style="margin-top:8px;">
           <img id="fAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 150 150%22%3E%3Crect width=%22150%22 height=%22150%22 fill=%22%23e2e8f0%22/%3E%3Ccircle cx=%2275%22 cy=%2258%22 r=%2225%22 fill=%22%2394a3b8%22/%3E%3Cpath d=%22M28 137c4-29 22-43 47-43s43 14 47 43%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E" alt="Xem trước ảnh đại diện" style="display:block; width:84px; height:84px; margin-top:10px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
         </div>
@@ -263,7 +326,7 @@
 
         <!-- Trình soạn thảo Rich Textbox -->
         <div class="form-group form-notes-group">
-          <label>📝 Ghi chú tự do</label>
+          <label style="display:flex; align-items:center; gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M4 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><line x1="8" y1="7" x2="15" y2="7"></line><line x1="8" y1="11" x2="15" y2="11"></line><line x1="8" y1="15" x2="12" y2="15"></line><line x1="4" y1="7" x2="4" y2="7.01"></line><line x1="4" y1="17" x2="4" y2="17.01"></line></svg>Ghi chú</label>
           <div class="rich-editor-wrapper">
             <div class="rich-toolbar">
               <div class="tb-group">
@@ -318,15 +381,15 @@
         <div class="form-group form-bank-group" style="margin-top:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <label style="margin:0;">Tài khoản ngân hàng</label>
-            <button type="button" class="btn-outline" style="font-size:0.78rem; padding:4px 8px;" onclick="openNewBankModal()">+ Thêm ngân hàng mới vào danh mục</button>
+            <button type="button" class="btn-outline" style="font-size:0.78rem; padding:4px 8px;" onclick="openNewBankModal()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>Thêm ngân hàng mới vào danh mục</button>
           </div>
           <div id="bankInputs"></div>
-          <button type="button" class="btn-outline" style="margin-top:6px;" onclick="addBankRow()">+ Thêm tài khoản ngân hàng</button>
+          <button type="button" class="btn-outline" style="margin-top:6px;" onclick="addBankRow()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>Thêm tài khoản ngân hàng</button>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:26px;">
-          <button type="submit" id="btnSaveMember" class="btn-primary">💾 Lưu hồ sơ</button>
-          <button type="button" class="btn-outline" onclick="cancelForm()">✕ Đóng</button>
+          <button type="submit" id="btnSaveMember" class="btn-primary">Lưu hồ sơ</button>
+          <button type="button" class="btn-outline" onclick="cancelForm()">Đóng</button>
         </div>
       </form>
     </div>
@@ -398,11 +461,12 @@
 <!-- Modal Thêm giấy tờ -->
 <div id="uploadDocModal" class="modal-overlay hidden" onclick="closeUploadDocModal()">
   <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
-    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Tải lên tệp giấy tờ</h3>
-    
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 8px;">Tải lên tệp giấy tờ</h3>
+    <div id="docUploadDestination" style="font-size:0.82rem; color:var(--text-muted); background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; margin-bottom:14px;"></div>
+
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục)</label>
-      <select id="docTypeSelect" onchange="toggleCustomDocName(this.value)">
+      <select id="docTypeSelect" onchange="onUploadDocTypeChange(this.value)">
         <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
         <option value="Giấy khai sinh">Giấy khai sinh</option>
         <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
@@ -416,19 +480,29 @@
 
     <div class="form-group hidden" id="customDocNameGroup">
       <label>Tên loại giấy tờ mới</label>
-      <input type="text" id="docCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+      <input type="text" id="docCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe..." oninput="updateUploadDestinationLabel()">
+    </div>
+
+    <div class="form-group" id="docFolderGroup">
+      <label>Thư mục con (tùy chọn)</label>
+      <select id="docFolderSelect" onchange="onUploadDocFolderChange(this.value)"></select>
+    </div>
+
+    <div class="form-group hidden" id="docNewFolderNameGroup">
+      <label>Tên thư mục mới</label>
+      <input type="text" id="docNewFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng..." oninput="updateUploadDestinationLabel()">
     </div>
 
     <div class="form-group">
       <label>Chọn tệp (Ảnh JPG/PNG hoặc tài liệu PDF)</label>
-      <input type="file" id="docFileInput" accept="image/*,application/pdf" multiple style="background:#fff;" onchange="renderDocFileDescList(this)">
-      <small style="color:var(--text-muted); font-size:0.75rem;">Có thể chọn nhiều tệp cùng lúc. Mỗi file nên dưới 3MB để database đồng bộ mượt mà nhất.</small>
+      <input type="file" id="docFileInput" accept="image/*,application/pdf" multiple onchange="renderDocFileDescList(this)">
+      <small style="color:var(--text-muted); font-size:0.75rem;">Có thể chọn nhiều tệp cùng lúc. Mỗi file nên dưới 10MB để database đồng bộ mượt mà nhất.</small>
     </div>
 
     <div class="form-group" id="docFileDescGroup">
       <label>Tên trang / Nhãn nhận diện</label>
       <div id="docFileDescList"></div>
-      <small style="color:var(--text-muted); font-size:0.75rem;">Chọn tệp ở trên trước, sau đó đặt nhãn riêng cho từng tệp, ví dụ: Mặt trước, Mặt sau...</small>
+      <small style="color:var(--text-muted); font-size:0.75rem;">Chọn tệp ở trên trước, sau đó đặt nhãn riêng cho từng tệp, ví dụ: Mặt trước, Mặt sau... Nếu để trống, tên tệp sẽ được dùng làm mô tả.</small>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:18px;">
@@ -464,12 +538,42 @@
 
     <div class="form-group">
       <label>Tên trang / Nhãn nhận diện</label>
-      <input type="text" id="editDocDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục... (để trống sẽ dùng tên loại giấy tờ)">
+      <input type="text" id="editDocDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục... (để trống sẽ dùng tên tệp)">
     </div>
 
     <div style="display:flex; gap:8px; margin-top:18px;">
       <button type="button" id="btnSaveDocEdit" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveDocumentEdit()">Lưu thay đổi</button>
       <button type="button" class="btn-outline" onclick="closeEditDocModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tạo thư mục con bên trong 1 danh mục giấy tờ -->
+<div id="newFolderModal" class="modal-overlay hidden" onclick="closeNewFolderModal()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <h3 id="newFolderModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:12px;">Tạo thư mục mới</h3>
+    <div class="form-group">
+      <label>Tên thư mục</label>
+      <input type="text" id="newFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng...">
+    </div>
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button type="button" id="btnSaveNewFolder" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveNewFolder()">Tạo thư mục</button>
+      <button type="button" class="btn-outline" onclick="closeNewFolderModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Thêm/Sửa danh mục giấy tờ (cấp gốc) -->
+<div id="categoryModal" class="modal-overlay hidden" onclick="closeCategoryModal()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <h3 id="categoryModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:12px;">Tạo danh mục mới</h3>
+    <div class="form-group">
+      <label>Tên danh mục</label>
+      <input type="text" id="categoryNameInput" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button type="button" id="btnSaveCategory" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveCategory()">Tạo danh mục</button>
+      <button type="button" class="btn-outline" onclick="closeCategoryModal()">Hủy</button>
     </div>
   </div>
 </div>
@@ -482,7 +586,7 @@
 
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục đích)</label>
-      <select id="moveDocsTypeSelect" onchange="toggleCustomDocName(this.value, 'moveDocsCustomNameGroup')">
+      <select id="moveDocsTypeSelect" onchange="onMoveDocsTypeChange(this.value)">
         <option value="CCCD / Định danh cá nhân">CCCD / Định danh cá nhân</option>
         <option value="Giấy khai sinh">Giấy khai sinh</option>
         <option value="Giấy đăng ký kết hôn">Giấy đăng ký kết hôn</option>
@@ -499,6 +603,11 @@
       <input type="text" id="moveDocsCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
     </div>
 
+    <div class="form-group" id="moveDocsFolderGroup">
+      <label>Thư mục con bên trong danh mục (tùy chọn)</label>
+      <select id="moveDocsFolderSelect"></select>
+    </div>
+
     <div style="display:flex; gap:8px; margin-top:18px;">
       <button type="button" id="btnMoveDocs" class="btn-primary" style="flex:1; justify-content:center;" onclick="moveSelectedDocuments()">Di chuyển</button>
       <button type="button" class="btn-outline" onclick="closeMoveDocsModal()">Hủy</button>
@@ -507,11 +616,11 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=25"></script>
-<script defer src="js/auth.js?v=29"></script>
-<script defer src="js/ui.js?v=25"></script>
-<script defer src="js/members.js?v=26"></script>
-<script defer src="js/page.js?v=20"></script>
+<script defer src="js/config.js?v=26"></script>
+<script defer src="js/auth.js?v=30"></script>
+<script defer src="js/ui.js?v=26"></script>
+<script defer src="js/members.js?v=27"></script>
+<script defer src="js/page.js?v=21"></script>
 
 </body>
 </html>

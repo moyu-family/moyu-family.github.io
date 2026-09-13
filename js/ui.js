@@ -29,6 +29,7 @@ function getAppStateFromLocation() {
   if (params.has('member')) return { app: 'family', view: 'member', memberId: params.get('member') };
   if (params.has('summary')) return { app: 'family', view: 'summary' };
   if (params.has('documents')) return { app: 'family', view: 'documents', memberId: params.get('documents') };
+  if (params.has('consolidated')) return { app: 'family', view: 'consolidated' };
   if (params.has('edit')) return { app: 'family', view: 'form', memberId: params.get('edit') };
   return { app: 'family', view: 'home' };
 }
@@ -59,6 +60,7 @@ function restoreAppView(state) {
   else if (state.view === 'form') openForm(state.memberId ? members.find(m => String(m.id) === String(state.memberId)) : null, true);
   else if (state.view === 'summary' || state.view === 'table') openSummaryTable(true);
   else if (state.view === 'documents' || state.view === 'docs') openDocsView(state.memberId, true);
+  else if (state.view === 'consolidated') openConsolidatedView(true);
   else showHome(true);
 }
 
@@ -254,11 +256,19 @@ const DEFAULT_DOC_TYPES = [
 ];
 
 // Thu thập các loại giấy tờ tùy chỉnh mà người dùng đã thêm (dựa trên toàn bộ dữ liệu hiện có)
+// Xét cả tài liệu lẫn thư mục con, vì 1 danh mục có thể chỉ còn tồn tại qua các thư mục con của nó
+// (ví dụ: đã xóa hết tài liệu gắn trực tiếp docType đó, nhưng thư mục con bên trong vẫn còn).
 function getCustomDocTypes() {
   const found = [];
   (typeof members !== 'undefined' ? members : []).forEach(m => {
     (m.documents || []).forEach(d => {
       const type = d.docType;
+      if (type && !DEFAULT_DOC_TYPES.includes(type) && !found.includes(type)) {
+        found.push(type);
+      }
+    });
+    (m.folders || []).forEach(f => {
+      const type = f.docType;
       if (type && !DEFAULT_DOC_TYPES.includes(type) && !found.includes(type)) {
         found.push(type);
       }
@@ -274,7 +284,7 @@ function populateDocTypeSelect(selectId) {
   const previousValue = select.value;
   const customTypes = getCustomDocTypes();
   select.innerHTML = '';
-  DEFAULT_DOC_TYPES.concat(customTypes).forEach(type => {
+  DEFAULT_DOC_TYPES.concat(customTypes).sort((a, b) => a.localeCompare(b, 'vi')).forEach(type => {
     const opt = document.createElement('option');
     opt.value = type;
     opt.textContent = type;
@@ -302,6 +312,7 @@ function openUploadDocModal() {
   const typeSelect = document.getElementById('docTypeSelect');
   const customNameInput = document.getElementById('docCustomName');
   const folder = typeof currentDocsFolder !== 'undefined' ? currentDocsFolder : null;
+  const subfolderId = typeof currentSubfolderId !== 'undefined' ? currentSubfolderId : null;
 
   if (folder) {
     const knownTypes = Array.from(typeSelect.options).map(o => o.value);
@@ -318,28 +329,124 @@ function openUploadDocModal() {
   }
 
   document.getElementById('docFileInput').value = "";
+  pendingUploadFiles = [];
   document.getElementById('docFileDescList').innerHTML = "";
   toggleCustomDocName(typeSelect.value);
+
+  // Luôn dựng cây thư mục theo đúng danh mục đang mở (folder), kể cả khi danh mục này
+  // tạm thời rơi vào ô "custom" (vì chưa có tài liệu trực tiếp nào mang đúng docType đó).
+  // Nếu không, người dùng đang ở trong 1 thư mục con sẽ bị mất lựa chọn thư mục hiện hành.
+  const folderTreeDocType = folder || (typeSelect.value !== 'custom' ? typeSelect.value : null);
+  populateUploadFolderSelect(folderTreeDocType);
+  const folderSelect = document.getElementById('docFolderSelect');
+  const preselectFolderId = (folder && subfolderId) ? subfolderId : '';
+  if (folderSelect) folderSelect.value = preselectFolderId;
+  document.getElementById('docNewFolderName').value = "";
+  document.getElementById('docNewFolderNameGroup').classList.add('hidden');
+
+  updateUploadDestinationLabel();
   document.getElementById('uploadDocModal').classList.remove('hidden');
 }
 
 function closeUploadDocModal() {
   document.getElementById('uploadDocModal').classList.add('hidden');
+  pendingUploadFiles = [];
 }
 
+// Khi đổi danh mục (thư mục) đích lúc tải lên: đồng bộ ô "loại giấy tờ mới" và danh sách thư mục con tương ứng
+function onUploadDocTypeChange(val) {
+  toggleCustomDocName(val);
+  populateUploadFolderSelect(val === 'custom' ? null : val);
+  updateUploadDestinationLabel();
+}
+
+// Khi chọn thư mục con lúc tải lên: hiện ô nhập tên nếu người dùng chọn "Tạo thư mục mới..."
+function onUploadDocFolderChange(val) {
+  document.getElementById('docNewFolderNameGroup').classList.toggle('hidden', val !== '__new__');
+  if (val === '__new__') document.getElementById('docNewFolderName').focus();
+  updateUploadDestinationLabel();
+}
+
+// Hiển thị rõ đường dẫn thư mục đích để người dùng luôn biết tệp sắp tải lên sẽ nằm ở đâu
+function updateUploadDestinationLabel() {
+  const label = document.getElementById('docUploadDestination');
+  if (!label) return;
+
+  const typeSelect = document.getElementById('docTypeSelect');
+  const customNameInput = document.getElementById('docCustomName');
+  const folderSelect = document.getElementById('docFolderSelect');
+  const docType = typeSelect.value === 'custom'
+    ? (customNameInput.value.trim() || 'Danh mục mới')
+    : typeSelect.value;
+
+  let path = escapeHtml(docType);
+  if (folderSelect && folderSelect.value === '__new__') {
+    const newName = document.getElementById('docNewFolderName').value.trim();
+    path += ` ➔ ${escapeHtml(newName || '(thư mục mới)')}`;
+  } else if (folderSelect && folderSelect.value) {
+    const m = members.find(item => String(item.id) === String(currentMemberId));
+    const chain = m ? getFolderAncestorChain(m, folderSelect.value) : [];
+    chain.forEach(f => { path += ` ➔ ${escapeHtml(f.name)}`; });
+  }
+  label.innerHTML = `📤 Sẽ tải lên vào: <strong>${path}</strong>`;
+}
+
+// Dựng danh sách thư mục con (theo cây, thụt lề dần) của 1 danh mục để chọn nơi lưu các tệp sắp tải lên
+function populateUploadFolderSelect(docType) {
+  const select = document.getElementById('docFolderSelect');
+  if (!select) return;
+
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  select.innerHTML = '';
+  const rootOpt = document.createElement('option');
+  rootOpt.value = '';
+  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  select.appendChild(rootOpt);
+
+  if (m && docType) {
+    appendFolderTreeOptions(select, m.folders, docType);
+  }
+
+  const newFolderOpt = document.createElement('option');
+  newFolderOpt.value = '__new__';
+  newFolderOpt.textContent = '➕ Tạo thư mục mới...';
+  select.appendChild(newFolderOpt);
+
+  document.getElementById('docNewFolderNameGroup').classList.add('hidden');
+}
+
+// Khi người dùng chọn tệp từ input: nạp vào danh sách chờ tải lên (có thể bỏ bớt từng tệp sau đó)
 function renderDocFileDescList(input) {
+  const newFiles = Array.from(input.files || []).map(file => ({ file, desc: '' }));
+  pendingUploadFiles = pendingUploadFiles.concat(newFiles);
+  // Reset input để lần chọn tiếp theo (onchange) vẫn kích hoạt được, đồng thời tránh nạp lại đúng các tệp vừa thêm
+  input.value = '';
+  renderPendingUploadFilesList();
+}
+
+// Vẽ lại danh sách tệp đang chờ tải lên (dựa trên pendingUploadFiles, không đọc trực tiếp từ input nữa
+// vì FileList gốc của input là read-only, không thể bỏ bớt từng tệp)
+function renderPendingUploadFilesList() {
   const container = document.getElementById('docFileDescList');
   container.innerHTML = "";
-  const files = Array.from(input.files || []);
-  files.forEach((file, i) => {
+  pendingUploadFiles.forEach((entry, i) => {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
     row.innerHTML = `
-      <span style="flex:0 0 110px; font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
-      <input type="text" class="doc-file-desc-input" data-index="${i}" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1..." style="flex:1;">
+      <span style="flex:0 0 110px; font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(entry.file.name)}">${escapeHtml(entry.file.name)}</span>
+      <input type="text" class="doc-file-desc-input" data-index="${i}" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1..." style="flex:1;" value="${escapeHtml(entry.desc)}">
+      <button type="button" class="btn-remove-pending-file" title="Bỏ chọn tệp này" aria-label="Bỏ chọn tệp này">${svgIcon('close')}</button>
     `;
+    row.querySelector('.doc-file-desc-input').oninput = (e) => { entry.desc = e.target.value; };
+    row.querySelector('.btn-remove-pending-file').onclick = () => removePendingUploadFile(i);
     container.appendChild(row);
   });
+}
+
+// Bỏ bớt 1 tệp khỏi danh sách đang chờ tải lên (trước khi bấm "Tải lên & Lưu")
+function removePendingUploadFile(index) {
+  pendingUploadFiles.splice(index, 1);
+  renderPendingUploadFilesList();
 }
 
 function toggleCustomDocName(val, groupId = 'customDocNameGroup') {
@@ -379,21 +486,74 @@ function closeEditDocModal() {
 }
 
 // Quản lý Modal Chuyển nhiều tệp sang thư mục khác
-function openMoveDocsModal() {
-  if (selectedDocIds.size === 0) {
-    alert('Vui lòng chọn ít nhất 1 tệp để chuyển thư mục!');
+function openMoveDocsModal(preselectDocType = null, preselectFolderId = null) {
+  if (selectedDocIds.size === 0 && selectedFolderIds.size === 0) {
+    alert('Vui lòng chọn ít nhất 1 tệp hoặc thư mục để chuyển!');
     return;
   }
   populateDocTypeSelect('moveDocsTypeSelect');
   const typeSelect = document.getElementById('moveDocsTypeSelect');
   const customNameInput = document.getElementById('moveDocsCustomName');
-  typeSelect.value = 'CCCD / Định danh cá nhân';
+  const knownTypes = Array.from(typeSelect.options).map(o => o.value);
+  const defaultType = (preselectDocType && knownTypes.includes(preselectDocType)) ? preselectDocType : 'CCCD / Định danh cá nhân';
+  typeSelect.value = defaultType;
   customNameInput.value = '';
   toggleCustomDocName(typeSelect.value, 'moveDocsCustomNameGroup');
-  document.getElementById('moveDocsSummary').innerText = `Đã chọn ${selectedDocIds.size} tệp.`;
+  populateMoveFolderSelect(defaultType);
+  const folderSelect = document.getElementById('moveDocsFolderSelect');
+  if (folderSelect && preselectFolderId) folderSelect.value = preselectFolderId;
+  const summaryParts = [];
+  if (selectedDocIds.size > 0) summaryParts.push(`${selectedDocIds.size} tệp`);
+  if (selectedFolderIds.size > 0) summaryParts.push(`${selectedFolderIds.size} thư mục`);
+  document.getElementById('moveDocsSummary').innerText = `Đã chọn ${summaryParts.join(' và ')}.`;
   document.getElementById('moveDocsModal').classList.remove('hidden');
 }
 
 function closeMoveDocsModal() {
   document.getElementById('moveDocsModal').classList.add('hidden');
+}
+
+// Thêm các <option> thư mục con (thụt lề theo cấp lồng nhau) của 1 danh mục vào 1 thẻ <select>
+function appendFolderTreeOptions(select, folders, docType) {
+  const addChildren = (parentId, depth) => {
+    (folders || [])
+      .filter(f => f.docType === docType && (f.parentId || null) === (parentId || null))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
+      .forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = `${'—'.repeat(depth + 1)} 📂 ${f.name}`;
+        select.appendChild(opt);
+        addChildren(f.id, depth + 1);
+      });
+  };
+  addChildren(null, 0);
+}
+
+// Khi đổi danh mục đích: đồng bộ ô "loại giấy tờ mới" và danh sách thư mục con tương ứng
+function onMoveDocsTypeChange(val) {
+  toggleCustomDocName(val, 'moveDocsCustomNameGroup');
+  populateMoveFolderSelect(val === 'custom' ? null : val);
+}
+
+// Dựng danh sách thư mục con (theo cây, thụt lề dần) của 1 danh mục để chọn làm đích chuyển tệp
+function populateMoveFolderSelect(docType) {
+  const select = document.getElementById('moveDocsFolderSelect');
+  const group = document.getElementById('moveDocsFolderGroup');
+  if (!select || !group) return;
+
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  if (!m || !docType) {
+    group.classList.add('hidden');
+    select.innerHTML = '';
+    return;
+  }
+
+  group.classList.remove('hidden');
+  select.innerHTML = '';
+  const rootOpt = document.createElement('option');
+  rootOpt.value = '';
+  rootOpt.textContent = '🏠 (Thư mục gốc của danh mục)';
+  select.appendChild(rootOpt);
+  appendFolderTreeOptions(select, m.folders, docType);
 }

@@ -23,6 +23,11 @@ function initializePage() {
     return;
   }
 
+  if (params.has('consolidated')) {
+    openConsolidatedView(true);
+    return;
+  }
+
   if (params.has('edit')) {
     const member = members.find(item => String(item.id) === params.get('edit'));
     if (member) {
@@ -46,6 +51,8 @@ function initializePage() {
     } else if (view === 'documents') {
       params.set('documents', data.id);
       state.memberId = data.id;
+    } else if (view === 'consolidated') {
+      params.set('consolidated', '1');
     } else if (view === 'form') {
       params.set('edit', data.id);
       state.memberId = data.id;
@@ -55,6 +62,7 @@ function initializePage() {
     if (view === 'member') viewDetails(data.id, true);
     else if (view === 'summary') openSummaryTable(true);
     else if (view === 'documents') openDocsView(data.id, true);
+    else if (view === 'consolidated') openConsolidatedView(true);
     else if (view === 'form') openForm(members.find(item => String(item.id) === String(data.id)), true);
     else showHome(true);
   }
