@@ -35,3 +35,4 @@ cảnh báo file không được tham chiếu hoặc tham chiếu tới file kh�
 tự tăng số `?v=N` của riêng những file thực sự thay đổi nội dung so với lần
 build trước (so khớp qua `scripts/asset-versions.json`) — để không phải nhớ
 tăng version thủ công mỗi khi sửa code.
+1.4
