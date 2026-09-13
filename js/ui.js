@@ -82,13 +82,13 @@ function getVietQrBankCode(bankName) {
 }
 
 function showQrModal(bankName, accNum, qrUrl, ownerName) {
-  document.getElementById('qrModalTitle').innerText = bankName;
-  document.getElementById('qrModalSubtitle').innerText = `${ownerName} - STK: ${accNum}`;
+  document.getElementById('qrModalTitle').innerText = 'Mã QR chuyển khoản';
+  document.getElementById('qrModalSubtitle').innerText = `${ownerName || 'Chủ tài khoản'} - STK: ${accNum}`;
   
   let finalQrSrc = qrUrl;
   if (!finalQrSrc) {
     const bankCode = getVietQrBankCode(bankName);
-    finalQrSrc = `https://img.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(accNum)}-compact2.png?accountName=${encodeURIComponent(ownerName)}`;
+    finalQrSrc = `https://img.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(accNum)}-compact.png?accountName=${encodeURIComponent(ownerName || '')}`;
   }
   
   const qrImage = document.getElementById('qrModalImg');

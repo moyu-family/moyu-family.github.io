@@ -43,13 +43,21 @@ html.has-session body::after {
   display: flex; justify-content: space-between; align-items: center;
   padding: 14px 20px; margin-bottom: 20px; background: #ffffff;
   border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-sm);
-  flex-wrap: wrap; gap: 10px;
+  flex-wrap: nowrap; gap: 10px; overflow: hidden;
 }
 .brand-title { font-size: 1.25rem; font-weight: 700; color: var(--navy); }
-.brand-home { gap: 8px; padding: 4px 8px; border: 0; background: transparent; color: var(--navy); font-size: 1.25rem; }
+.brand-home { position: relative; flex: 1 1 auto; min-width: 120px; height: 36px; white-space: nowrap; gap: 8px; padding: 4px 8px; border: 0; background: transparent; color: var(--navy); font-size: 1.25rem; overflow: hidden; justify-content: flex-start; }
 .brand-home:hover { background: #f1f5f9; }
-.brand-home-icon { font-size: 1.45rem; line-height: 1; }
-.btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.brand-home-icon { position: relative; z-index: 1; flex: 0 0 auto; font-size: 1.45rem; line-height: 1; }
+.brand-home-text { position: absolute; left: 46px; top: 50%; transform: translateY(-50%); animation: brand-title-scroll 6s linear infinite; }
+.btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; margin-left: auto; }
+
+@keyframes brand-title-scroll {
+  0%, 12% { left: 46px; }
+  78% { left: calc(100% - 130px); }
+  86% { left: 100%; }
+  87%, 100% { left: 46px; }
+}
 
 /* Thanh tác vụ hàng loạt */
 .batch-bar {
@@ -121,6 +129,10 @@ button {
 .info-item { background: #fafbfd; padding: 14px 16px; border-radius: 12px; border: 1px solid #f1f5f9; }
 .info-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; font-weight: 700; }
 .info-val { font-size: 0.95rem; font-weight: 600; color: var(--navy); word-break: break-all; }
+.document-info-item.has-document { cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.document-info-item.has-document:hover, .document-info-item.has-document:focus-visible, .phone-info-item.has-phone:hover { transform: translateY(-3px); border-color: #93c5fd; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.12); outline: none; }
+.phone-link { color: inherit; text-decoration: none; }
+.phone-link:hover { color: var(--gold); text-decoration: underline; }
 
 /* Rich Text */
 .rich-display { line-height: 1.6; font-weight: 400; color: #334155; font-size: 0.92rem; }
@@ -141,13 +153,19 @@ button {
 
 /* Modal Popup */
 .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.modal-card { background: white; border-radius: 20px; padding: 24px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-.qr-img-display { width: 220px; height: 220px; object-fit: contain; margin: 16px auto; border-radius: 12px; border: 1px solid #e2e8f0; padding: 6px; }
+.modal-card { position: relative; background: white; border-radius: 20px; padding: 30px; max-width: 560px; width: min(92%, 560px); text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+.qr-img-display { display: block; width: min(440px, 100%); aspect-ratio: 1; height: auto; object-fit: contain; margin: 18px auto 4px; border-radius: 12px; border: 1px solid #e2e8f0; padding: 8px; }
+.qr-modal-subtitle { margin-top: 10px; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+.qr-modal-close { position: absolute; top: 8px; right: 10px; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font-size: 1.8rem; line-height: 1; cursor: pointer; }
+.qr-modal-close:hover { background: #f1f5f9; color: var(--navy); }
 .image-modal-card { position: relative; max-width: min(760px, 92vw); max-height: 92vh; padding: 18px; border-radius: 18px; background: #ffffff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); text-align: center; }
 .image-modal-img { display: block; max-width: min(700px, 86vw); max-height: 78vh; object-fit: contain; border-radius: 10px; }
 .image-modal-title { margin-top: 10px; color: var(--navy); font-weight: 700; }
 .image-modal-close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; padding: 0; border-radius: 50%; background: rgba(15,23,42,0.75); color: #ffffff; font-size: 1.4rem; line-height: 1; justify-content: center; z-index: 1; }
 .image-modal-close:hover { background: var(--navy); }
+.document-preview-card { position: relative; width: min(440px, 88vw); max-height: 82vh; overflow: auto; padding: 16px; border-radius: 18px; background: #ffffff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); }
+.document-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; padding: 0 38px 10px 2px; color: var(--navy); }
+.document-preview-image { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 10px; background: #f8fafc; }
 
 /* Bảng tổng hợp */
 .table-container { overflow-x: auto; margin-top: 18px; border: 1px solid var(--border-color); border-radius: 12px; }

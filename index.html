@@ -6,7 +6,7 @@
   <title>Quản lý thông tin gia đình</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=6">
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -34,7 +34,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.1 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.2 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -43,11 +43,11 @@
     <div class="top-bar">
       <button type="button" class="brand-home" onclick="navigateApp('home')" title="Về trang chủ" aria-label="Về trang chủ">
         <span class="brand-home-icon" aria-hidden="true">🏠</span>
-        <span>Quản lý gia đình</span>
+        <span class="brand-home-text">Quản lý gia đình</span>
       </button>
       <div class="btn-group">
         <button class="btn-outline" id="btnToggleSelect" onclick="toggleSelectMode()">☑️ Quản lý / Chọn</button>
-        <button class="btn-primary" onclick="openForm()">＋ Thêm thành viên</button>
+        <button class="btn-primary" id="btnAddMember" onclick="openForm()">＋ Thêm thành viên</button>
         <button class="btn-danger" onclick="lockApp()">🔒 Khóa</button>
       </div>
     </div>
@@ -123,16 +123,20 @@
       </div>
 
       <div class="info-group">
-        <div class="info-item"><div class="info-label">Email</div><div class="info-val" id="dtEmail"></div></div>
-        <div class="info-item"><div class="info-label">Số điện thoại</div><div class="info-val" id="dtPhone"></div></div>
         <div class="info-item"><div class="info-label">Ngày sinh</div><div class="info-val" id="dtDob"></div></div>
         <div class="info-item"><div class="info-label">Nơi sinh</div><div class="info-val" id="dtPob"></div></div>
-        <div class="info-item"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
-        <div class="info-item"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div>
-        <div class="info-item"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
-        <div class="info-item"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
+        <div class="info-item document-info-item" id="dtCccdField" tabindex="0"><div class="info-label">Số CCCD / Định danh</div><div class="info-val" id="dtCccd"></div></div>
+        <div class="info-item document-info-item" id="dtCccdDateField" tabindex="0"><div class="info-label">Ngày cấp</div><div class="info-val" id="dtCccdDate"></div></div>
+        <div class="info-item"><div class="info-label">Email</div><div class="info-val" id="dtEmail"></div></div>
+        <div class="info-item phone-info-item"><div class="info-label">Số điện thoại</div><div class="info-val" id="dtPhone"></div></div>
+        <div class="info-item child-detail-field"><div class="info-label">Tên trường / lớp</div><div class="info-val" id="dtSchoolClass"></div></div>
+        <div class="info-item child-detail-field"><div class="info-label">Mã học sinh</div><div class="info-val" id="dtChildCode"></div></div>
+        <div class="info-item child-detail-field"><div class="info-label">Tên cô chủ nhiệm</div><div class="info-val" id="dtTeacherName"></div></div>
+        <div class="info-item child-detail-field phone-info-item"><div class="info-label">Số điện thoại cô chủ nhiệm</div><div class="info-val" id="dtTeacherPhone"></div></div>
+        <div class="info-item document-info-item" id="dtBhytField" tabindex="0"><div class="info-label">Bảo hiểm y tế</div><div class="info-val" id="dtBhyt"></div></div>
+        <div class="info-item document-info-item" id="dtBhxhField" tabindex="0"><div class="info-label">Bảo hiểm xã hội</div><div class="info-val" id="dtBhxh"></div></div>
         <div class="info-item"><div class="info-label">Mã số thuế cũ</div><div class="info-val" id="dtTax"></div></div>
-        <div class="info-item"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
+        <div class="info-item adult-detail-field"><div class="info-label" id="specialLabel"></div><div class="info-val" id="specialVal"></div></div>
       </div>
 
       <div style="font-weight:700; color:var(--navy); margin-bottom:12px;">💳 Tài khoản ngân hàng</div>
@@ -146,7 +150,7 @@
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-back" onclick="goBackInApp()">↩ Quay lại hồ sơ</button>
+        <button class="btn-back" onclick="navigateApp('member', { id: currentMemberId })">↩ Quay lại hồ sơ</button>
         <button class="btn-primary" onclick="openUploadDocModal()">＋ Tải lên tệp giấy tờ</button>
       </div>
 
@@ -190,11 +194,6 @@
           <input type="url" id="fAvatarUrl" placeholder="Hoặc nhập URL ảnh: https://..." oninput="previewAvatarUrl(this)" style="margin-top:8px;">
           <img id="fAvatarPreview" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 150 150%22%3E%3Crect width=%22150%22 height=%22150%22 fill=%22%23e2e8f0%22/%3E%3Ccircle cx=%2275%22 cy=%2258%22 r=%2225%22 fill=%22%2394a3b8%22/%3E%3Cpath d=%22M28 137c4-29 22-43 47-43s43 14 47 43%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E" alt="Xem trước ảnh đại diện" style="display:block; width:84px; height:84px; margin-top:10px; border-radius:50%; object-fit:cover; border:2px solid var(--border-color);">
         </div>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <div class="form-group"><label>Email</label><input type="email" id="fEmail" placeholder="example@email.com"></div>
-          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="fPhone" placeholder="09xxxxxxxx"></div>
-        </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group">
@@ -211,6 +210,11 @@
             <input type="text" id="fCccdDate" placeholder="dd/mm/yyyy" maxlength="10" oninput="maskDateInput(this)">
           </div>
         </div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group"><label>Email</label><input type="email" id="fEmail" placeholder="example@email.com"></div>
+          <div class="form-group"><label>Số điện thoại</label><input type="tel" id="fPhone" placeholder="09xxxxxxxx"></div>
+        </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group"><label>Mã BHYT</label><input type="text" id="fBhyt"></div>
@@ -219,9 +223,20 @@
 
         <div class="form-group"><label>Mã số thuế cũ</label><input type="text" id="fTax"></div>
 
-        <div class="form-group">
+        <div class="form-group adult-only-field">
           <label id="fSpecialLabel">Mã nhân viên</label>
           <input type="text" id="fSpecialCode">
+        </div>
+
+        <div class="child-only-field">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group"><label>Tên trường / lớp</label><input type="text" id="fSchoolClass" placeholder="Nhập tên trường và lớp..."></div>
+            <div class="form-group"><label>Mã học sinh</label><input type="text" id="fSpecialCodeChild"></div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group"><label>Tên cô chủ nhiệm</label><input type="text" id="fTeacherName" placeholder="Nhập tên cô chủ nhiệm..."></div>
+            <div class="form-group"><label>Số điện thoại cô chủ nhiệm</label><input type="tel" id="fTeacherPhone" placeholder="09xxxxxxxx"></div>
+          </div>
         </div>
 
         <!-- Trình soạn thảo Rich Textbox -->
@@ -299,12 +314,10 @@
 <!-- Modal xem QR -->
 <div id="qrModal" class="modal-overlay hidden" onclick="closeQrModal()">
   <div class="modal-card" onclick="event.stopPropagation()">
+    <button type="button" class="qr-modal-close" onclick="closeQrModal()" aria-label="Đóng">×</button>
     <h3 id="qrModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:4px;">Mã QR chuyển khoản</h3>
-    <p id="qrModalSubtitle" style="font-size:0.85rem; color:var(--text-muted);"></p>
     <img id="qrModalImg" class="qr-img-display" src="" alt="Mã QR">
-    <div>
-      <button class="btn-primary" style="width:100%; justify-content:center;" onclick="closeQrModal()">Đóng</button>
-    </div>
+    <p id="qrModalSubtitle" class="qr-modal-subtitle"></p>
   </div>
 </div>
 
@@ -321,7 +334,6 @@
   <div class="document-preview-card" onclick="event.stopPropagation()">
     <div class="document-preview-header"><strong id="documentPreviewTitle">Xem giấy tờ</strong><button type="button" class="image-modal-close" onclick="closeDocumentPreview()" aria-label="Đóng">×</button></div>
     <img id="documentPreviewImage" class="document-preview-image" src="" alt="Xem giấy tờ">
-    <button type="button" class="btn-primary document-preview-close" onclick="closeDocumentPreview()">Đóng</button>
   </div>
 </div>
 
@@ -400,8 +412,8 @@
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
 <script defer src="js/config.js?v=22"></script>
 <script defer src="js/auth.js?v=24"></script>
-<script defer src="js/ui.js?v=20"></script>
-<script defer src="js/members.js?v=20"></script>
+<script defer src="js/ui.js?v=22"></script>
+<script defer src="js/members.js?v=23"></script>
 <script defer src="js/page.js?v=18"></script>
 
 </body>

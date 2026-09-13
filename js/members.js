@@ -1,6 +1,13 @@
 // Biến theo dõi thư mục giấy tờ hiện tại
 let currentDocsFolder = null;
 
+function setMemberManagementButtonVisible(visible) {
+  ['btnToggleSelect', 'btnAddMember'].forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+    if (button) button.classList.toggle('hidden', !visible);
+  });
+}
+
 // Kéo thả sắp xếp[cite: 3]
 function initSortable() {
   const grid = document.getElementById('memberGrid');
@@ -95,6 +102,7 @@ async function deleteSelectedMembers() {
 
 // Bảng tổng hợp[cite: 3]
 function openSummaryTable(skipHistory = false) {
+  setMemberManagementButtonVisible(false);
   if (!skipHistory) {
     const ids = selectedIds.size > 0 ? [...selectedIds].join(',') : '';
     navigateApp('summary', { ids });
@@ -118,7 +126,7 @@ function openSummaryTable(skipHistory = false) {
     const hasNote = m.notes && m.notes.trim() !== '' && m.notes !== '<br>' && m.notes !== '<div><br></div>';
 
     const noteBtnHtml = hasNote
-      ? `<button type="button" class="btn-eye" title="Bấm để xem ghi chú" data-name="${escapeHtml(m.name || '')}" data-id="${m.id}">👁️</button>`
+      ? `<button type="button" class="btn-eye" title="Bấm để xem ghi chú" data-name="${escapeHtml(m.name || '')}" data-id="${m.id}">🔍</button>`
       : `<span style="color:var(--text-muted); opacity: 0.5;">-</span>`;
 
     const tr = document.createElement('tr');
@@ -249,8 +257,44 @@ function renderGrid() {
   initSortable();
 }
 
+function connectDocumentField(fieldId, member, documentTypes, tooltip) {
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+  const documentItem = (member.documents || []).find(document =>
+    documentTypes.some(type => String(document.docType || '').toLowerCase().includes(type))
+  );
+  field.classList.toggle('has-document', Boolean(documentItem));
+  field.title = documentItem ? tooltip : '';
+  field.setAttribute('aria-label', documentItem ? tooltip : '');
+  field.onclick = () => {
+    if (!documentItem) return;
+    if (documentItem.fileType && documentItem.fileType.includes('pdf')) openDocumentInNewTab(documentItem.id);
+    else showDocumentPreview(documentItem);
+  };
+  field.onkeydown = event => {
+    if (event.key === 'Enter' || event.key === ' ') field.click();
+  };
+}
+
+function renderPhoneField(elementId, phone, contactName) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  const value = String(phone || '').trim();
+  const field = element.closest('.phone-info-item');
+  if (field) {
+    const tooltip = value ? `Gọi cho ${contactName || 'liên hệ này'}` : '';
+    field.classList.toggle('has-phone', Boolean(value));
+    field.title = tooltip;
+    field.setAttribute('aria-label', tooltip);
+  }
+  element.innerHTML = value
+    ? `<a class="phone-link" href="tel:${escapeHtml(value)}">${escapeHtml(value)}</a>`
+    : '-';
+}
+
 // Hiển thị chi tiết
 function viewDetails(id, skipHistory = false) {
+  setMemberManagementButtonVisible(false);
   const targetId = id || currentMemberId;
   const m = members.find(item => String(item.id) === String(targetId));
   if (!m) return;
@@ -267,13 +311,23 @@ function viewDetails(id, skipHistory = false) {
   document.getElementById('dtName').innerText = m.name;
   document.getElementById('dtRole').innerText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
   document.getElementById('dtEmail').innerText = m.email || '-';
-  document.getElementById('dtPhone').innerText = m.phone || '-';
+  renderPhoneField('dtPhone', m.phone, m.name);
+  document.getElementById('dtSchoolClass').innerText = m.schoolClass || '-';
+  document.getElementById('dtChildCode').innerText = m.specialCode || '-';
+  renderPhoneField('dtTeacherPhone', m.teacherPhone, m.teacherName || 'cô chủ nhiệm');
+  document.getElementById('dtTeacherName').innerText = m.teacherName || '-';
+  document.querySelectorAll('.child-detail-field').forEach(field => field.classList.toggle('hidden', m.type !== 'child'));
+  document.querySelectorAll('.adult-detail-field').forEach(field => field.classList.toggle('hidden', m.type !== 'adult'));
   document.getElementById('dtDob').innerText = m.dob || '-';
   document.getElementById('dtPob').innerText = m.pob || '-';
   document.getElementById('dtCccd').innerText = m.cccd || '-';
   document.getElementById('dtCccdDate').innerText = m.cccdDate || '-';
   document.getElementById('dtBhyt').innerText = m.bhyt || '-';
   document.getElementById('dtBhxh').innerText = m.bhxh || '-';
+  connectDocumentField('dtCccdField', m, ['cccd', 'định danh'], 'Xem hình ảnh CCCD');
+  connectDocumentField('dtCccdDateField', m, ['cccd', 'định danh'], 'Xem hình ảnh CCCD');
+  connectDocumentField('dtBhytField', m, ['bhyt', 'bảo hiểm y tế'], 'Xem hình ảnh BHYT');
+  connectDocumentField('dtBhxhField', m, ['bhxh', 'bảo hiểm xã hội'], 'Xem hình ảnh BHXH');
   document.getElementById('dtTax').innerText = m.tax || '-';
 
   const notesEl = document.getElementById('dtNotes');
@@ -289,11 +343,13 @@ function viewDetails(id, skipHistory = false) {
     m.banks.forEach(b => {
       const bankCard = document.createElement('div');
       bankCard.className = 'bank-card';
+      const bankLogo = b.bankName?.toLowerCase() === 'agribank' || b.logo?.includes('/AGR.png')
+        ? 'https://cdn.vietqr.io/img/VBA.png'
+        : (b.logo || DEFAULT_BANK_LOGO);
       bankCard.innerHTML = `
         <div class="bank-info-left">
-          <img class="bank-logo" src="${escapeHtml(b.logo || DEFAULT_BANK_LOGO)}" onerror="this.src=DEFAULT_BANK_LOGO">
+          <img class="bank-logo" src="${escapeHtml(bankLogo)}" title="${escapeHtml(b.bankName || 'Ngân hàng')}" alt="Logo ${escapeHtml(b.bankName || 'ngân hàng')}" onerror="this.src=DEFAULT_BANK_LOGO">
           <div>
-            <div style="font-weight:700; color:var(--navy);">${escapeHtml(b.bankName || 'Ngân hàng')}</div>
             <div style="color:var(--text-muted); font-size:0.88rem;">STK: ${escapeHtml(b.accNum || '')}</div>
           </div>
         </div>
@@ -333,6 +389,7 @@ function readFileAsDataUrl(file) {
 }
 
 function showHome(skipHistory = false) {
+  setMemberManagementButtonVisible(true);
   if (!skipHistory) replaceAppHistory('home');
   document.getElementById('homeView').classList.remove('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -344,6 +401,7 @@ function showHome(skipHistory = false) {
 }
 
 function openForm(member = null, skipHistory = false) {
+  setMemberManagementButtonVisible(false);
   if (!skipHistory) pushAppHistory('form', member ? { memberId: member.id } : {});
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -367,6 +425,10 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fName').value = member.name;
     document.getElementById('fEmail').value = member.email || '';
     document.getElementById('fPhone').value = member.phone || '';
+    document.getElementById('fSchoolClass').value = member.schoolClass || '';
+    document.getElementById('fSpecialCodeChild').value = member.specialCode || '';
+    document.getElementById('fTeacherPhone').value = member.teacherPhone || '';
+    document.getElementById('fTeacherName').value = member.teacherName || '';
     document.getElementById('fAvatarUrl').value = member.avatar && !member.avatar.startsWith('data:') ? member.avatar : '';
     document.getElementById('fAvatarPreview').src = member.avatar || DEFAULT_AVATAR;
     document.getElementById('fDob').value = member.dob || '';
@@ -385,6 +447,10 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fId').value = '';
     document.getElementById('fEmail').value = '';
     document.getElementById('fPhone').value = '';
+    document.getElementById('fSchoolClass').value = '';
+    document.getElementById('fSpecialCodeChild').value = '';
+    document.getElementById('fTeacherPhone').value = '';
+    document.getElementById('fTeacherName').value = '';
     document.getElementById('fBhxh').value = '';
     document.getElementById('fNotesEditor').innerHTML = '';
   }
@@ -394,6 +460,8 @@ function openForm(member = null, skipHistory = false) {
 function toggleSpecialInput() {
   const type = document.getElementById('fType').value;
   document.getElementById('fSpecialLabel').innerText = type === 'child' ? 'Mã học sinh' : 'Mã nhân viên';
+  document.querySelectorAll('.child-only-field').forEach(field => field.classList.toggle('hidden', type !== 'child'));
+  document.querySelectorAll('.adult-only-field').forEach(field => field.classList.toggle('hidden', type !== 'adult'));
 }
 
 function addBankRow(name = '', acc = '', logo = '') {
@@ -514,6 +582,9 @@ async function saveMember(e) {
     name: document.getElementById('fName').value,
     email: document.getElementById('fEmail').value.trim(),
     phone: document.getElementById('fPhone').value.trim(),
+    schoolClass: document.getElementById('fSchoolClass').value.trim(),
+    teacherPhone: document.getElementById('fTeacherPhone').value.trim(),
+    teacherName: document.getElementById('fTeacherName').value.trim(),
     avatar: avatarData,
     dob: dobVal,
     pob: document.getElementById('fPob').value,
@@ -522,7 +593,9 @@ async function saveMember(e) {
     bhyt: document.getElementById('fBhyt').value,
     bhxh: document.getElementById('fBhxh').value.trim(),
     tax: document.getElementById('fTax').value,
-    specialCode: document.getElementById('fSpecialCode').value,
+    specialCode: document.getElementById('fType').value === 'child'
+      ? document.getElementById('fSpecialCodeChild').value.trim()
+      : document.getElementById('fSpecialCode').value.trim(),
     notes: notesHtml,
     banks: banks
   };
@@ -588,6 +661,7 @@ async function deleteCurrentMember() {
 
 // Mở màn hình Hồ sơ cá nhân
 function openDocsView(memberId = null, skipHistory = false) {
+  setMemberManagementButtonVisible(false);
   const targetId = memberId || currentMemberId;
   const m = members.find(item => item.id === targetId);
   if (!m) {
@@ -703,7 +777,7 @@ function openFolderDetails(docType) {
         <span>${escapeHtml(doc.createdAt || '-')}</span>
       </div>
       <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
-        <button type="button" class="btn-view-link btn-view-file">👁️ View</button>
+        <button type="button" class="btn-view-link btn-view-file">🔍 Xem</button>
         <button type="button" class="btn-danger btn-del-file">🗑️ Xóa</button>
       </div>
     `;
