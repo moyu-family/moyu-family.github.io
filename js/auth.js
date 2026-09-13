@@ -354,7 +354,7 @@ async function pushToFirebase() {
       'if-match': lastFirebaseEtag || '*'
     },
     body: JSON.stringify(cipherText)
-  }).then(res => {
+  }).then(async res => {
     if (res.status === 412) throw new Error('De lieu tren thiet bi khac vua thay doi. Hay tai lai trang truoc khi luu lai.');
     if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
     lastUploadedCipherText = cipherText;
