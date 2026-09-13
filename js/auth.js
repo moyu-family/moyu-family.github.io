@@ -349,13 +349,9 @@ async function pushToFirebase() {
 
   activeSavePromise = fetch(`${FIREBASE_DB_URL}data.json`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'if-match': lastFirebaseEtag || '*'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cipherText)
   }).then(async res => {
-    if (res.status === 412) throw new Error('De lieu tren thiet bi khac vua thay doi. Hay tai lai trang truoc khi luu lai.');
     if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
     lastUploadedCipherText = cipherText;
     lastFirebaseEtag = res.headers.get('ETag') || lastFirebaseEtag;
