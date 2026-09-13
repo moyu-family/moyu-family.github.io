@@ -211,7 +211,11 @@ function renderGrid() {
     return;
   }
   
-  members.forEach(m => {
+  const orderedMembers = [...members].sort((firstMember, secondMember) =>
+    String(firstMember.name || '').localeCompare(String(secondMember.name || ''), 'vi', { sensitivity: 'base' })
+  );
+
+  orderedMembers.forEach(m => {
     const card = document.createElement('div');
     card.className = 'member-card';
     card.setAttribute('data-id', m.id);
@@ -762,7 +766,7 @@ function openFolderDetails(docType) {
   const filesList = document.createElement('div');
   filesList.className = 'files-list';
 
-  files.forEach((doc, idx) => {
+  files.forEach(doc => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
     const card = document.createElement('article');
     card.className = 'file-card';
@@ -770,27 +774,47 @@ function openFolderDetails(docType) {
       ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
       : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
     card.innerHTML = `
-      <div class="file-card-index">${idx + 1}</div>
       <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
       <div class="file-card-info">
         <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
-        <span>${escapeHtml(doc.createdAt || '-')}</span>
       </div>
       <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
-        <button type="button" class="btn-view-link btn-view-file">🔍 Xem</button>
-        <button type="button" class="btn-danger btn-del-file">🗑️ Xóa</button>
+        <button type="button" class="btn-view-link file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">🔍</button>
+        <button type="button" class="btn-outline file-action-button btn-edit-file" title="Sửa mô tả" aria-label="Sửa mô tả">✏️</button>
+        <button type="button" class="btn-danger file-action-button btn-del-file" title="Xóa tài liệu" aria-label="Xóa tài liệu">🗑️</button>
       </div>
     `;
     card.querySelector('.file-preview-button').onclick = () => {
       if (isPdf) openDocumentInNewTab(doc.id);
-      else showDocumentPreview(doc);
+      else showDocumentPreview(doc, files);
     };
-    card.querySelector('.btn-view-file').onclick = () => openDocumentInNewTab(doc.id);
+    card.querySelector('.btn-view-file').onclick = () => {
+      if (isPdf) openDocumentInNewTab(doc.id);
+      else showDocumentPreview(doc, files);
+    };
+    card.querySelector('.btn-edit-file').onclick = () => editDocumentDescription(doc.id);
     card.querySelector('.btn-del-file').onclick = () => deleteDocument(doc.id);
     filesList.appendChild(card);
   });
 
   container.appendChild(filesList);
+}
+
+async function editDocumentDescription(docId) {
+  const m = members.find(item => item.id === currentMemberId);
+  const doc = m?.documents?.find(item => String(item.id) === String(docId));
+  if (!doc) return;
+
+  const description = prompt('Nhập mô tả mới cho tài liệu:', doc.desc || '');
+  if (description === null) return;
+
+  doc.desc = description.trim();
+  try {
+    await pushToFirebase();
+    openFolderDetails(currentDocsFolder);
+  } catch (err) {
+    alert('Lỗi lưu mô tả: ' + err.message);
+  }
 }
 
 // Lưu tài liệu mới

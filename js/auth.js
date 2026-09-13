@@ -127,22 +127,22 @@ function removeBiometric() {
 async function loadDataWithPassword(pwd) {
   let cloudData;
   const cachedData = localStorage.getItem(SESSION_DATA_CACHE_KEY);
-  if (cachedData) {
-    try {
-      cloudData = JSON.parse(cachedData);
-    } catch {
-      localStorage.removeItem(SESSION_DATA_CACHE_KEY);
-    }
-  }
-
-  if (cloudData === undefined) {
-    const res = await fetch(`${FIREBASE_DB_URL}data.json`);
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}data.json`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
     cloudData = await res.json();
     try {
       localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cloudData));
     } catch {
       // Dữ liệu có thể vượt giới hạn sessionStorage, nhưng không được chặn đăng nhập.
+    }
+  } catch (networkError) {
+    if (!cachedData) throw networkError;
+    try {
+      cloudData = JSON.parse(cachedData);
+    } catch {
+      localStorage.removeItem(SESSION_DATA_CACHE_KEY);
+      throw networkError;
     }
   }
 

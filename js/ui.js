@@ -115,15 +115,49 @@ function closeImageModal() {
   document.getElementById('imageModal').classList.add('hidden');
 }
 
-function showDocumentPreview(doc) {
+let documentPreviewItems = [];
+let documentPreviewIndex = 0;
+
+function showDocumentPreview(doc, relatedDocs = null) {
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  documentPreviewItems = (relatedDocs || (m?.documents || []).filter(item =>
+    item.docType === doc.docType && !(item.fileType || '').includes('pdf')
+  )).filter(item => !(item.fileType || '').includes('pdf'));
+  if (!documentPreviewItems.some(item => String(item.id) === String(doc.id))) {
+    documentPreviewItems.unshift(doc);
+  }
+  documentPreviewIndex = documentPreviewItems.findIndex(item => String(item.id) === String(doc.id));
+  renderDocumentPreview();
+  document.getElementById('documentPreviewModal').classList.remove('hidden');
+}
+
+function renderDocumentPreview() {
+  const doc = documentPreviewItems[documentPreviewIndex];
+  if (!doc) return;
+  const hasNavigation = documentPreviewItems.length > 1;
   document.getElementById('documentPreviewTitle').innerText = doc.desc || 'Xem giấy tờ';
   document.getElementById('documentPreviewImage').src = doc.data;
-  document.getElementById('documentPreviewModal').classList.remove('hidden');
+  document.getElementById('documentPreviewImage').alt = doc.desc || 'Xem giấy tờ';
+  document.getElementById('documentPreviewMeta').innerText = `${doc.fileName || 'Tài liệu'} · Ngày tải lên: ${doc.createdAt || '-'}`;
+  document.getElementById('documentPreviewPrevious').classList.toggle('hidden', !hasNavigation);
+  document.getElementById('documentPreviewNext').classList.toggle('hidden', !hasNavigation);
+  document.getElementById('documentPreviewCounter').innerText = hasNavigation
+    ? `${documentPreviewIndex + 1} / ${documentPreviewItems.length}`
+    : '';
+}
+
+function navigateDocumentPreview(direction) {
+  if (documentPreviewItems.length < 2) return;
+  documentPreviewIndex = (documentPreviewIndex + direction + documentPreviewItems.length) % documentPreviewItems.length;
+  renderDocumentPreview();
 }
 
 function closeDocumentPreview() {
   document.getElementById('documentPreviewModal').classList.add('hidden');
   document.getElementById('documentPreviewImage').src = '';
+  document.getElementById('documentPreviewMeta').innerText = '';
+  documentPreviewItems = [];
+  documentPreviewIndex = 0;
 }
 
 // Modal thêm Bank

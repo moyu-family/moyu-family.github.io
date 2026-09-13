@@ -34,7 +34,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.2 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.3 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -333,7 +333,13 @@
 <div id="documentPreviewModal" class="modal-overlay hidden" onclick="closeDocumentPreview()">
   <div class="document-preview-card" onclick="event.stopPropagation()">
     <div class="document-preview-header"><strong id="documentPreviewTitle">Xem giấy tờ</strong><button type="button" class="image-modal-close" onclick="closeDocumentPreview()" aria-label="Đóng">×</button></div>
-    <img id="documentPreviewImage" class="document-preview-image" src="" alt="Xem giấy tờ">
+    <div class="document-preview-stage">
+      <button type="button" id="documentPreviewPrevious" class="document-preview-nav" onclick="navigateDocumentPreview(-1)" aria-label="Trang trước">‹</button>
+      <img id="documentPreviewImage" class="document-preview-image" src="" alt="Xem giấy tờ">
+      <button type="button" id="documentPreviewNext" class="document-preview-nav" onclick="navigateDocumentPreview(1)" aria-label="Trang sau">›</button>
+    </div>
+    <div id="documentPreviewMeta" class="document-preview-meta"></div>
+    <div id="documentPreviewCounter" class="document-preview-counter"></div>
   </div>
 </div>
 
