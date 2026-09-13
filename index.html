@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -41,7 +41,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.5 · 13/09/2026</div>
+    <div class="app-version">Phiên bản 1.5.1 · 13/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -53,16 +53,16 @@
         <span class="brand-home-text">Quản lý gia đình</span>
       </button>
       <div class="btn-group">
-        <button class="btn-tool" id="btnToggleSelect" onclick="toggleSelectMode()">
+        <button class="btn-tool" id="btnToggleSelect" onclick="toggleSelectMode()" title="Quản lý / Chọn">
           <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span>
           <span class="btn-text">Quản lý / Chọn</span>
         </button>
-        <button class="btn-tool" onclick="navigateApp('consolidated')">
+        <button class="btn-tool" onclick="navigateApp('consolidated')" title="Hồ sơ tổng hợp">
           <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
           <span class="btn-text">Hồ sơ tổng hợp</span>
         </button>
-        <button class="btn-primary" id="btnAddMember" onclick="openForm()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>Thêm thành viên</button>
-        <button class="btn-lock" onclick="lockApp()">
+        <button class="btn-primary" id="btnAddMember" onclick="openForm()" title="Thêm thành viên"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span><span class="btn-text">Thêm thành viên</span></button>
+        <button class="btn-lock" onclick="lockApp()" title="Khóa">
           <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
           <span class="btn-text">Khóa</span>
         </button>

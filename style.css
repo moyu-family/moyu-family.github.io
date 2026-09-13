@@ -154,6 +154,16 @@ button:active { transform: scale(0.97); }
 .member-name { font-weight: 700; font-size: 1.05rem; color: var(--navy); margin-bottom: 6px; pointer-events: none; letter-spacing: -0.01em; }
 .member-role { display: inline-block; font-size: 0.72rem; font-weight: 700; color: var(--gold); background: var(--gold-light); padding: 3px 10px; border-radius: 30px; pointer-events: none; letter-spacing: 0.01em; }
 
+@media(max-width: 640px) {
+  .top-bar { padding: 10px 12px; gap: 6px; }
+  .brand-home { min-width: 0; flex: 0 0 auto; width: 38px; }
+  .brand-home-text { display: none; }
+  .btn-group { gap: 6px; }
+  .btn-group button { padding: 9px 10px; }
+  .btn-group .btn-text { display: none; }
+  .btn-group .btn-icon { gap: 0; }
+}
+
 @media(max-width: 800px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .member-card { padding: 16px 8px; border-radius: 12px; }
