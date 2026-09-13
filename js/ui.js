@@ -14,14 +14,27 @@ function maskDateInput(input) {
 
 function isValidDateVN(str) {
   if (!str) return true;
-  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return false;
-  const day = parseInt(m[1], 10), month = parseInt(m[2], 10), year = parseInt(m[3], 10);
-  return !(month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100);
+  const match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return false;
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const year = parseInt(match[3], 10);
+  if (month < 1 || month > 12 || day < 1 || year < 1900 || year > 2100) return false;
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function getAppStateFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('member')) return { app: 'family', view: 'member', memberId: params.get('member') };
+  if (params.has('summary')) return { app: 'family', view: 'summary' };
+  if (params.has('documents')) return { app: 'family', view: 'documents', memberId: params.get('documents') };
+  if (params.has('edit')) return { app: 'family', view: 'form', memberId: params.get('edit') };
+  return { app: 'family', view: 'home' };
 }
 
 function initAppHistory() {
-  history.replaceState({ app: 'family', view: 'home' }, '', location.href);
+  history.replaceState(getAppStateFromLocation(), '', location.href);
 }
 
 function pushAppHistory(view, data = {}) {
@@ -42,10 +55,10 @@ function goBackInApp() {
 
 function restoreAppView(state) {
   if (!state || state.app !== 'family') return;
-  if (state.view === 'detail') viewDetails(state.memberId, true);
-  else if (state.view === 'form') openForm(state.memberId ? members.find(m => m.id === state.memberId) : null, true);
-  else if (state.view === 'table') openSummaryTable(true);
-  else if (state.view === 'docs') openDocsView(state.memberId, true);
+  if (state.view === 'member' || state.view === 'detail') viewDetails(state.memberId, true);
+  else if (state.view === 'form') openForm(state.memberId ? members.find(m => String(m.id) === String(state.memberId)) : null, true);
+  else if (state.view === 'summary' || state.view === 'table') openSummaryTable(true);
+  else if (state.view === 'documents' || state.view === 'docs') openDocsView(state.memberId, true);
   else showHome(true);
 }
 
@@ -204,12 +217,12 @@ function refreshBankDropdowns() {
 
 // Quản lý Modal Popup xem Ghi chú
 function showNoteModal(name, memberId) {
-  const m = members.find(item => item.id === memberId);
+  const m = members.find(item => String(item.id) === String(memberId));
   document.getElementById('noteModalTitle').innerText = `📝 Ghi chú: ${name}`;
   const contentEl = document.getElementById('noteModalContent');
   
   if (m && m.notes && m.notes.trim() !== '') {
-    contentEl.innerHTML = m.notes;
+    contentEl.innerHTML = sanitizeRichText(m.notes);
   } else {
     contentEl.innerHTML = '<span style="color:var(--text-muted); font-style:italic;">Không có ghi chú nào.</span>';
   }
@@ -222,7 +235,7 @@ function closeNoteModal() {
 
 // Quản lý Modal Upload Giấy tờ
 function openUploadDocModal() {
-  document.getElementById('docTypeSelect').value = "CCCD / Định danh";
+  document.getElementById('docTypeSelect').value = "CCCD / Định danh cá nhân";
   document.getElementById('docCustomName').value = "";
   document.getElementById('docDesc').value = "";
   document.getElementById('docFileInput').value = "";

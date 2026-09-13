@@ -108,7 +108,7 @@ function openSummaryTable(skipHistory = false) {
     navigateApp('summary', { ids });
     return;
   }
-  if (!skipHistory) pushAppHistory('table');
+  if (!skipHistory) pushAppHistory('summary');
   let targetMembers = members;
   if (selectedIds.size > 0) {
     targetMembers = members.filter(m => selectedIds.has(m.id));
@@ -211,11 +211,7 @@ function renderGrid() {
     return;
   }
   
-  const orderedMembers = [...members].sort((firstMember, secondMember) =>
-    String(firstMember.name || '').localeCompare(String(secondMember.name || ''), 'vi', { sensitivity: 'base' })
-  );
-
-  orderedMembers.forEach(m => {
+  members.forEach(m => {
     const card = document.createElement('div');
     card.className = 'member-card';
     card.setAttribute('data-id', m.id);
@@ -303,7 +299,7 @@ function viewDetails(id, skipHistory = false) {
   const m = members.find(item => String(item.id) === String(targetId));
   if (!m) return;
   currentMemberId = m.id;
-  if (!skipHistory) pushAppHistory('detail', { memberId: m.id });
+  if (!skipHistory) pushAppHistory('member', { memberId: m.id });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -335,7 +331,7 @@ function viewDetails(id, skipHistory = false) {
   document.getElementById('dtTax').innerText = m.tax || '-';
 
   const notesEl = document.getElementById('dtNotes');
-  if (m.notes && m.notes.trim() !== '') notesEl.innerHTML = m.notes;
+  if (m.notes && m.notes.trim() !== '') notesEl.innerHTML = sanitizeRichText(m.notes);
   else notesEl.innerText = 'Chưa có ghi chú nào.';
 
   document.getElementById('specialLabel').innerText = m.type === 'child' ? 'Mã học sinh' : 'Mã nhân viên';
@@ -443,7 +439,7 @@ function openForm(member = null, skipHistory = false) {
     document.getElementById('fBhxh').value = member.bhxh || '';
     document.getElementById('fTax').value = member.tax;
     document.getElementById('fSpecialCode').value = member.specialCode;
-    document.getElementById('fNotesEditor').innerHTML = member.notes || '';
+    document.getElementById('fNotesEditor').innerHTML = sanitizeRichText(member.notes || '');
 
     if (member.banks) member.banks.forEach(b => addBankRow(b.bankName, b.accNum, b.logo));
   } else {
@@ -542,6 +538,9 @@ async function saveMember(e) {
     alert('Ảnh đại diện không được vượt quá 3MB.');
     return;
   }
+  const saveButtons = document.querySelectorAll('#memberForm button[type="submit"], button[form="memberForm"]');
+  if (Array.from(saveButtons).some(button => button.disabled)) return;
+  saveButtons.forEach(button => { button.disabled = true; });
 
   let avatarData = '';
   if (avatarFile) {
@@ -549,12 +548,13 @@ async function saveMember(e) {
       avatarData = await uploadFileToStorage(avatarFile, `avatars/${id}`);
     } catch (err) {
       alert(err.message);
+      saveButtons.forEach(button => { button.disabled = false; });
       return;
     }
   } else if (avatarUrl) {
     avatarData = avatarUrl;
   } else {
-    const existingMember = members.find(m => m.id === id);
+    const existingMember = members.find(m => String(m.id) === String(id));
     avatarData = existingMember ? existingMember.avatar || '' : '';
     if (avatarData.startsWith('data:')) {
       try {
@@ -578,7 +578,7 @@ async function saveMember(e) {
     }
   });
 
-  const notesHtml = document.getElementById('fNotesEditor').innerHTML.trim();
+  const notesHtml = sanitizeRichText(document.getElementById('fNotesEditor').innerHTML.trim());
 
   const memberObj = {
     id: id,
@@ -604,7 +604,7 @@ async function saveMember(e) {
     banks: banks
   };
 
-  const idx = members.findIndex(m => m.id === id);
+  const idx = members.findIndex(m => String(m.id) === String(id));
   if (idx >= 0) {
     memberObj.documents = members[idx].documents || [];
     for (const document of memberObj.documents) {
@@ -616,6 +616,7 @@ async function saveMember(e) {
         );
       } catch (err) {
         alert(err.message);
+        saveButtons.forEach(button => { button.disabled = false; });
         return;
       }
     }
@@ -635,6 +636,7 @@ async function saveMember(e) {
     alert('Lỗi lưu dữ liệu: ' + err.message);
   } finally {
     btn.innerText = 'Lưu hồ sơ';
+    saveButtons.forEach(button => { button.disabled = false; });
   }
 }
 
@@ -643,13 +645,13 @@ function cancelForm() {
 }
 
 function editCurrentMember() {
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (m) openForm(m);
 }
 
 async function deleteCurrentMember() {
   if (confirm('Bạn có chắc muốn xoá hồ sơ này?')) {
-    members = members.filter(m => m.id !== currentMemberId);
+    members = members.filter(m => String(m.id) !== String(currentMemberId));
     try {
       await pushToFirebase();
       navigateApp('home');
@@ -667,7 +669,7 @@ async function deleteCurrentMember() {
 function openDocsView(memberId = null, skipHistory = false) {
   setMemberManagementButtonVisible(false);
   const targetId = memberId || currentMemberId;
-  const m = members.find(item => item.id === targetId);
+  const m = members.find(item => String(item.id) === String(targetId));
   if (!m) {
     alert('Không tìm thấy thông tin thành viên!');
     return;
@@ -677,7 +679,7 @@ function openDocsView(memberId = null, skipHistory = false) {
     navigateApp('documents', { id: targetId });
     return;
   }
-  if (!skipHistory) pushAppHistory('docs', { memberId: targetId });
+  if (!skipHistory) pushAppHistory('documents', { memberId: targetId });
 
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('tableView').classList.add('hidden');
@@ -692,7 +694,7 @@ function openDocsView(memberId = null, skipHistory = false) {
 // 1. Màn hình ngoài: Danh sách các thư mục loại giấy tờ
 function renderDocsFolders() {
   currentDocsFolder = null;
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
   document.getElementById('docsBreadcrumb').innerText = '📂 Thư mục gốc (Chọn loại giấy tờ để xem chi tiết)';
@@ -747,7 +749,7 @@ function renderDocsFolders() {
 // 2. Màn hình trong: Chi tiết danh sách các ảnh/tệp của loại giấy tờ đó (File Explorer Detail View)
 function openFolderDetails(docType) {
   currentDocsFolder = docType;
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
   document.getElementById('docsBreadcrumb').innerHTML = `📂 Thư mục gốc ➔ <strong style="color:var(--navy);">${escapeHtml(docType)}</strong>`;
@@ -801,7 +803,7 @@ function openFolderDetails(docType) {
 }
 
 async function editDocumentDescription(docId) {
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   const doc = m?.documents?.find(item => String(item.id) === String(docId));
   if (!doc) return;
 
@@ -819,7 +821,7 @@ async function editDocumentDescription(docId) {
 
 // Lưu tài liệu mới
 async function saveDocument() {
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
   const typeSel = document.getElementById('docTypeSelect').value;
@@ -865,7 +867,7 @@ async function saveDocument() {
 
 // Mở tài liệu ở tab mới
 function openDocumentInNewTab(docId) {
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m || !m.documents) return;
 
   const doc = m.documents.find(d => String(d.id) === String(docId));
@@ -914,7 +916,7 @@ function openDocumentInNewTab(docId) {
 
 // Xóa tài liệu
 async function deleteDocument(docId) {
-  const m = members.find(item => item.id === currentMemberId);
+  const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m || !m.documents) return;
 
   if (confirm('Bạn có chắc chắn muốn xóa tệp giấy tờ này?')) {

@@ -128,9 +128,13 @@ async function loadDataWithPassword(pwd) {
   let cloudData;
   const cachedData = localStorage.getItem(SESSION_DATA_CACHE_KEY);
   try {
-    const res = await fetch(`${FIREBASE_DB_URL}data.json`, { cache: 'no-store' });
+    const res = await fetch(`${FIREBASE_DB_URL}data.json`, {
+      cache: 'no-store',
+      headers: { 'X-Firebase-ETag': 'true' }
+    });
     if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
     cloudData = await res.json();
+    lastFirebaseEtag = res.headers.get('ETag');
     try {
       localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cloudData));
     } catch {
@@ -176,6 +180,7 @@ async function loadDataWithPassword(pwd) {
     members = parsed.members || [];
     customBankList = parsed.customBankList || [...DEFAULT_BANKS];
   }
+  members = members.map(member => ({ ...member, id: String(member.id) }));
 
   const agribankLogo = 'https://cdn.vietqr.io/img/VBA.png';
   customBankList = customBankList.map(bank =>
@@ -338,23 +343,38 @@ async function pushToFirebase() {
     customBankList: customBankList
   };
   const cipherText = CryptoJS.AES.encrypt(JSON.stringify(payload), masterPassword).toString();
-  try {
-    localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cipherText));
-  } catch {
-    // Cache cục bộ không được chặn việc đồng bộ lên Firebase.
-  }
-
   if (cipherText === lastUploadedCipherText) return;
   if (activeSavePromise) await activeSavePromise;
   if (cipherText === lastUploadedCipherText) return;
 
   activeSavePromise = fetch(`${FIREBASE_DB_URL}data.json`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'if-match': lastFirebaseEtag || '*'
+    },
     body: JSON.stringify(cipherText)
   }).then(res => {
+    if (res.status === 412) throw new Error('De lieu tren thiet bi khac vua thay doi. Hay tai lai trang truoc khi luu lai.');
     if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
     lastUploadedCipherText = cipherText;
+    lastFirebaseEtag = res.headers.get('ETag') || lastFirebaseEtag;
+    if (!lastFirebaseEtag) {
+      try {
+        const latest = await fetch(`${FIREBASE_DB_URL}data.json`, {
+          cache: 'no-store',
+          headers: { 'X-Firebase-ETag': 'true' }
+        });
+        lastFirebaseEtag = latest.headers.get('ETag') || lastFirebaseEtag;
+      } catch {
+        // Không chặn việc lưu nếu chỉ truy vấn lại ETag bị lỗi.
+      }
+    }
+    try {
+      localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cipherText));
+    } catch {
+      // Cache cục bộ không được chặn việc đồng bộ lên Firebase.
+    }
   }).finally(() => {
     activeSavePromise = null;
   });
@@ -415,3 +435,4 @@ async function restoreSession() {
 }
 
 updateBiometricButton();
+window.addEventListener('DOMContentLoaded', restoreSession);

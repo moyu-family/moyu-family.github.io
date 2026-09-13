@@ -27,6 +27,7 @@ let selectedIds = new Set();
 let sortableInstance = null;
 let lastUploadedCipherText = null;
 let activeSavePromise = null;
+let lastFirebaseEtag = null;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -35,4 +36,18 @@ function escapeHtml(value = "") {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function sanitizeRichText(html = '') {
+  const container = document.createElement('div');
+  container.innerHTML = String(html);
+  const allowedTags = new Set(['B', 'BR', 'DIV', 'EM', 'I', 'LI', 'OL', 'P', 'S', 'STRONG', 'U', 'UL']);
+  container.querySelectorAll('*').forEach(element => {
+    if (!allowedTags.has(element.tagName)) {
+      element.replaceWith(document.createTextNode(element.textContent || ''));
+      return;
+    }
+    Array.from(element.attributes).forEach(attribute => element.removeAttribute(attribute.name));
+  });
+  return container.innerHTML;
 }
