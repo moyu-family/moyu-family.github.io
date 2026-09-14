@@ -2046,6 +2046,13 @@ async function openDocInNewTabByDoc(doc) {
   let displayUrl;
   try {
     displayUrl = await getDocumentDisplayUrl(doc);
+    // Chuyển blob: URL (tài liệu đã mã hóa) sang data: URI trước khi nhúng vào tab mới:
+    // nhiều trình duyệt di động (Chrome/Safari trên Android/iOS) không mở được blob: URL
+    // được tạo ở cửa sổ khác, dẫn đến chỉ hiện tên file dạng mã băm và nút Open không hoạt động.
+    if (displayUrl.startsWith('blob:')) {
+      const blob = await (await fetch(displayUrl)).blob();
+      displayUrl = await readFileAsDataUrl(blob);
+    }
   } catch (err) {
     newTab.close();
     alert(err.message || 'Không thể giải mã tệp giấy tờ.');
