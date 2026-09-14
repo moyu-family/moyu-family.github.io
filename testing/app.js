@@ -61,7 +61,6 @@ function createApp({ url = 'https://moyu-family.github.io/index.html' } = {}) {
       get lastUploadedCipherText() { return lastUploadedCipherText; },
       get globalUploadFiles() { return globalUploadFiles; }, set globalUploadFiles(v) { globalUploadFiles = v; },
       get pendingUploadFiles() { return pendingUploadFiles; }, set pendingUploadFiles(v) { pendingUploadFiles = v; },
-      get globalSelectedTags() { return globalSelectedTags; }, set globalSelectedTags(v) { globalSelectedTags = v; },
       get currentConsolidatedTagFilter() { return currentConsolidatedTagFilter; }, set currentConsolidatedTagFilter(v) { currentConsolidatedTagFilter = v; }
     };
   `;

@@ -29,7 +29,7 @@ function getAppStateFromLocation() {
   if (params.has('member')) return { app: 'family', view: 'member', memberId: params.get('member') };
   if (params.has('summary')) return { app: 'family', view: 'summary' };
   if (params.has('documents')) return { app: 'family', view: 'documents', memberId: params.get('documents') };
-  if (params.has('consolidated')) return { app: 'family', view: 'consolidated' };
+  if (params.has('consolidated')) return { app: 'family', view: 'consolidated', filter: params.get('filter') || null };
   if (params.has('edit')) return { app: 'family', view: 'form', memberId: params.get('edit') };
   return { app: 'family', view: 'home' };
 }
@@ -60,7 +60,7 @@ function restoreAppView(state) {
   else if (state.view === 'form') openForm(state.memberId ? members.find(m => String(m.id) === String(state.memberId)) : null, true);
   else if (state.view === 'summary' || state.view === 'table') openSummaryTable(true);
   else if (state.view === 'documents' || state.view === 'docs') openDocsView(state.memberId, true);
-  else if (state.view === 'consolidated') openConsolidatedView(true);
+  else if (state.view === 'consolidated') openConsolidatedView({ skipHistory: true, filter: state.filter || null });
   else showHome(true);
 }
 
@@ -341,8 +341,8 @@ function getCustomDocTypes() {
 }
 
 // Đồng bộ các option của 1 select loại giấy tờ, giữ nguyên lựa chọn hiện tại nếu có thể.
-// Nếu select có data-placeholder (xem guCategorySelect trong modal Tải nhanh), luôn chèn lại
-// tùy chọn trống ở đầu danh sách sau mỗi lần dựng lại, để không bị tự động rơi về mục đầu tiên.
+// Nếu select có data-placeholder, luôn chèn lại tùy chọn trống ở đầu danh sách sau mỗi lần
+// dựng lại, để không bị tự động rơi về mục đầu tiên.
 function populateDocTypeSelect(selectId) {
   const select = document.getElementById(selectId);
   if (!select) return;
@@ -375,9 +375,9 @@ function populateDocTypeSelect(selectId) {
   }
 }
 
-// Đồng bộ đồng thời cả 4 select loại giấy tờ (thêm mới, sửa, chuyển thư mục, tải nhanh FAB)
+// Đồng bộ đồng thời cả 3 select loại giấy tờ (thêm mới, sửa, chuyển thư mục)
 function refreshAllDocTypeSelects() {
-  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect', 'guCategorySelect'].forEach(populateDocTypeSelect);
+  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect'].forEach(populateDocTypeSelect);
 }
 
 // Quản lý Modal Upload Giấy tờ
@@ -527,8 +527,7 @@ function toggleCustomDocName(val, groupId = 'customDocNameGroup') {
   const customGroup = document.getElementById(groupId);
   const inputIdMap = {
     editCustomDocNameGroup: 'editDocCustomName',
-    moveDocsCustomNameGroup: 'moveDocsCustomName',
-    guCustomCategoryGroup: 'guCustomCategoryName'
+    moveDocsCustomNameGroup: 'moveDocsCustomName'
   };
   const inputId = inputIdMap[groupId] || 'docCustomName';
   if (val === 'custom') {
@@ -634,48 +633,29 @@ function populateMoveFolderSelect(docType) {
 }
 
 // ============================================================
-// MODAL TẢI NHANH (FAB): chụp/chọn ảnh giấy tờ từ bất kỳ màn hình nào, chọn nhanh
-// chủ sở hữu (kể cả "Hồ sơ chung gia đình"), gắn tag đa thành viên, chọn/tạo mới
-// danh mục + thư mục con ngay tại chỗ.
+// QUICK PREVIEW & SAVE (FAB Camera): bấm FAB mở thẳng camera/trình chọn tệp; chọn/chụp
+// xong mới hiện modal Xem lại nhanh để gỡ ảnh mờ/chọn nhầm, không hỏi chủ sở hữu/danh
+// mục/ghi chú/gắn thẻ. Bấm "Lưu vào Hồ sơ tạm" mới chính thức ghi dữ liệu (status:
+// 'pending'); bấm "Hủy" thì không ghi gì cả - xem hoàn tất phân loại sau trong "Hồ sơ tạm".
 // ============================================================
 
-// Đang xem trang hồ sơ (Chi tiết hoặc Hồ sơ giấy tờ) của 1 chủ sở hữu cụ thể hay không —
-// dùng để quyết định có tự chọn sẵn chủ sở hữu đó khi mở modal Tải nhanh hay không.
-function currentProfileOwnerId() {
-  const onDetail = !document.getElementById('detailView').classList.contains('hidden');
-  const onDocs = !document.getElementById('docsView').classList.contains('hidden');
-  return (onDetail || onDocs) && currentMemberId ? currentMemberId : '';
-}
-
-function openGlobalUploadModal() {
-  populateGlobalOwnerSelect();
-  // Mở từ trang hồ sơ của 1 chủ sở hữu cụ thể: tự chọn chủ sở hữu đó. Mở từ FAB ở nơi
-  // khác (vd. Trang chủ): để trống cả chủ sở hữu lẫn danh mục, không tự ý chọn mặc định.
-  document.getElementById('guOwnerSelect').value = currentProfileOwnerId();
-
-  globalSelectedTags = [];
-  document.getElementById('guCustomTagInput').value = '';
-  renderGlobalTagPicker();
-
+// Bấm FAB: dọn sẵn danh sách tệp cũ (nếu có) rồi mở thẳng camera/trình chọn tệp của hệ
+// điều hành. Modal Xem lại nhanh chỉ hiện ra sau khi onGlobalFileSelected() nhận được tệp.
+function triggerGlobalUploadFab() {
   globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
   globalUploadFiles = [];
-  document.getElementById('guFileInput').value = '';
+  document.getElementById('guFileInput').click();
+}
+
+// Nạp tệp vừa chọn/chụp vào danh sách chờ lưu, rồi mở modal Xem lại nhanh (Quick Preview).
+function onGlobalFileSelected(input) {
+  const newFiles = Array.from(input.files || []).map(file => {
+    const isPdf = (file.type || '').includes('pdf');
+    return { file, previewUrl: isPdf ? null : URL.createObjectURL(file) };
+  });
+  globalUploadFiles = globalUploadFiles.concat(newFiles);
+  input.value = '';
   renderGlobalFilePreview();
-  document.getElementById('guDesc').value = '';
-
-  const categorySelect = document.getElementById('guCategorySelect');
-  categorySelect.dataset.placeholder = '-- Chọn danh mục --';
-  populateDocTypeSelect('guCategorySelect');
-  categorySelect.value = '';
-  toggleCustomDocName(categorySelect.value, 'guCustomCategoryGroup');
-  document.getElementById('guCustomCategoryName').value = '';
-  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, null);
-  document.getElementById('guNewFolderName').value = '';
-  document.getElementById('guNewFolderNameGroup').classList.add('hidden');
-
-  const advancedDetails = document.getElementById('guAdvancedDetails');
-  if (advancedDetails) advancedDetails.open = false;
-
   document.getElementById('globalUploadModal').classList.remove('hidden');
 }
 
@@ -685,149 +665,16 @@ function closeGlobalUploadModal() {
   globalUploadFiles = [];
 }
 
-// Chủ sở hữu chính: tùy chọn trống trước tiên, rồi tới Hồ sơ chung gia đình, sau đó từng thành viên hiện có.
-function populateGlobalOwnerSelect() {
-  const select = document.getElementById('guOwnerSelect');
-  if (!select) return;
-  select.innerHTML = '';
-  const placeholderOpt = document.createElement('option');
-  placeholderOpt.value = '';
-  placeholderOpt.textContent = '-- Chọn chủ sở hữu --';
-  select.appendChild(placeholderOpt);
-  const familyOpt = document.createElement('option');
-  familyOpt.value = FAMILY_SHARED_ID;
-  familyOpt.textContent = FAMILY_SHARED_NAME;
-  select.appendChild(familyOpt);
-  displayMembers().forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.name;
-    select.appendChild(opt);
-  });
-}
-
-function onGlobalOwnerChange() {
-  const categorySel = document.getElementById('guCategorySelect').value;
-  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, categorySel === 'custom' ? null : categorySel);
-}
-
-function onGlobalCategoryChange(val) {
-  toggleCustomDocName(val, 'guCustomCategoryGroup');
-  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, val === 'custom' ? null : val);
-}
-
-// Dựng danh sách thư mục con (tùy theo chủ sở hữu + danh mục đang chọn) cho modal Tải nhanh.
-function populateGlobalFolderSelect(ownerId, docType) {
-  const select = document.getElementById('guFolderSelect');
-  if (!select) return;
-  select.innerHTML = '';
-  const rootOpt = document.createElement('option');
-  rootOpt.value = '';
-  rootOpt.textContent = '(Thư mục gốc của danh mục)';
-  select.appendChild(rootOpt);
-
-  const m = members.find(item => String(item.id) === String(ownerId));
-  if (m && docType) appendFolderTreeOptions(select, m.folders, docType);
-
-  const newFolderOpt = document.createElement('option');
-  newFolderOpt.value = '__new__';
-  newFolderOpt.textContent = '+ Tạo thư mục con mới...';
-  select.appendChild(newFolderOpt);
-
-  document.getElementById('guNewFolderNameGroup').classList.add('hidden');
-}
-
-function onGlobalFolderChange(val) {
-  document.getElementById('guNewFolderNameGroup').classList.toggle('hidden', val !== '__new__');
-  if (val === '__new__') document.getElementById('guNewFolderName').focus();
-}
-
-// Dropdown chọn nhanh tên thành viên để gắn tag (gọn hơn dãy chip khi nhà đông thành
-// viên): chỉ liệt kê thành viên chưa được gắn tag, chọn xong tự thêm ngay và trở về gợi ý.
-function renderGlobalTagPicker() {
-  const select = document.getElementById('guTagMemberSelect');
-  if (select) {
-    select.innerHTML = '';
-    const placeholderOpt = document.createElement('option');
-    placeholderOpt.value = '';
-    placeholderOpt.textContent = '-- Chọn thành viên để gắn thẻ --';
-    select.appendChild(placeholderOpt);
-    displayMembers()
-      .filter(m => !globalSelectedTags.includes(m.name))
-      .forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.name;
-        opt.textContent = m.name;
-        select.appendChild(opt);
-      });
-  }
-  renderGlobalSelectedTags();
-}
-
-function addGlobalMemberTag(name) {
-  const trimmed = (name || '').trim();
-  if (!trimmed) return;
-  if (!globalSelectedTags.includes(trimmed)) globalSelectedTags.push(trimmed);
-  renderGlobalTagPicker();
-}
-
-function addGlobalCustomTag() {
-  const input = document.getElementById('guCustomTagInput');
-  const value = input.value.trim();
-  if (!value) return;
-  if (!globalSelectedTags.includes(value)) globalSelectedTags.push(value);
-  input.value = '';
-  renderGlobalTagPicker();
-  input.focus();
-}
-
-function handleGlobalTagInputKeydown(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    addGlobalCustomTag();
-  }
-}
-
-function removeGlobalTag(name) {
-  globalSelectedTags = globalSelectedTags.filter(t => t !== name);
-  renderGlobalTagPicker();
-}
-
-// Danh sách các tag đã chọn, mỗi tag kèm nút "x" để xoá.
-function renderGlobalSelectedTags() {
-  const wrap = document.getElementById('guSelectedTags');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  if (globalSelectedTags.length === 0) {
-    wrap.innerHTML = '<span style="color:var(--text-muted); font-size:0.78rem;">Chưa gắn thẻ nào.</span>';
-    return;
-  }
-  globalSelectedTags.forEach(tag => {
-    const pill = document.createElement('span');
-    pill.className = 'tag-pill';
-    pill.innerHTML = `${escapeHtml(tag)} <button type="button" aria-label="Xóa thẻ ${escapeHtml(tag)}">${svgIcon('close')}</button>`;
-    pill.querySelector('button').onclick = () => removeGlobalTag(tag);
-    wrap.appendChild(pill);
-  });
-}
-
-// Nạp tệp vừa chọn/chụp vào danh sách chờ tải lên. Chọn nhiều đợt sẽ được cộng dồn
-// (append) thay vì ghi đè, vì input[type=file] luôn được reset về rỗng sau mỗi lần chọn.
-function onGlobalFileSelected(input) {
-  const newFiles = Array.from(input.files || []).map(file => {
-    const isPdf = (file.type || '').includes('pdf');
-    return { file, previewUrl: isPdf ? null : URL.createObjectURL(file) };
-  });
-  globalUploadFiles = globalUploadFiles.concat(newFiles);
-  input.value = '';
-  renderGlobalFilePreview();
-}
-
-// Vẽ lại lưới thumbnail các tệp đang chờ tải lên, mỗi tệp kèm tên rút gọn và nút "x" để gỡ bỏ.
+// Vẽ lại lưới thumbnail (to, dễ nhìn) các tệp đang chờ lưu, mỗi tệp kèm tên rút gọn và
+// nút "x" để gỡ bỏ nếu ảnh bị mờ hoặc chọn nhầm.
 function renderGlobalFilePreview() {
   const preview = document.getElementById('guFilePreview');
   if (!preview) return;
   preview.innerHTML = '';
+  if (globalUploadFiles.length === 0) {
+    preview.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">Chưa có ảnh nào.</div>';
+    return;
+  }
   globalUploadFiles.forEach((entry, i) => {
     const item = document.createElement('div');
     item.className = 'gu-file-thumb-item';
@@ -850,14 +697,4 @@ function removeGlobalFile(index) {
   if (entry && entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
   globalUploadFiles.splice(index, 1);
   renderGlobalFilePreview();
-}
-
-// Nhấp nháy nhẹ + viền đỏ tạm thời trên 1 trường bắt buộc còn thiếu, để thu hút chú ý người dùng
-// khi bấm "Tải lên & Lưu" mà chưa chọn đủ Chủ sở hữu/Danh mục.
-function shakeInvalidField(el) {
-  if (!el) return;
-  el.classList.remove('shake-error');
-  void el.offsetWidth; // ép trình duyệt tính lại layout để có thể lặp lại animation nếu bấm liên tiếp
-  el.classList.add('shake-error');
-  el.addEventListener('animationend', () => el.classList.remove('shake-error'), { once: true });
 }

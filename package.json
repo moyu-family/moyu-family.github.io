@@ -1,6 +1,6 @@
 {
   "name": "moyu-family",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "Ứng dụng tĩnh quản lý hồ sơ gia đình (không cần bundler). Bộ script này chỉ hỗ trợ test và kiểm tra trước khi deploy lên GitHub Pages.",
   "scripts": {

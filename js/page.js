@@ -23,7 +23,7 @@ function initializePage() {
   }
 
   if (params.has('consolidated')) {
-    openConsolidatedView(true);
+    openConsolidatedView({ skipHistory: true, filter: params.get('filter') });
     return;
   }
 
@@ -51,6 +51,10 @@ function initializePage() {
       state.memberId = data.id;
     } else if (view === 'consolidated') {
       params.set('consolidated', '1');
+      if (data.filter) {
+        params.set('filter', data.filter);
+        state.filter = data.filter;
+      }
     } else if (view === 'form') {
       params.set('edit', data.id);
       state.memberId = data.id;
@@ -60,7 +64,7 @@ function initializePage() {
     if (view === 'member') viewDetails(data.id, true);
     else if (view === 'summary') openSummaryTable(true);
     else if (view === 'documents') openDocsView(data.id, true);
-    else if (view === 'consolidated') openConsolidatedView(true);
+    else if (view === 'consolidated') openConsolidatedView({ skipHistory: true, filter: data.filter || null });
     else if (view === 'form') openForm(members.find(item => String(item.id) === String(data.id)), true);
     else showHome(true);
   }

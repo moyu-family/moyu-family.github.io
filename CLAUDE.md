@@ -36,7 +36,12 @@ xanh khác nhau cho cùng một ý nghĩa:
 |---|---|
 | Success (xác nhận, sinh trắc học, QR ngân hàng) | `--success`, `--success-soft`, `--success-soft-hover`, `--success-border` |
 | Danger (xoá, cảnh báo) | `--danger`, `--danger-soft`, `--danger-soft-hover`, `--danger-border` |
-| Info (điều hướng quay lại, xem trước tài liệu) | `--info`, `--info-soft`, `--info-soft-2`, `--info-soft-hover`, `--info-border`, `--info-border-hover` |
+| Info (điều hướng xem trước tài liệu — nút prev/next trong modal xem giấy tờ) | `--info`, `--info-soft`, `--info-soft-2`, `--info-soft-hover`, `--info-border`, `--info-border-hover` |
+| Pending (cam ấm — "Hồ sơ tạm"/chờ phân loại: chip lọc + thẻ danh mục trong Hồ sơ tổng hợp) | `--pending`, `--pending-soft`, `--pending-soft-hover`, `--pending-border` |
+
+Nút "← Quay lại" (`.btn-back`, mọi màn hình) dùng tông **Accent/tím** (Outline/Ghost
+Button, xem bên dưới) — **không** dùng Info; Info chỉ dành riêng cho nút điều
+hướng prev/next trong modal xem trước tài liệu.
 
 Nền trung tính, chữ, border mặc định vẫn dùng `--bg`, `--card-bg`, `--navy`,
 `--text-main`, `--text-muted`, `--border-color` như trước.
@@ -53,12 +58,13 @@ hình). Quy tắc theo từng loại component:
   `translateY(-1px)` hoặc scale nếu hợp lý); active/click → nền đặc
   `--accent-2` + `transform: scale(0.98)`.
 - **Outline / Ghost Button** (`.btn-outline`, `.btn-tool`, `.btn-docs-link`,
-  `.tag-chip`, …): chữ/viền tím `--accent`/`--accent-2`/`--accent-border`;
+  `.btn-back`, `.tag-chip`, …): chữ/viền tím `--accent`/`--accent-2`/`--accent-border`;
   hover → nền `--accent-soft-hover` (hoặc `#f5f3ff` cho nút trắng-viền) +
   viền `--accent-border-hover`/`--accent`; active/click → nền
   `--accent-border` + `transform: scale(0.97–0.98)`.
-- **Danger / Success / Info Button**: dùng đúng bộ 4 biến của nhóm ngữ nghĩa
-  tương ứng, không mượn hex rời; active/click → nền `*-border` + scale nhẹ.
+- **Danger / Success / Info / Pending Button**: dùng đúng bộ 4 biến của nhóm
+  ngữ nghĩa tương ứng, không mượn hex rời; active/click → nền `*-border` +
+  scale nhẹ.
 - **Card** (`.member-card`, `.folder-card`, `.file-card`, …): hover → nâng
   nhẹ (`translateY`) + `box-shadow: var(--shadow-hover)` + viền
   `--accent-border`; active/click → hạ bớt độ nâng + `scale(0.98)`; focus

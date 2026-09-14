@@ -682,10 +682,14 @@ function openFamilySharedDocs() {
 
 let currentConsolidatedCategory = null;
 
-function openConsolidatedView(skipHistory = false) {
+// opts: booleano cũ `skipHistory` (tương thích ngược) hoặc object { skipHistory, filter }.
+// filter: 'pending' để mở thẳng danh sách "Hồ sơ tạm" đã lọc sẵn (VD: từ nút #btnPendingDocs
+// trên Header, hoặc URL ?consolidated=1&filter=pending).
+function openConsolidatedView(opts = false) {
+  const { skipHistory = false, filter = null } = typeof opts === 'object' && opts !== null ? opts : { skipHistory: opts };
   setMemberManagementButtonVisible(false);
   if (!skipHistory) {
-    navigateApp('consolidated');
+    navigateApp('consolidated', filter ? { filter } : {});
     return;
   }
 
@@ -696,14 +700,23 @@ function openConsolidatedView(skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.remove('hidden');
 
-  currentConsolidatedTagFilter = null;
-  renderConsolidatedCategories();
+  if (filter === 'pending') {
+    currentConsolidatedTagFilter = { kind: 'pending' };
+    renderConsolidatedPendingList();
+  } else {
+    currentConsolidatedTagFilter = null;
+    renderConsolidatedCategories();
+  }
 }
 
-// Nút "Quay lại" trong Hồ sơ tổng hợp: nếu đang xem chi tiết 1 danh mục thì quay lại danh sách danh mục,
-// nếu đang ở danh sách danh mục thì quay lại trang trước đó (lịch sử trình duyệt).
+// Nút "Quay lại" trong Hồ sơ tổng hợp: nếu đang xem "Hồ sơ tạm" hoặc chi tiết 1 danh mục thì
+// quay lại danh sách danh mục, nếu đang ở danh sách danh mục thì quay lại trang trước đó
+// (lịch sử trình duyệt).
 function goBackFromConsolidatedView() {
-  if (currentConsolidatedCategory) renderConsolidatedCategories();
+  if (currentConsolidatedTagFilter?.kind === 'pending') {
+    currentConsolidatedTagFilter = null;
+    renderConsolidatedCategories();
+  } else if (currentConsolidatedCategory) renderConsolidatedCategories();
   else goBackInApp();
 }
 
@@ -756,6 +769,17 @@ function renderConsolidatedTagFilterBar() {
     bar.appendChild(chip);
   };
 
+  // Chip "Hồ sơ tạm": chỉ hiện khi có ít nhất 1 tệp đang chờ phân loại (status: 'pending'),
+  // gộp từ mọi thành viên kể cả "Chưa gán chủ sở hữu" (vốn bị ẩn khỏi lưới danh mục thường).
+  const pendingCount = getAllPendingDocuments().length;
+  if (pendingCount > 0) {
+    const isPendingActive = currentConsolidatedTagFilter?.kind === 'pending';
+    addChip(`Hồ sơ tạm (${pendingCount})`, isPendingActive, () => {
+      currentConsolidatedTagFilter = isPendingActive ? null : { kind: 'pending' };
+      rerenderConsolidatedCurrentScreen();
+    }, 'tag-chip-pending');
+  }
+
   const isFamilyActive = currentConsolidatedTagFilter?.kind === 'family';
   addChip(FAMILY_SHARED_NAME, isFamilyActive, () => {
     currentConsolidatedTagFilter = isFamilyActive ? null : { kind: 'family' };
@@ -792,7 +816,8 @@ function renderConsolidatedTagFilterBar() {
 }
 
 function rerenderConsolidatedCurrentScreen() {
-  if (currentConsolidatedCategory) openConsolidatedCategoryDetails(currentConsolidatedCategory);
+  if (currentConsolidatedTagFilter?.kind === 'pending') renderConsolidatedPendingList();
+  else if (currentConsolidatedCategory) openConsolidatedCategoryDetails(currentConsolidatedCategory);
   else renderConsolidatedCategories();
 }
 
@@ -808,8 +833,9 @@ function renderConsolidatedCategories() {
 
   const map = buildConsolidatedMap(consolidatedFilterPredicate());
   const types = Object.keys(map);
+  const pendingCount = getAllPendingDocuments().length;
 
-  if (types.length === 0) {
+  if (types.length === 0 && pendingCount === 0) {
     container.innerHTML = `
       <div style="text-align:center; padding:45px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">
         <div style="display:flex; justify-content:center; margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:40px; height:40px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
@@ -844,6 +870,34 @@ function renderConsolidatedCategories() {
     };
     grid.appendChild(card);
   });
+
+  // Thẻ thứ 6 (đặc biệt): "Hồ sơ tạm" - tệp status 'pending' của mọi thành viên, kể cả
+  // "Chưa gán chủ sở hữu" (vốn không lộ diện trong các thẻ danh mục phía trên). Chỉ hiện khi
+  // có ít nhất 1 tệp đang chờ; bấm vào mở thẳng danh sách để xem trước/hoàn tất phân loại.
+  if (pendingCount > 0) {
+    const pendingCard = document.createElement('div');
+    pendingCard.className = 'folder-card folder-card-pending';
+    pendingCard.setAttribute('role', 'button');
+    pendingCard.setAttribute('tabindex', '0');
+    pendingCard.setAttribute('aria-label', `Xem và phân loại ${pendingCount} tệp Hồ sơ tạm`);
+    pendingCard.innerHTML = `
+      <div class="folder-icon">${svgIcon('clock')}</div>
+      <div class="folder-info">
+        <div class="folder-name">Hồ sơ tạm</div>
+        <div class="folder-count">${pendingCount} tệp · Chờ phân loại</div>
+        <span class="folder-badge">Xem &amp; phân loại${svgIcon('arrowRight')}</span>
+      </div>
+    `;
+    const openPending = () => {
+      currentConsolidatedTagFilter = { kind: 'pending' };
+      renderConsolidatedPendingList();
+    };
+    pendingCard.onclick = openPending;
+    pendingCard.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPending(); }
+    };
+    grid.appendChild(pendingCard);
+  }
 
   container.appendChild(grid);
 }
@@ -905,6 +959,69 @@ function openConsolidatedCategoryDetails(docType) {
     card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
     card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, relatedForPreview);
     card.querySelector('.btn-goto-owner').onclick = () => openDocsView(doc.ownerId);
+    filesList.appendChild(card);
+  });
+
+  container.appendChild(filesList);
+}
+
+// 3. Màn hình "Hồ sơ tạm" trong Hồ sơ tổng hợp: liệt kê MỌI tệp status 'pending' của mọi
+// thành viên (kể cả "Chưa gán chủ sở hữu" - vốn bị lọc khỏi buildConsolidatedMap()/lưới danh
+// mục thông thường), cho xem trước hoặc "Hoàn tất phân loại" ngay (dùng lại đúng modal của
+// openPendingCompleteModal(), không tạo luồng phân loại thứ 2 song song).
+function renderConsolidatedPendingList() {
+  currentConsolidatedCategory = null;
+  setBtnLabel(document.getElementById('consolidatedBackBtn'), 'arrowLeft', 'Quay lại danh mục');
+  document.getElementById('consolidatedBreadcrumb').innerHTML =
+    `${svgIcon('folder')}<a href="javascript:void(0)" onclick="renderConsolidatedCategories()" class="breadcrumb-link">Toàn bộ danh mục</a><span class="breadcrumb-sep">${svgIcon('arrowRight')}</span><strong class="breadcrumb-current">Hồ sơ tạm</strong>`;
+  renderConsolidatedTagFilterBar();
+
+  const container = document.getElementById('consolidatedExplorerContent');
+  container.innerHTML = '';
+
+  const pending = getAllPendingDocuments().sort((a, b) => Number(b.id.toString().replace(/\D/g, '') || 0) - Number(a.id.toString().replace(/\D/g, '') || 0));
+
+  if (pending.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">Không có tệp nào đang chờ phân loại.</div>`;
+    return;
+  }
+
+  const filesList = document.createElement('div');
+  filesList.className = 'files-list';
+
+  pending.forEach(doc => {
+    const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const card = document.createElement('article');
+    card.className = 'file-card';
+    const thumb = isPdf
+      ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
+      : (doc.encrypted
+        ? '<div class="file-thumb file-thumb-loading">⏳</div>'
+        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
+    card.innerHTML = `
+      <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
+      <div class="file-card-info">
+        <strong>${escapeHtml(doc.desc || doc.fileName || 'Chưa có mô tả')}</strong>
+        <div class="folder-badge" style="margin-top:4px;">👤 ${escapeHtml(doc.ownerName || 'Chưa gán chủ sở hữu')}</div>
+      </div>
+      <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
+        <button type="button" class="btn-outline file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">${svgIcon('eye')}</button>
+        <button type="button" class="btn-outline file-action-button btn-complete-pending" title="Hoàn tất phân loại" aria-label="Hoàn tất phân loại">${svgIcon('edit')}</button>
+        <button type="button" class="btn-danger file-action-button btn-delete-pending" title="Xóa" aria-label="Xóa">${svgIcon('trash')}</button>
+      </div>
+    `;
+    if (!isPdf && doc.encrypted) {
+      const previewButton = card.querySelector('.file-preview-button');
+      getDocumentDisplayUrl(doc).then(url => {
+        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+      }).catch(() => {
+        previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
+      });
+    }
+    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, [doc]);
+    card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, [doc]);
+    card.querySelector('.btn-complete-pending').onclick = () => openPendingCompleteModal(doc.ownerId, doc.id);
+    card.querySelector('.btn-delete-pending').onclick = () => deletePendingDocument(doc.ownerId, doc.id);
     filesList.appendChild(card);
   });
 
@@ -1577,9 +1694,18 @@ function getDocFormatLabel(doc) {
 function closeAllFileKebabMenus() {
   document.querySelectorAll('.file-kebab-menu:not(.hidden)').forEach(menu => {
     menu.classList.add('hidden');
+    menu.classList.remove('open-up');
     const btn = menu.parentElement?.querySelector('.file-kebab-btn');
     if (btn) btn.setAttribute('aria-expanded', 'false');
+    menu.closest('.file-card')?.classList.remove('menu-open');
   });
+}
+
+// Bật menu mở lên trên (thay vì xuống dưới) nếu dòng tệp nằm sát đáy màn hình, tránh bị viewport che khuất
+function positionFileKebabMenu(menu) {
+  const rect = menu.getBoundingClientRect();
+  const overflowsBottom = rect.bottom > window.innerHeight;
+  menu.classList.toggle('open-up', overflowsBottom);
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.file-row-menu')) closeAllFileKebabMenus();
@@ -1807,6 +1933,8 @@ function openFolderDetails(docType, subfolderId = null) {
         if (willOpen) {
           kebabMenu.classList.remove('hidden');
           kebabBtn.setAttribute('aria-expanded', 'true');
+          card.classList.add('menu-open');
+          positionFileKebabMenu(kebabMenu);
         }
       };
       card.querySelector('.btn-edit-file').onclick = () => { closeAllFileKebabMenus(); editDocumentDescription(doc.id); };
@@ -1958,107 +2086,42 @@ async function saveDocument() {
 }
 
 // ============================================================
-// MODAL TẢI NHANH (FAB): upload nhiều tệp cùng lúc cho bất kỳ thành viên nào hoặc cho
-// Hồ sơ chung gia đình, kèm chọn danh mục/thư mục con và gắn tag đa thành viên.
-// Tái dùng chung 1 kho documents[]/folders[] với modal upload cũ (mỗi tệp chỉ
-// khác ở chỗ có thêm mảng tags[]).
-//
-// "Tải lên & Lưu" bắt buộc phải chọn Chủ sở hữu + Danh mục. "Lưu tạm" chỉ cần có tệp:
-// nếu chưa chọn chủ sở hữu, tệp được gửi vào kho "Chưa gán chủ sở hữu" (xem
-// ensureUnassignedOwnerMember() trong config.js) để hoàn tất phân loại sau trong "Hồ sơ tạm".
+// QUICK PREVIEW & SAVE (FAB Camera): lưu thẳng các tệp vừa chụp/chọn vào "Hồ sơ tạm"
+// (status: 'pending'), không hỏi chủ sở hữu/danh mục/ghi chú/gắn thẻ. Tệp được gửi vào
+// kho "Chưa gán chủ sở hữu" (xem ensureUnassignedOwnerMember() trong config.js) để
+// hoàn tất phân loại sau trong "Hồ sơ tạm".
 // ============================================================
-async function saveGlobalDocument(isDraft = false) {
+async function saveGlobalDocument() {
   if (!globalUploadFiles || globalUploadFiles.length === 0) {
-    alert('Vui lòng chọn ít nhất 1 ảnh/tệp giấy tờ để tải lên!');
+    alert('Vui lòng chụp/chọn ít nhất 1 ảnh hoặc tệp PDF để lưu!');
     return;
   }
 
-  const ownerSelect = document.getElementById('guOwnerSelect');
-  const categorySelect = document.getElementById('guCategorySelect');
-  const ownerId = ownerSelect.value;
-  const categorySel = categorySelect.value;
-
-  if (!isDraft) {
-    const missingFields = [];
-    if (!ownerId) missingFields.push(ownerSelect);
-    if (!categorySel) missingFields.push(categorySelect);
-    if (missingFields.length > 0) {
-      missingFields.forEach(shakeInvalidField);
-      alert('Vui lòng chọn đầy đủ "Chủ sở hữu chính" và "Danh mục" trước khi Tải lên & Lưu.\nNếu chưa chắc chắn, hãy dùng nút "Lưu tạm" để phân loại sau.');
-      return;
-    }
-  }
-
-  const docType = categorySel === 'custom'
-    ? (document.getElementById('guCustomCategoryName').value.trim() || 'Tài liệu khác')
-    : categorySel;
-
-  const isNewFamilyProfile = ownerId === FAMILY_SHARED_ID && !members.some(item => String(item.id) === FAMILY_SHARED_ID);
-  const isNewUnassignedProfile = !ownerId && !members.some(item => String(item.id) === UNASSIGNED_OWNER_ID);
-  const m = ownerId === FAMILY_SHARED_ID
-    ? ensureFamilySharedMember()
-    : ownerId
-      ? members.find(item => String(item.id) === String(ownerId))
-      : ensureUnassignedOwnerMember();
-  if (!m) {
-    alert('Không tìm thấy hồ sơ chủ sở hữu đã chọn!');
-    return;
-  }
+  const isNewUnassignedProfile = !members.some(item => String(item.id) === UNASSIGNED_OWNER_ID);
+  const m = ensureUnassignedOwnerMember();
   if (!m.documents) m.documents = [];
   if (!m.folders) m.folders = [];
 
-  const folderSel = document.getElementById('guFolderSelect').value;
-  let targetFolderId = null;
-  let createdFolder = null;
-  if (folderSel === '__new__') {
-    const newFolderName = document.getElementById('guNewFolderName').value.trim();
-    if (!newFolderName) {
-      alert('Vui lòng nhập tên thư mục con mới, hoặc chọn "Thư mục gốc của danh mục"!');
-      return;
-    }
-    const existing = m.folders.find(f => f.docType === docType && !f.parentId && f.name.toLowerCase() === newFolderName.toLowerCase());
-    if (existing) {
-      targetFolderId = existing.id;
-    } else {
-      createdFolder = {
-        id: String(Date.now()),
-        docType,
-        parentId: null,
-        name: newFolderName,
-        createdAt: new Date().toLocaleDateString('vi-VN')
-      };
-      m.folders.push(createdFolder);
-      targetFolderId = createdFolder.id;
-    }
-  } else if (folderSel) {
-    targetFolderId = folderSel;
-  }
-
-  const desc = document.getElementById('guDesc').value.trim();
   const files = globalUploadFiles.map(entry => entry.file);
-  const btnId = isDraft ? 'btnSaveGlobalDocDraft' : 'btnSaveGlobalDoc';
-  const btn = document.getElementById(btnId);
+  const btn = document.getElementById('btnSaveGlobalDoc');
   const originalBtnLabel = btn.innerHTML;
   const savedDocs = [];
   try {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const progress = files.length > 1 ? ` ${i + 1}/${files.length}` : '';
-      setBtnLabel(btn, isDraft ? 'clock' : 'upload', (isDraft ? 'Đang lưu tạm' : 'Đang tải tệp & lưu') + progress + '...');
+      setBtnLabel(btn, 'clock', 'Đang lưu tạm' + progress + '...');
       const documentId = 'doc_' + Date.now() + '_' + i;
       const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
       const doc = {
         id: documentId,
         ownerId: m.id,
-        docType,
-        folderId: targetFolderId,
         fileName: file.name,
         fileType: file.type,
-        desc: (files.length === 1 ? desc : '') || file.name,
-        tags: [...globalSelectedTags],
+        desc: file.name,
         data: storageUrl,
         encrypted: true,
-        status: isDraft ? 'pending' : 'completed',
+        status: 'pending',
         createdAt: new Date().toLocaleDateString('vi-VN'),
         uploadedAt: new Date().toISOString()
       };
@@ -2066,31 +2129,18 @@ async function saveGlobalDocument(isDraft = false) {
       savedDocs.push(doc);
     }
     await pushToFirebase();
-    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
     if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
     closeGlobalUploadModal();
-    if (isDraft) {
-      showToast(files.length > 1
-        ? `Đã lưu tạm ${files.length} tệp! Vào "Hồ sơ tạm" để hoàn tất phân loại sau.`
-        : 'Đã lưu tạm giấy tờ! Vào "Hồ sơ tạm" trên thanh menu để hoàn tất phân loại sau.');
-    } else {
-      alert(files.length > 1 ? `Đã tải lên và lưu ${files.length} tệp thành công!` : 'Đã tải lên và lưu giấy tờ thành công!');
-    }
+    showToast(files.length > 1
+      ? `Đã lưu tạm ${files.length} tệp! Vào "Hồ sơ tạm" để hoàn tất phân loại sau.`
+      : 'Đã lưu tạm giấy tờ! Vào "Hồ sơ tạm" trên thanh menu để hoàn tất phân loại sau.');
 
     // Làm mới màn hình đang xem nếu có liên quan, để người dùng thấy ngay tệp vừa thêm.
     if (!document.getElementById('consolidatedView').classList.contains('hidden')) {
       rerenderConsolidatedCurrentScreen();
     }
-    if (!document.getElementById('docsView').classList.contains('hidden') && String(currentMemberId) === String(m.id)) {
-      if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
-      else renderDocsFolders();
-    }
   } catch (err) {
     m.documents = m.documents.filter(d => !savedDocs.includes(d));
-    if (createdFolder) m.folders = m.folders.filter(f => f.id !== createdFolder.id);
-    if (isNewFamilyProfile && m.documents.length === 0 && m.folders.length === 0) {
-      members = members.filter(item => item !== m);
-    }
     if (isNewUnassignedProfile && m.documents.length === 0 && m.folders.length === 0) {
       members = members.filter(item => item !== m);
     }
@@ -2152,61 +2202,6 @@ function updatePendingDocsBadge() {
   badge.classList.toggle('hidden', count === 0);
 }
 
-function openPendingDocsModal() {
-  renderPendingDocsList();
-  document.getElementById('pendingDocsModal').classList.remove('hidden');
-}
-
-function closePendingDocsModal() {
-  document.getElementById('pendingDocsModal').classList.add('hidden');
-}
-
-function renderPendingDocsList() {
-  const container = document.getElementById('pendingDocsList');
-  if (!container) return;
-  const pending = getAllPendingDocuments().sort((a, b) => Number(b.id.toString().replace(/\D/g, '') || 0) - Number(a.id.toString().replace(/\D/g, '') || 0));
-
-  if (pending.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">Không có tệp nào đang chờ phân loại.</div>`;
-    return;
-  }
-
-  container.innerHTML = '';
-  pending.forEach(doc => {
-    const isPdf = doc.fileType && doc.fileType.includes('pdf');
-    const row = document.createElement('div');
-    row.className = 'pending-doc-row';
-    const thumb = isPdf
-      ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
-      : (doc.encrypted
-        ? '<div class="file-thumb file-thumb-loading">⏳</div>'
-        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
-    row.innerHTML = `
-      <button type="button" class="file-preview-button pending-doc-thumb" title="Xem trước">${thumb}</button>
-      <div class="pending-doc-info">
-        <strong>${escapeHtml(doc.desc || doc.fileName || 'Chưa có mô tả')}</strong>
-        <span class="file-meta-sub">${escapeHtml(doc.ownerName || 'Chưa gán chủ sở hữu')} · ${escapeHtml(doc.docType || 'Chưa phân loại')} · ${escapeHtml(doc.createdAt || '-')}</span>
-      </div>
-      <div class="pending-doc-actions">
-        <button type="button" class="btn-outline file-action-button btn-complete-pending" title="Hoàn tất phân loại" aria-label="Hoàn tất phân loại">${svgIcon('edit')}</button>
-        <button type="button" class="btn-danger file-action-button btn-delete-pending" title="Xóa" aria-label="Xóa">${svgIcon('trash')}</button>
-      </div>
-    `;
-    if (!isPdf && doc.encrypted) {
-      const previewButton = row.querySelector('.file-preview-button');
-      getDocumentDisplayUrl(doc).then(url => {
-        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
-      }).catch(() => {
-        previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
-      });
-    }
-    row.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, [doc]);
-    row.querySelector('.btn-complete-pending').onclick = () => openPendingCompleteModal(doc.ownerId, doc.id);
-    row.querySelector('.btn-delete-pending').onclick = () => deletePendingDocument(doc.ownerId, doc.id);
-    container.appendChild(row);
-  });
-}
-
 async function deletePendingDocument(ownerId, docId) {
   const m = members.find(item => String(item.id) === String(ownerId));
   if (!m || !m.documents) return;
@@ -2220,7 +2215,7 @@ async function deletePendingDocument(ownerId, docId) {
   try {
     await pushToFirebase();
     updatePendingDocsBadge();
-    renderPendingDocsList();
+    renderConsolidatedPendingList();
   } catch (err) {
     alert('Lỗi xóa tài liệu: ' + err.message);
   }
@@ -2387,11 +2382,13 @@ async function savePendingComplete() {
     await pushToFirebase();
     if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
     closePendingCompleteModal();
-    renderPendingDocsList();
     updatePendingDocsBadge();
     if (currentMemberId && !document.getElementById('docsView').classList.contains('hidden')) {
       if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
       else renderDocsFolders();
+    }
+    if (!document.getElementById('consolidatedView').classList.contains('hidden')) {
+      rerenderConsolidatedCurrentScreen();
     }
   } catch (err) {
     Object.assign(doc, previousFields);

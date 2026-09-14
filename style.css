@@ -43,6 +43,13 @@
   --info-border: #7dd3fc;
   --info-border-hover: #38bdf8;
 
+  /* Pending (tông cam ấm - "Hồ sơ tạm"/chờ xử lý): base/soft dùng lại đúng --gold/--gold-light
+     sẵn có (cùng thang màu amber) để không tạo thêm 1 bộ hex gốc mới không liên quan. */
+  --pending: var(--gold);
+  --pending-soft: var(--gold-light);
+  --pending-soft-hover: #fde68a;
+  --pending-border: #fcd34d;
+
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
   --shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.06);
   --shadow-hover: 0 20px 40px -10px rgba(79, 70, 229, 0.18);
@@ -130,12 +137,10 @@ button:focus-visible { outline: none; box-shadow: var(--ring-accent); }
 .btn-outline { background: #ffffff; border-color: var(--border-color); color: var(--navy); }
 .btn-outline:hover { background: #f5f3ff; border-color: var(--accent-border-hover); transform: translateY(-1px); }
 .btn-outline:active { background: var(--accent-soft); border-color: var(--accent); transform: scale(0.98); }
-.btn-back { background: linear-gradient(135deg, var(--info-soft) 0%, var(--info-soft-2) 100%); border: 1px solid var(--info-border); color: var(--info); font-weight: 700; box-shadow: 0 2px 5px rgba(14, 116, 144, 0.12); }
-.btn-back:hover { background: var(--info-soft-hover); border-color: var(--info-border-hover); transform: translateX(-2px); }
-.btn-back:active { background: var(--info-border); transform: translateX(-1px) scale(0.98); }
-#docsBackBtn.btn-back, #detailBackBtn.btn-back, #summaryBackBtn.btn-back { background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent-2); box-shadow: none; }
-#docsBackBtn.btn-back:hover, #detailBackBtn.btn-back:hover, #summaryBackBtn.btn-back:hover { background: var(--accent-soft-hover); border-color: var(--accent); transform: translateX(-2px); }
-#docsBackBtn.btn-back:active, #detailBackBtn.btn-back:active, #summaryBackBtn.btn-back:active { background: var(--accent-border); transform: translateX(-1px) scale(0.98); }
+/* Nút "Quay lại" (Outline/Ghost, tông tím thương hiệu chuẩn - đồng bộ mọi nút .btn-back toàn app) */
+.btn-back { background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent-2); font-weight: 700; box-shadow: none; }
+.btn-back:hover { background: var(--accent-soft-hover); border-color: var(--accent); transform: translateX(-2px); }
+.btn-back:active { background: var(--accent-border); transform: translateX(-1px) scale(0.98); }
 .btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); }
 .btn-danger:hover { background: var(--danger-soft-hover); transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(225, 29, 72, 0.25); }
 .btn-danger:active { background: var(--danger-border); transform: scale(0.98); }
@@ -229,17 +234,6 @@ button:focus-visible { outline: none; box-shadow: var(--ring-accent); }
   margin-bottom: 16px;
   box-shadow: 0 4px 12px rgba(109, 91, 208, 0.08);
 }
-
-/* Danh sách tệp giấy tờ tạm (chưa hoàn tất phân loại) trong modal "Hồ sơ tạm" */
-.pending-docs-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
-.pending-doc-row {
-  display: flex; align-items: center; gap: 12px; padding: 10px;
-  border: 1px solid var(--border-color); border-radius: 12px; background: #fafbfd;
-}
-.pending-doc-thumb { width: 52px; height: 52px; flex: 0 0 52px; padding: 4px; border-radius: 10px; }
-.pending-doc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pending-doc-info strong { color: var(--navy); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pending-doc-actions { display: flex; gap: 6px; flex: 0 0 auto; }
 
 /* Lưới thành viên */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
@@ -526,6 +520,12 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .folder-badge svg { width: 11px; height: 11px; display: block; }
 .folder-card.is-selected { border-color: var(--accent); background-color: var(--accent-soft); }
 .folder-card-checkbox { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; flex: 0 0 auto; }
+/* Thẻ "Hồ sơ tạm" trong lưới danh mục Hồ sơ tổng hợp: chỉ đổi tông màu icon/tiêu đề/badge
+   sang Pending (cam ấm) để phân biệt trực quan với các danh mục giấy tờ (tông tím) - hover/
+   active/focus-visible vẫn dùng chung quy tắc .folder-card (viền/ring accent) như mọi thẻ khác. */
+.folder-card-pending .folder-icon { background: var(--pending-soft); color: var(--pending); }
+.folder-card-pending .folder-name { color: var(--pending); }
+.folder-card-pending .folder-badge { background: var(--pending-soft); color: var(--pending); }
 
 /* Lưới chi tiết tệp */
 .files-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
@@ -554,6 +554,17 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .files-list.view-list .file-card {
   flex-direction: row; align-items: center; border-radius: 10px; overflow: visible;
   transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  position: relative; z-index: 0;
+}
+/* transform trên :hover tự tạo stacking context mới cho hàng đó — nếu không nâng z-index,
+   menu 3 chấm (dù đã z-index cao) sẽ bị "nhốt" trong context của hàng và bị hàng KẾ TIẾP
+   (đứng sau trong DOM, không hover) vẽ đè lên, che mất các mục phía trên (chỉ còn "Xóa" ở
+   cuối menu lộ ra ngoài rìa hàng dưới). Nâng hẳn z-index của hàng đang hover/focus/mở menu
+   lên trên mọi hàng khác để menu luôn vẽ trọn vẹn phía trên. */
+.files-list.view-list .file-card:hover,
+.files-list.view-list .file-card:focus-within,
+.files-list.view-list .file-card.menu-open {
+  z-index: 5;
 }
 .files-list.view-list .file-card:hover {
   background-color: var(--accent-soft); transform: translateX(3px);
@@ -589,6 +600,7 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
   background: #fff; border: 1px solid var(--border-color); border-radius: 10px;
   box-shadow: var(--shadow-hover); padding: 6px; display: flex; flex-direction: column; gap: 2px;
 }
+.file-kebab-menu.open-up { top: auto; bottom: calc(100% + 4px); }
 .file-kebab-item {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; width: 100%;
   border: 0; background: none; color: var(--navy); font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: left;
@@ -654,31 +666,22 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .tag-chip-clear { background: var(--danger-soft); border-color: var(--danger-soft-hover); color: var(--danger); }
 .tag-chip-clear:hover { background: var(--danger-soft-hover); }
 .tag-chip-clear:active { background: var(--danger-border); }
+/* Chip "Hồ sơ tạm" trong Hồ sơ tổng hợp: tông cam ấm để nổi bật khác các chip lọc thành viên/tag */
+.tag-chip-pending { background: var(--pending-soft); border-color: var(--pending-border); color: var(--pending); }
+.tag-chip-pending:hover { background: var(--pending-soft-hover); }
+.tag-chip-pending:active { background: var(--pending-border); }
 
-.tag-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag-pill {
-  display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft);
-  color: var(--accent-2); padding: 5px 6px 5px 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 600;
-}
-.tag-pill button {
-  padding: 0; width: 20px; height: 20px; border: none; border-radius: 50%;
-  background: rgba(67, 56, 202, 0.12); color: var(--accent-2); justify-content: center;
-}
-.tag-pill button:hover { background: rgba(67, 56, 202, 0.22); }
-.tag-pill button:active { background: rgba(67, 56, 202, 0.32); transform: scale(0.92); }
-.tag-pill button svg { width: 11px; height: 11px; display: block; }
-
-/* Lưới thumbnail các tệp đang chờ tải lên trong modal Tải nhanh (có thể chọn nhiều tệp) */
-.gu-file-preview { display: flex; flex-wrap: wrap; gap: 14px 10px; }
-.gu-file-preview:not(:empty) { margin-top: 10px; }
-.gu-file-thumb-item { position: relative; width: 76px; }
-.gu-file-thumb { width: 76px; height: 76px; }
+/* Lưới thumbnail to, dễ nhìn cho modal Xem lại nhanh (Quick Preview) sau khi chụp/chọn
+   ảnh từ FAB - mỗi ảnh kèm nút "x" để gỡ nếu bị mờ hoặc chọn nhầm. */
+.gu-file-preview { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+.gu-file-thumb-item { position: relative; width: 104px; }
+.gu-file-thumb { width: 100%; aspect-ratio: 1 / 1; height: auto; border-radius: 12px; }
 .gu-file-thumb-name {
-  display: block; margin-top: 4px; font-size: 0.65rem; color: var(--text-muted); text-align: center;
+  display: block; margin-top: 6px; font-size: 0.7rem; color: var(--text-muted); text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gu-file-thumb-remove {
-  position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%;
+  position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%;
   border: 2px solid #ffffff; background: var(--danger-soft); color: var(--danger); line-height: 1; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
@@ -686,29 +689,4 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .gu-file-thumb-remove:hover { background: var(--danger-soft-hover); }
 .gu-file-thumb-remove:active { background: var(--danger-border); transform: scale(0.9); }
 .gu-file-thumb-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
-.gu-file-thumb-remove svg { width: 12px; height: 12px; display: block; }
-
-/* Khối gấp/mở "Thêm chi tiết" (gắn thẻ, ghi chú) trong modal Tải nhanh: đóng mặc định để form gọn */
-.gu-advanced-details { margin: 4px 0 14px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; transition: all 0.2s ease; }
-.gu-advanced-details[open] { border-color: var(--accent-border); }
-.gu-advanced-summary {
-  cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: var(--accent-2); transition: all 0.2s ease;
-}
-.gu-advanced-summary::-webkit-details-marker { display: none; }
-.gu-advanced-summary::before { content: "▸"; display: inline-block; font-size: 0.7rem; transition: transform 0.2s ease; }
-.gu-advanced-details[open] > .gu-advanced-summary::before { transform: rotate(90deg); }
-.gu-advanced-summary:hover { background: var(--accent-soft-hover); }
-.gu-advanced-summary:active { background: var(--accent-border); }
-.gu-advanced-summary:focus-visible { outline: none; box-shadow: var(--ring-accent); }
-.gu-advanced-body { padding: 4px 14px 14px; border-top: 1px solid var(--border-color); }
-.gu-advanced-body .form-group:last-child { margin-bottom: 0; }
-
-/* Rung nhẹ + viền đỏ tạm thời để nhắc chọn 1 trường bắt buộc còn thiếu (modal Tải nhanh) */
-@keyframes shake-x {
-  10%, 90% { transform: translateX(-1px); }
-  20%, 80% { transform: translateX(2px); }
-  30%, 50%, 70% { transform: translateX(-4px); }
-  40%, 60% { transform: translateX(4px); }
-}
-.shake-error { animation: shake-x 0.5s ease; border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important; }
+.gu-file-thumb-remove svg { width: 13px; height: 13px; display: block; }

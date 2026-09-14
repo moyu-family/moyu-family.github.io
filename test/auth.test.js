@@ -133,6 +133,45 @@ test('loadDataWithPassword() di trú docType cũ sang 1 trong 7 nhóm chuẩn ch
   assert.equal(decrypted.members[0].documents.find(d => d.id === 'd1').docType, 'Định danh & Tùy thân');
 });
 
+test('loadDataWithPassword() di trú docType (Single Source of Truth): tài liệu nằm trong 1 thư mục con phải luôn đồng bộ theo đúng docType của thư mục cha, kể cả khi docType cũ của tài liệu lệch hẳn/không nằm trong bảng ánh xạ', async () => {
+  const { window } = createApp();
+  const payload = {
+    members: [
+      {
+        id: '1',
+        name: 'Bố',
+        folders: [
+          { id: 'f1', docType: 'Giấy khai sinh', name: 'Bản gốc' } // sẽ migrate -> 'Hộ tịch & Gia đình'
+        ],
+        documents: [
+          // docType lệch hẳn, không khớp bất kỳ key nào trong CATEGORY_MIGRATION_MAP -
+          // vẫn phải đồng bộ theo thư mục cha vì tài liệu này có folderId trỏ tới f1.
+          { id: 'd1', docType: 'Tên bất kỳ, không liên quan', folderId: 'f1', desc: 'Giấy khai sinh con' },
+          // Tài liệu ở gốc danh mục (không có folderId): vẫn tra bảng ánh xạ như cũ, không bị ảnh hưởng.
+          { id: 'd2', docType: 'Chi phí', desc: 'Hóa đơn điện' }
+        ]
+      }
+    ],
+    customBankList: []
+  };
+  const cipherText = window.CryptoJS.AES.encrypt(JSON.stringify(payload), 'pass123').toString();
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') return { ok: true, headers: { get: () => null } };
+    return { ok: true, json: async () => cipherText, headers: { get: () => null } };
+  };
+
+  await window.loadDataWithPassword('pass123');
+
+  const member = window.__state.members[0];
+  const folder = member.folders.find(f => f.id === 'f1');
+  const docInFolder = member.documents.find(d => d.id === 'd1');
+  const docAtRoot = member.documents.find(d => d.id === 'd2');
+
+  assert.equal(folder.docType, 'Hộ tịch & Gia đình', 'thư mục cha phải được migrate theo bảng ánh xạ trước tiên');
+  assert.equal(docInFolder.docType, folder.docType, 'tài liệu trong thư mục con phải luôn khớp đúng docType của thư mục cha, không phụ thuộc bảng ánh xạ riêng');
+  assert.equal(docAtRoot.docType, 'Chi phí & Hóa đơn', 'tài liệu ở gốc danh mục vẫn di trú độc lập theo bảng ánh xạ như trước');
+});
+
 test('loadDataWithPassword() không gọi pushToFirebase() nếu không có docType/mô tả nào cần di trú', async () => {
   const { window } = createApp();
   const payload = {

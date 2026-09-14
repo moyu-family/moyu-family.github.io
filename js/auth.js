@@ -309,24 +309,46 @@ async function loadDataWithPassword(pwd) {
   }
 }
 
-// Ánh xạ lại tên danh mục (docType) cũ của các tài liệu/thư mục đang thực sự tồn tại sang
-// tên nhóm chuẩn mới, theo CATEGORY_MIGRATION_MAP (config.js). Chỉ sửa đúng trường docType
-// của những tài liệu/thư mục đang mang tên cũ đó - không thêm/xoá tài liệu, không tạo thư
-// mục con hay danh mục rỗng nào. Trả về true nếu có ít nhất 1 docType được đổi.
+// Ánh xạ lại tên danh mục (docType) cũ sang tên nhóm chuẩn mới, theo CATEGORY_MIGRATION_MAP
+// (config.js). Áp dụng nguyên tắc Single Source of Truth: thư mục (member.folders) là nguồn
+// chân lý duy nhất cho docType của mọi tài liệu nằm bên trong nó - migrate thư mục trước, rồi
+// với tài liệu có folderId trỏ tới 1 thư mục đang tồn tại thì LUÔN đồng bộ docType theo đúng
+// thư mục cha (bất kể tài liệu đang mang docType gì), để không bao giờ còn tình trạng tài liệu
+// và thư mục cha lệch nhau sau khi migrate. Tài liệu ở gốc danh mục (không có folderId, hoặc
+// folderId trỏ tới thư mục không còn tồn tại) vẫn tra cứu CATEGORY_MIGRATION_MAP như cũ.
+// Không thêm/xoá tài liệu, không tạo thư mục con hay danh mục rỗng nào. Trả về true nếu có
+// ít nhất 1 docType được đổi.
 function migrateCategoryNames(memberList) {
   let changed = false;
   memberList.forEach(member => {
-    (member.documents || []).forEach(doc => {
-      const newType = CATEGORY_MIGRATION_MAP[doc.docType];
-      if (newType && newType !== doc.docType) {
-        doc.docType = newType;
-        changed = true;
-      }
-    });
-    (member.folders || []).forEach(folder => {
+    const folders = member.folders || [];
+
+    // 1) Thư mục là nguồn chân lý: migrate trước tiên.
+    folders.forEach(folder => {
       const newType = CATEGORY_MIGRATION_MAP[folder.docType];
       if (newType && newType !== folder.docType) {
         folder.docType = newType;
+        changed = true;
+      }
+    });
+
+    const folderById = new Map(folders.map(folder => [String(folder.id), folder]));
+
+    // 2) Tài liệu: nếu thuộc 1 thư mục cụ thể, luôn đồng bộ theo đúng docType (đã migrate ở
+    // bước 1) của thư mục đó - không tra bảng ánh xạ riêng, tránh lệch với thư mục cha.
+    (member.documents || []).forEach(doc => {
+      const folder = doc.folderId ? folderById.get(String(doc.folderId)) : null;
+      if (folder) {
+        if (doc.docType !== folder.docType) {
+          doc.docType = folder.docType;
+          changed = true;
+        }
+        return;
+      }
+      // Tài liệu ở gốc danh mục (không thuộc thư mục con nào): tra bảng ánh xạ như cũ.
+      const newType = CATEGORY_MIGRATION_MAP[doc.docType];
+      if (newType && newType !== doc.docType) {
+        doc.docType = newType;
         changed = true;
       }
     });

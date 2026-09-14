@@ -92,8 +92,7 @@ let selectedDocIds = new Set();
 let selectedFolderIds = new Set();
 let currentSubfolderId = null;
 let pendingUploadFiles = []; // { file, desc } - danh sách tệp đang chờ tải lên trong modal upload, có thể bỏ bớt từng tệp
-let globalUploadFiles = []; // [{ file, previewUrl }] - các tệp đang chờ tải lên trong modal Tải nhanh (FAB), chọn nhiều đợt sẽ cộng dồn
-let globalSelectedTags = []; // Các tag (tên thành viên hoặc tag tự do) đã chọn trong modal Tải nhanh
+let globalUploadFiles = []; // [{ file, previewUrl }] - các tệp đang chờ lưu trong modal Xem lại nhanh (FAB Camera)
 let currentConsolidatedTagFilter = null; // { kind:'family' } | { kind:'member', id, name } | { kind:'custom', name }
 let docsViewMode = (function () {
   try { return localStorage.getItem('docsViewMode') || 'grid'; } catch (e) { return 'grid'; }
