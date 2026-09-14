@@ -147,6 +147,8 @@ function renderGrid() {
   const grid = document.getElementById('memberGrid');
   grid.innerHTML = '';
   const gridMembers = displayMembers();
+  const sectionTitle = document.getElementById('memberSectionTitle');
+  if (sectionTitle) sectionTitle.textContent = `Thành viên gia đình (${gridMembers.length})`;
   if (gridMembers.length === 0) {
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: var(--text-muted);">Chưa có thành viên nào. Bấm "+ Thêm thành viên" để bắt đầu!</div>';
     return;
