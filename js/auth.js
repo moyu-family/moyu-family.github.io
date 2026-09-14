@@ -120,15 +120,26 @@ function getStoredBiometric() {
 }
 
 function saveSessionPassword(password) {
-  sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
-  localStorage.setItem(SESSION_PASSWORD_KEY, JSON.stringify({
-    password,
-    expiresAt: Date.now() + SESSION_TTL_MS
-  }));
+  // Không được để lỗi lưu phiên (storage đầy/bị chặn ở chế độ riêng tư...) chặn luôn cả việc
+  // mở khóa app - mật khẩu vẫn đúng, chỉ là lần sau phải nhập lại thay vì tự động mở khóa.
+  try {
+    sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
+    localStorage.setItem(SESSION_PASSWORD_KEY, JSON.stringify({
+      password,
+      expiresAt: Date.now() + SESSION_TTL_MS
+    }));
+  } catch {
+    // Bỏ qua: không chặn mở khóa chỉ vì không lưu được phiên đăng nhập.
+  }
 }
 
 function getSessionPassword() {
-  const sessionPassword = sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  let sessionPassword;
+  try {
+    sessionPassword = sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  } catch {
+    return '';
+  }
   if (sessionPassword) return sessionPassword;
 
   try {
@@ -165,7 +176,12 @@ function removeBiometric() {
 
 async function loadDataWithPassword(pwd) {
   let cloudData;
-  const cachedData = localStorage.getItem(SESSION_DATA_CACHE_KEY);
+  let cachedData = null;
+  try {
+    cachedData = localStorage.getItem(SESSION_DATA_CACHE_KEY);
+  } catch {
+    // Bỏ qua: không có cache cục bộ thì vẫn thử tải từ mạng bình thường.
+  }
   try {
     const res = await fetch(`${FIREBASE_DB_URL}data.json`, {
       cache: 'no-store',
@@ -173,7 +189,6 @@ async function loadDataWithPassword(pwd) {
     });
     if (!res.ok) throw new Error(`Firebase trả về mã lỗi ${res.status}.`);
     cloudData = await res.json();
-    lastFirebaseEtag = res.headers.get('ETag');
     try {
       localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cloudData));
     } catch {
@@ -223,7 +238,15 @@ async function loadDataWithPassword(pwd) {
     members = parsed.members || [];
     customBankList = parsed.customBankList || [...DEFAULT_BANKS];
   }
-  members = members.map(member => ({ ...member, id: String(member.id) }));
+  // Loại bỏ phần tử hỏng (null/không phải object) khỏi members trước khi xử lý tiếp - dữ liệu
+  // dạng này không thể có id/name hợp lệ, và nếu để lọt qua sẽ làm crash ngay dòng dưới (member.id).
+  const invalidCount = members.filter(member => !member || typeof member !== 'object').length;
+  if (invalidCount > 0) {
+    console.warn(`[loadDataWithPassword] Bỏ qua ${invalidCount} phần tử hỏng trong members (không phải object hợp lệ).`);
+  }
+  members = members
+    .filter(member => member && typeof member === 'object')
+    .map(member => ({ ...member, id: String(member.id) }));
 
   const agribankLogo = 'https://cdn.vietqr.io/img/VBA.png';
   customBankList = customBankList.map(bank =>
@@ -265,6 +288,17 @@ async function loadDataWithPassword(pwd) {
 
   masterPassword = pwd;
   saveSessionPassword(pwd);
+
+  // Chỉ ghi log cảnh báo tính toàn vẹn dữ liệu (tệp mồ côi, thiếu trường bắt buộc...),
+  // không chặn đăng nhập và không tự sửa dữ liệu - xem validateDataIntegrity() trong config.js.
+  try {
+    const integrityIssues = validateDataIntegrity(members);
+    if (integrityIssues.length > 0) {
+      console.warn(`[validateDataIntegrity] Phát hiện ${integrityIssues.length} vấn đề dữ liệu:`, integrityIssues);
+    }
+  } catch (integrityError) {
+    console.warn('[validateDataIntegrity] Không thể chạy kiểm tra tính toàn vẹn dữ liệu:', integrityError);
+  }
 
   if (hasMigratedMissingDesc || hasMigratedCategoryNames || hasMigratedFamilySharedName) {
     try {
@@ -456,18 +490,6 @@ async function pushToFirebase() {
   }).then(async res => {
     if (!res.ok) throw new Error('Không thể lưu dữ liệu lên đám mây!');
     lastUploadedCipherText = cipherText;
-    lastFirebaseEtag = res.headers.get('ETag') || lastFirebaseEtag;
-    if (!lastFirebaseEtag) {
-      try {
-        const latest = await fetch(`${FIREBASE_DB_URL}data.json`, {
-          cache: 'no-store',
-          headers: { 'X-Firebase-ETag': 'true' }
-        });
-        lastFirebaseEtag = latest.headers.get('ETag') || lastFirebaseEtag;
-      } catch {
-        // Không chặn việc lưu nếu chỉ truy vấn lại ETag bị lỗi.
-      }
-    }
     try {
       localStorage.setItem(SESSION_DATA_CACHE_KEY, JSON.stringify(cipherText));
     } catch {

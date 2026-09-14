@@ -1,3 +1,13 @@
+// Lưới an toàn toàn cục: chỉ ghi log, không tự phục hồi được giao diện, nhưng đảm bảo mọi lỗi
+// JS không bắt kịp (kể cả trong Promise) ít nhất còn hiện trong console thay vì biến mất im lặng
+// và để lại màn hình trắng không rõ nguyên nhân.
+window.addEventListener('error', (event) => {
+  console.error('[Lỗi JS không được xử lý]', event.error || event.message);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[Promise bị từ chối không được xử lý]', event.reason);
+});
+
 //(Link Firebase & danh sách ngân hàng mặc định)
 // Đường dẫn Firebase Database của bạn
 const FIREBASE_DB_URL = "https://moyu-family-default-rtdb.asia-southeast1.firebasedatabase.app/";
@@ -23,6 +33,13 @@ const DEFAULT_BANK_LOGO = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/
 const FAMILY_SHARED_ID = 'family_shared';
 // Không dùng emoji để đồng nhất với phần còn lại của giao diện (chỉ dùng bộ icon SVG dùng chung, xem ICONS bên dưới).
 const FAMILY_SHARED_NAME = 'Hồ sơ chung gia đình';
+
+// Kho tạm cho các tệp "Lưu tạm" từ modal Tải nhanh khi người dùng chưa chọn chủ sở hữu:
+// một "thành viên ảo" khác cùng cơ chế với Hồ sơ chung gia đình ở trên, cũng bị loại khỏi
+// lưới thành viên/bảng tổng hợp/Kho tổng — chỉ lộ diện qua "Hồ sơ tạm" cho tới khi được
+// "Hoàn tất phân loại" (gán chủ sở hữu thật, xem savePendingComplete()).
+const UNASSIGNED_OWNER_ID = 'unassigned_pending';
+const UNASSIGNED_OWNER_NAME = 'Chưa gán chủ sở hữu';
 
 // 7 nhóm danh mục chuẩn: chỉ là gợi ý hiển thị trong dropdown chọn danh mục (kèm
 // "+ Tạo danh mục mới..."), không tự tạo sẵn thư mục con nào bên trong.
@@ -75,7 +92,7 @@ let selectedDocIds = new Set();
 let selectedFolderIds = new Set();
 let currentSubfolderId = null;
 let pendingUploadFiles = []; // { file, desc } - danh sách tệp đang chờ tải lên trong modal upload, có thể bỏ bớt từng tệp
-let globalUploadFile = null; // { file, previewUrl } - tệp đang chờ tải lên trong modal Tải nhanh (FAB)
+let globalUploadFiles = []; // [{ file, previewUrl }] - các tệp đang chờ tải lên trong modal Tải nhanh (FAB), chọn nhiều đợt sẽ cộng dồn
 let globalSelectedTags = []; // Các tag (tên thành viên hoặc tag tự do) đã chọn trong modal Tải nhanh
 let currentConsolidatedTagFilter = null; // { kind:'family' } | { kind:'member', id, name } | { kind:'custom', name }
 let docsViewMode = (function () {
@@ -84,7 +101,6 @@ let docsViewMode = (function () {
 let sortableInstance = null;
 let lastUploadedCipherText = null;
 let activeSavePromise = null;
-let lastFirebaseEtag = null;
 
 // Bộ icon SVG dùng chung cho toàn bộ nút bấm trong ứng dụng (đồng bộ màu/kiểu dáng, không dùng emoji)
 const ICONS = {
@@ -143,7 +159,7 @@ function escapeHtml(value = "") {
 // Danh sách thành viên "hiển thị được" trên trang chủ/bảng tổng hợp/thao tác hàng loạt:
 // loại bỏ Hồ sơ chung gia đình (không phải 1 thành viên thật, không có CCCD/ngân hàng...).
 function displayMembers() {
-  return members.filter(m => m.id !== FAMILY_SHARED_ID);
+  return members.filter(m => m.id !== FAMILY_SHARED_ID && m.id !== UNASSIGNED_OWNER_ID);
 }
 
 // Tìm (hoặc tạo mới nếu chưa từng có) "thành viên ảo" Hồ sơ chung gia đình trong mảng members,
@@ -154,6 +170,18 @@ function ensureFamilySharedMember() {
   let m = members.find(item => String(item.id) === FAMILY_SHARED_ID);
   if (!m) {
     m = { id: FAMILY_SHARED_ID, type: 'family', name: FAMILY_SHARED_NAME, documents: [], folders: [] };
+    members.push(m);
+  }
+  if (!m.documents) m.documents = [];
+  if (!m.folders) m.folders = [];
+  return m;
+}
+
+// Tương tự ensureFamilySharedMember(), nhưng cho kho tạm "Chưa gán chủ sở hữu".
+function ensureUnassignedOwnerMember() {
+  let m = members.find(item => String(item.id) === UNASSIGNED_OWNER_ID);
+  if (!m) {
+    m = { id: UNASSIGNED_OWNER_ID, type: 'unassigned', name: UNASSIGNED_OWNER_NAME, documents: [], folders: [] };
     members.push(m);
   }
   if (!m.documents) m.documents = [];
@@ -173,4 +201,51 @@ function sanitizeRichText(html = '') {
     Array.from(element.attributes).forEach(attribute => element.removeAttribute(attribute.name));
   });
   return container.innerHTML;
+}
+
+// Kiểm tra tính toàn vẹn dữ liệu sau khi tải/di trú: chỉ BÁO CÁO (không tự sửa, không chặn
+// tải app) các tệp mồ côi (folderId trỏ tới thư mục không còn tồn tại), thư mục mồ côi
+// (parentId trỏ tới thư mục cha không còn tồn tại), và tài liệu thiếu trường bắt buộc
+// (createdAt, fileType) hoặc sai kiểu dữ liệu (tags không phải mảng). Dùng để log cảnh báo
+// cho người quản trị, không nhằm mục đích validate form nhập liệu.
+function validateDataIntegrity(memberList) {
+  const issues = [];
+  const list = Array.isArray(memberList) ? memberList : [];
+
+  list.forEach(member => {
+    if (!member || typeof member !== 'object') {
+      issues.push({ type: 'invalid-member', memberId: null, detail: 'Một phần tử trong members không phải object hợp lệ' });
+      return;
+    }
+    const memberLabel = member.name || member.id || '(không rõ)';
+    const folderIds = new Set((member.folders || []).map(f => String(f && f.id)));
+
+    (member.documents || []).forEach(doc => {
+      if (!doc || typeof doc !== 'object') {
+        issues.push({ type: 'invalid-document', memberId: member.id, docId: null, detail: `Thành viên "${memberLabel}" có 1 tài liệu không phải object hợp lệ` });
+        return;
+      }
+      const docLabel = doc.desc || doc.fileName || doc.id || '(không rõ)';
+      if (doc.folderId && !folderIds.has(String(doc.folderId))) {
+        issues.push({ type: 'orphaned-document-folder', memberId: member.id, docId: doc.id, detail: `Tệp "${docLabel}" của "${memberLabel}" trỏ tới folderId "${doc.folderId}" không tồn tại` });
+      }
+      if (!doc.createdAt) {
+        issues.push({ type: 'missing-createdAt', memberId: member.id, docId: doc.id, detail: `Tệp "${docLabel}" của "${memberLabel}" thiếu trường createdAt` });
+      }
+      if (!doc.fileType || typeof doc.fileType !== 'string') {
+        issues.push({ type: 'missing-fileType', memberId: member.id, docId: doc.id, detail: `Tệp "${docLabel}" của "${memberLabel}" thiếu hoặc sai định dạng fileType` });
+      }
+      if (doc.tags !== undefined && !Array.isArray(doc.tags)) {
+        issues.push({ type: 'invalid-tags', memberId: member.id, docId: doc.id, detail: `Tệp "${docLabel}" của "${memberLabel}" có trường tags không phải mảng` });
+      }
+    });
+
+    (member.folders || []).forEach(folder => {
+      if (folder && folder.parentId && !folderIds.has(String(folder.parentId))) {
+        issues.push({ type: 'orphaned-folder-parent', memberId: member.id, folderId: folder.id, detail: `Thư mục "${folder.name}" của "${memberLabel}" trỏ tới parentId "${folder.parentId}" không tồn tại` });
+      }
+    });
+  });
+
+  return issues;
 }

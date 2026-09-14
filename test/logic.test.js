@@ -58,3 +58,59 @@ test('bytesToBase64Url()/base64UrlToBytes() là hai chiều nghịch đảo củ
   const decoded = window.base64UrlToBytes(encoded);
   assert.deepEqual(Array.from(decoded), Array.from(original));
 });
+
+test('validateDataIntegrity(): dữ liệu sạch (đủ trường, không tệp/thư mục mồ côi) không báo lỗi nào', () => {
+  const { window } = createApp();
+  const members = [{
+    id: '1', name: 'Bố', type: 'adult',
+    folders: [{ id: 'f1', name: 'Thư mục A', parentId: null }],
+    documents: [{ id: 'd1', desc: 'CCCD', folderId: 'f1', fileType: 'image/jpeg', createdAt: '01/01/2024', tags: ['Bố'] }]
+  }];
+  assert.deepEqual(Array.from(window.validateDataIntegrity(members)), []);
+});
+
+test('validateDataIntegrity(): phát hiện tệp mồ côi khi folderId trỏ tới thư mục đã bị xóa', () => {
+  const { window } = createApp();
+  const members = [{
+    id: '1', name: 'Bố', type: 'adult',
+    folders: [],
+    documents: [{ id: 'd1', desc: 'CCCD', folderId: 'f-da-xoa', fileType: 'image/jpeg', createdAt: '01/01/2024' }]
+  }];
+  const issues = window.validateDataIntegrity(members);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].type, 'orphaned-document-folder');
+  assert.equal(issues[0].docId, 'd1');
+});
+
+test('validateDataIntegrity(): phát hiện thư mục mồ côi khi parentId trỏ tới thư mục cha đã bị xóa', () => {
+  const { window } = createApp();
+  const members = [{
+    id: '1', name: 'Bố', type: 'adult',
+    folders: [{ id: 'f1', name: 'Thư mục con', parentId: 'f-cha-da-xoa' }],
+    documents: []
+  }];
+  const issues = window.validateDataIntegrity(members);
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].type, 'orphaned-folder-parent');
+  assert.equal(issues[0].folderId, 'f1');
+});
+
+test('validateDataIntegrity(): phát hiện tài liệu thiếu createdAt, thiếu/sai fileType và tags không phải mảng', () => {
+  const { window } = createApp();
+  const members = [{
+    id: '1', name: 'Bố', type: 'adult',
+    folders: [],
+    documents: [{ id: 'd1', desc: 'Cũ', fileType: '', tags: 'Bố' }]
+  }];
+  const issues = window.validateDataIntegrity(members);
+  const types = Array.from(issues, i => i.type).sort();
+  assert.deepEqual(types, ['invalid-tags', 'missing-createdAt', 'missing-fileType']);
+});
+
+test('validateDataIntegrity(): không crash và vẫn báo cáo được khi input rỗng/thiếu mảng documents-folders', () => {
+  const { window } = createApp();
+  assert.deepEqual(Array.from(window.validateDataIntegrity([])), []);
+  assert.deepEqual(Array.from(window.validateDataIntegrity(undefined)), []);
+  const members = [{ id: '1', name: 'Thành viên cũ chưa từng có documents/folders' }];
+  assert.deepEqual(Array.from(window.validateDataIntegrity(members)), []);
+});

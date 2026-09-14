@@ -90,6 +90,21 @@ test('renderGrid() hiện thông báo trống khi chưa có thành viên nào', 
   assert.match(window.document.getElementById('memberGrid').innerHTML, /Chưa có thành viên nào/);
 });
 
+test('renderGrid(): mỗi thẻ thành viên phải bấm được bằng bàn phím (role=button, tabindex, aria-label, Enter/Space)', () => {
+  const { window } = createApp();
+  seedMember(window, { id: '5', name: 'Nguyễn Văn E' });
+
+  window.renderGrid();
+
+  const card = window.document.querySelector('.member-card[data-id="5"]');
+  assert.equal(card.getAttribute('role'), 'button');
+  assert.equal(card.getAttribute('tabindex'), '0');
+  assert.match(card.getAttribute('aria-label') || '', /Nguyễn Văn E/);
+
+  card.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.equal(window.location.search, '?member=5', 'nhấn Enter trên thẻ phải mở đúng trang chi tiết thành viên');
+});
+
 test('goBackInApp() từ form quay lại đúng màn hình chi tiết trước đó (dùng lịch sử trình duyệt)', async () => {
   const { window } = createApp();
   const member = seedMember(window, { id: '9', name: 'Phạm Thị D' });

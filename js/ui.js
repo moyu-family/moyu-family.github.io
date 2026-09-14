@@ -340,13 +340,22 @@ function getCustomDocTypes() {
   return found;
 }
 
-// Đồng bộ các option của 1 select loại giấy tờ, giữ nguyên lựa chọn hiện tại nếu có thể
+// Đồng bộ các option của 1 select loại giấy tờ, giữ nguyên lựa chọn hiện tại nếu có thể.
+// Nếu select có data-placeholder (xem guCategorySelect trong modal Tải nhanh), luôn chèn lại
+// tùy chọn trống ở đầu danh sách sau mỗi lần dựng lại, để không bị tự động rơi về mục đầu tiên.
 function populateDocTypeSelect(selectId) {
   const select = document.getElementById(selectId);
   if (!select) return;
   const previousValue = select.value;
+  const placeholderLabel = select.dataset.placeholder || '';
   const customTypes = getCustomDocTypes();
   select.innerHTML = '';
+  if (placeholderLabel) {
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = placeholderLabel;
+    select.appendChild(placeholderOpt);
+  }
   DEFAULT_DOC_TYPES.concat(customTypes).sort((a, b) => a.localeCompare(b, 'vi')).forEach(type => {
     const opt = document.createElement('option');
     opt.value = type;
@@ -361,6 +370,8 @@ function populateDocTypeSelect(selectId) {
   const knownValues = Array.from(select.options).map(o => o.value);
   if (previousValue && knownValues.includes(previousValue)) {
     select.value = previousValue;
+  } else if (placeholderLabel) {
+    select.value = '';
   }
 }
 
@@ -628,43 +639,61 @@ function populateMoveFolderSelect(docType) {
 // danh mục + thư mục con ngay tại chỗ.
 // ============================================================
 
+// Đang xem trang hồ sơ (Chi tiết hoặc Hồ sơ giấy tờ) của 1 chủ sở hữu cụ thể hay không —
+// dùng để quyết định có tự chọn sẵn chủ sở hữu đó khi mở modal Tải nhanh hay không.
+function currentProfileOwnerId() {
+  const onDetail = !document.getElementById('detailView').classList.contains('hidden');
+  const onDocs = !document.getElementById('docsView').classList.contains('hidden');
+  return (onDetail || onDocs) && currentMemberId ? currentMemberId : '';
+}
+
 function openGlobalUploadModal() {
   populateGlobalOwnerSelect();
-  document.getElementById('guOwnerSelect').value = FAMILY_SHARED_ID;
+  // Mở từ trang hồ sơ của 1 chủ sở hữu cụ thể: tự chọn chủ sở hữu đó. Mở từ FAB ở nơi
+  // khác (vd. Trang chủ): để trống cả chủ sở hữu lẫn danh mục, không tự ý chọn mặc định.
+  document.getElementById('guOwnerSelect').value = currentProfileOwnerId();
 
   globalSelectedTags = [];
   document.getElementById('guCustomTagInput').value = '';
   renderGlobalTagPicker();
 
-  globalUploadFile = null;
+  globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
+  globalUploadFiles = [];
   document.getElementById('guFileInput').value = '';
-  document.getElementById('guFilePreview').innerHTML = '';
+  renderGlobalFilePreview();
   document.getElementById('guDesc').value = '';
 
-  populateDocTypeSelect('guCategorySelect');
   const categorySelect = document.getElementById('guCategorySelect');
-  const knownCategories = Array.from(categorySelect.options).map(o => o.value);
-  if (knownCategories.includes('Định danh & Tùy thân')) categorySelect.value = 'Định danh & Tùy thân';
+  categorySelect.dataset.placeholder = '-- Chọn danh mục --';
+  populateDocTypeSelect('guCategorySelect');
+  categorySelect.value = '';
   toggleCustomDocName(categorySelect.value, 'guCustomCategoryGroup');
   document.getElementById('guCustomCategoryName').value = '';
-  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, categorySelect.value === 'custom' ? null : categorySelect.value);
+  populateGlobalFolderSelect(document.getElementById('guOwnerSelect').value, null);
   document.getElementById('guNewFolderName').value = '';
   document.getElementById('guNewFolderNameGroup').classList.add('hidden');
+
+  const advancedDetails = document.getElementById('guAdvancedDetails');
+  if (advancedDetails) advancedDetails.open = false;
 
   document.getElementById('globalUploadModal').classList.remove('hidden');
 }
 
 function closeGlobalUploadModal() {
   document.getElementById('globalUploadModal').classList.add('hidden');
-  if (globalUploadFile && globalUploadFile.previewUrl) URL.revokeObjectURL(globalUploadFile.previewUrl);
-  globalUploadFile = null;
+  globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
+  globalUploadFiles = [];
 }
 
-// Chủ sở hữu chính: Hồ sơ chung gia đình luôn đứng đầu, sau đó tới từng thành viên hiện có.
+// Chủ sở hữu chính: tùy chọn trống trước tiên, rồi tới Hồ sơ chung gia đình, sau đó từng thành viên hiện có.
 function populateGlobalOwnerSelect() {
   const select = document.getElementById('guOwnerSelect');
   if (!select) return;
   select.innerHTML = '';
+  const placeholderOpt = document.createElement('option');
+  placeholderOpt.value = '';
+  placeholderOpt.textContent = '-- Chọn chủ sở hữu --';
+  select.appendChild(placeholderOpt);
   const familyOpt = document.createElement('option');
   familyOpt.value = FAMILY_SHARED_ID;
   familyOpt.textContent = FAMILY_SHARED_NAME;
@@ -782,23 +811,53 @@ function renderGlobalSelectedTags() {
   });
 }
 
-// Xem trước tệp vừa chọn/chụp (ảnh hiện thumbnail, PDF hiện huy hiệu)
+// Nạp tệp vừa chọn/chụp vào danh sách chờ tải lên. Chọn nhiều đợt sẽ được cộng dồn
+// (append) thay vì ghi đè, vì input[type=file] luôn được reset về rỗng sau mỗi lần chọn.
 function onGlobalFileSelected(input) {
-  const file = input.files && input.files[0];
+  const newFiles = Array.from(input.files || []).map(file => {
+    const isPdf = (file.type || '').includes('pdf');
+    return { file, previewUrl: isPdf ? null : URL.createObjectURL(file) };
+  });
+  globalUploadFiles = globalUploadFiles.concat(newFiles);
+  input.value = '';
+  renderGlobalFilePreview();
+}
+
+// Vẽ lại lưới thumbnail các tệp đang chờ tải lên, mỗi tệp kèm tên rút gọn và nút "x" để gỡ bỏ.
+function renderGlobalFilePreview() {
   const preview = document.getElementById('guFilePreview');
-  if (globalUploadFile && globalUploadFile.previewUrl) URL.revokeObjectURL(globalUploadFile.previewUrl);
+  if (!preview) return;
   preview.innerHTML = '';
-  if (!file) {
-    globalUploadFile = null;
-    return;
-  }
-  const isPdf = (file.type || '').includes('pdf');
-  if (isPdf) {
-    globalUploadFile = { file, previewUrl: null };
-    preview.innerHTML = '<div class="file-thumb file-thumb-pdf gu-file-thumb">PDF</div>';
-  } else {
-    const url = URL.createObjectURL(file);
-    globalUploadFile = { file, previewUrl: url };
-    preview.innerHTML = `<img src="${url}" alt="Xem trước ảnh vừa chọn" class="file-thumb gu-file-thumb">`;
-  }
+  globalUploadFiles.forEach((entry, i) => {
+    const item = document.createElement('div');
+    item.className = 'gu-file-thumb-item';
+    const thumbHtml = entry.previewUrl
+      ? `<img src="${entry.previewUrl}" alt="Xem trước ${escapeHtml(entry.file.name)}" class="file-thumb gu-file-thumb">`
+      : '<div class="file-thumb file-thumb-pdf gu-file-thumb">PDF</div>';
+    item.innerHTML = `
+      ${thumbHtml}
+      <button type="button" class="gu-file-thumb-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
+      <span class="gu-file-thumb-name" title="${escapeHtml(entry.file.name)}">${escapeHtml(entry.file.name)}</span>
+    `;
+    item.querySelector('.gu-file-thumb-remove').onclick = () => removeGlobalFile(i);
+    preview.appendChild(item);
+  });
+}
+
+// Gỡ bỏ 1 tệp khỏi danh sách đang chờ tải lên (lỡ chọn nhầm)
+function removeGlobalFile(index) {
+  const entry = globalUploadFiles[index];
+  if (entry && entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+  globalUploadFiles.splice(index, 1);
+  renderGlobalFilePreview();
+}
+
+// Nhấp nháy nhẹ + viền đỏ tạm thời trên 1 trường bắt buộc còn thiếu, để thu hút chú ý người dùng
+// khi bấm "Tải lên & Lưu" mà chưa chọn đủ Chủ sở hữu/Danh mục.
+function shakeInvalidField(el) {
+  if (!el) return;
+  el.classList.remove('shake-error');
+  void el.offsetWidth; // ép trình duyệt tính lại layout để có thể lặp lại animation nếu bấm liên tiếp
+  el.classList.add('shake-error');
+  el.addEventListener('animationend', () => el.classList.remove('shake-error'), { once: true });
 }

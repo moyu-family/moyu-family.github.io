@@ -668,6 +668,47 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .tag-pill button:active { background: rgba(67, 56, 202, 0.32); transform: scale(0.92); }
 .tag-pill button svg { width: 11px; height: 11px; display: block; }
 
-/* Xem trước tệp vừa chọn/chụp trong modal Tải nhanh */
+/* Lưới thumbnail các tệp đang chờ tải lên trong modal Tải nhanh (có thể chọn nhiều tệp) */
+.gu-file-preview { display: flex; flex-wrap: wrap; gap: 14px 10px; }
 .gu-file-preview:not(:empty) { margin-top: 10px; }
-.gu-file-thumb { width: 84px; height: 84px; }
+.gu-file-thumb-item { position: relative; width: 76px; }
+.gu-file-thumb { width: 76px; height: 76px; }
+.gu-file-thumb-name {
+  display: block; margin-top: 4px; font-size: 0.65rem; color: var(--text-muted); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gu-file-thumb-remove {
+  position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #ffffff; background: var(--danger-soft); color: var(--danger); line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+.gu-file-thumb-remove:hover { background: var(--danger-soft-hover); }
+.gu-file-thumb-remove:active { background: var(--danger-border); transform: scale(0.9); }
+.gu-file-thumb-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.gu-file-thumb-remove svg { width: 12px; height: 12px; display: block; }
+
+/* Khối gấp/mở "Thêm chi tiết" (gắn thẻ, ghi chú) trong modal Tải nhanh: đóng mặc định để form gọn */
+.gu-advanced-details { margin: 4px 0 14px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; transition: all 0.2s ease; }
+.gu-advanced-details[open] { border-color: var(--accent-border); }
+.gu-advanced-summary {
+  cursor: pointer; list-style: none; user-select: none; display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: var(--accent-2); transition: all 0.2s ease;
+}
+.gu-advanced-summary::-webkit-details-marker { display: none; }
+.gu-advanced-summary::before { content: "▸"; display: inline-block; font-size: 0.7rem; transition: transform 0.2s ease; }
+.gu-advanced-details[open] > .gu-advanced-summary::before { transform: rotate(90deg); }
+.gu-advanced-summary:hover { background: var(--accent-soft-hover); }
+.gu-advanced-summary:active { background: var(--accent-border); }
+.gu-advanced-summary:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.gu-advanced-body { padding: 4px 14px 14px; border-top: 1px solid var(--border-color); }
+.gu-advanced-body .form-group:last-child { margin-bottom: 0; }
+
+/* Rung nhẹ + viền đỏ tạm thời để nhắc chọn 1 trường bắt buộc còn thiếu (modal Tải nhanh) */
+@keyframes shake-x {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+.shake-error { animation: shake-x 0.5s ease; border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important; }

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256, kéo thả SortableJS và render PDF (PDF.js) -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -42,7 +42,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.5.5 · 14/09/2026</div>
+    <div class="app-version">Phiên bản 1.6.0 · 14/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -301,7 +301,7 @@
             <input type="text" id="fCccdDate" placeholder="dd/mm/yyyy" maxlength="10" oninput="maskDateInput(this)">
           </div>
         </div>
-        
+
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div class="form-group"><label>Email</label><input type="email" id="fEmail" placeholder="example@email.com"></div>
           <div class="form-group"><label>Số điện thoại</label><input type="tel" id="fPhone" placeholder="09xxxxxxxx"></div>
@@ -523,24 +523,21 @@
   </div>
 </div>
 
-<!-- Modal Tải nhanh (FAB): chụp/chọn 1 ảnh giấy tờ từ bất kỳ màn hình nào -->
+<!-- Modal Tải nhanh (FAB): chụp/chọn nhiều ảnh giấy tờ từ bất kỳ màn hình nào -->
 <div id="globalUploadModal" class="modal-overlay hidden" onclick="closeGlobalUploadModal()">
   <div class="modal-card" style="max-width: 460px; text-align: left;" onclick="event.stopPropagation()">
     <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Tải nhanh giấy tờ</h3>
 
     <div class="form-group">
-      <label>Chủ sở hữu chính</label>
-      <select id="guOwnerSelect" onchange="onGlobalOwnerChange()"></select>
+      <label>Chọn ảnh / Chụp ảnh (hoặc tệp PDF)</label>
+      <input type="file" id="guFileInput" accept="image/*,application/pdf" capture="environment" multiple onchange="onGlobalFileSelected(this)">
+      <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:5px;">Có thể chọn nhiều tệp cùng lúc, chọn thêm nhiều đợt sẽ được cộng dồn.</small>
+      <div id="guFilePreview" class="gu-file-preview"></div>
     </div>
 
     <div class="form-group">
-      <label>Thành viên liên quan / Nhãn gắn kèm (tags)</label>
-      <select id="guTagMemberSelect" onchange="addGlobalMemberTag(this.value)"></select>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <input type="text" id="guCustomTagInput" placeholder="Nhập tag tự do (ví dụ: Ông ngoại, Bà nội...)" onkeydown="handleGlobalTagInputKeydown(event)" style="flex:1;">
-        <button type="button" class="btn-outline" style="flex:0 0 auto; padding:9px 14px;" onclick="addGlobalCustomTag()" aria-label="Thêm tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-      </div>
-      <div id="guSelectedTags" class="tag-pill-row" style="margin-top:8px;"></div>
+      <label>Chủ sở hữu chính</label>
+      <select id="guOwnerSelect" onchange="onGlobalOwnerChange()"></select>
     </div>
 
     <div class="form-group">
@@ -563,16 +560,25 @@
       <input type="text" id="guNewFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng...">
     </div>
 
-    <div class="form-group">
-      <label>Chọn ảnh / Chụp ảnh (hoặc tệp PDF)</label>
-      <input type="file" id="guFileInput" accept="image/*,application/pdf" capture="environment" onchange="onGlobalFileSelected(this)">
-      <div id="guFilePreview" class="gu-file-preview"></div>
-    </div>
+    <details class="gu-advanced-details" id="guAdvancedDetails">
+      <summary class="gu-advanced-summary">Thêm chi tiết (gắn thẻ, ghi chú - tùy chọn)</summary>
+      <div class="gu-advanced-body">
+        <div class="form-group">
+          <label>Thành viên liên quan / Nhãn gắn kèm (tags)</label>
+          <select id="guTagMemberSelect" onchange="addGlobalMemberTag(this.value)"></select>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <input type="text" id="guCustomTagInput" placeholder="Nhập tag tự do (ví dụ: Ông ngoại, Bà nội...)" onkeydown="handleGlobalTagInputKeydown(event)" style="flex:1;">
+            <button type="button" class="btn-outline" style="flex:0 0 auto; padding:9px 14px;" onclick="addGlobalCustomTag()" aria-label="Thêm tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+          </div>
+          <div id="guSelectedTags" class="tag-pill-row" style="margin-top:8px;"></div>
+        </div>
 
-    <div class="form-group">
-      <label>Mô tả / Ghi chú ngắn</label>
-      <input type="text" id="guDesc" placeholder="ví dụ: Học phí kỳ 1, Bản scan khai sinh...">
-    </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Mô tả / Ghi chú ngắn</label>
+          <input type="text" id="guDesc" placeholder="ví dụ: Học phí kỳ 1, Bản scan khai sinh...">
+        </div>
+      </div>
+    </details>
 
     <div style="display:flex; gap:8px; margin-top:18px;">
       <button type="button" id="btnSaveGlobalDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveGlobalDocument(false)">Tải lên & Lưu</button>
@@ -740,10 +746,10 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=33"></script>
-<script defer src="js/auth.js?v=34"></script>
-<script defer src="js/ui.js?v=31"></script>
-<script defer src="js/members.js?v=35"></script>
+<script defer src="js/config.js?v=35"></script>
+<script defer src="js/auth.js?v=35"></script>
+<script defer src="js/ui.js?v=32"></script>
+<script defer src="js/members.js?v=37"></script>
 <script defer src="js/page.js?v=23"></script>
 
 </body>

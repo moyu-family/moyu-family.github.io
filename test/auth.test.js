@@ -55,6 +55,17 @@ test('loadDataWithPassword() báo lỗi rỗng khi sai mật khẩu (AES giải 
   );
 });
 
+test('loadDataWithPassword() bỏ qua phần tử hỏng (null) trong members thay vì crash, giữ lại các thành viên hợp lệ', async () => {
+  const { window } = createApp();
+  const payload = { members: [{ id: '1', name: 'A' }, null, { id: '2', name: 'B' }], customBankList: [] };
+  const cipherText = window.CryptoJS.AES.encrypt(JSON.stringify(payload), 'pass123').toString();
+  window.fetch = fakeFetchReturning(cipherText);
+
+  await window.loadDataWithPassword('pass123');
+
+  assert.deepEqual(Array.from(window.__state.members, m => m.name), ['A', 'B']);
+});
+
 test('pushToFirebase() mã hoá state hiện tại bằng masterPassword và PUT lên Firebase', async () => {
   const { window } = createApp();
   window.__state.masterPassword = 'pass123';

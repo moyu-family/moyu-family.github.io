@@ -158,20 +158,33 @@ function renderGrid() {
     const card = document.createElement('div');
     card.className = 'member-card';
     card.setAttribute('data-id', m.id);
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Xem hồ sơ ${m.name || 'thành viên'}`);
 
-    card.onclick = () => navigateApp('member', { id: m.id });
+    const openMember = () => navigateApp('member', { id: m.id });
+    card.onclick = openMember;
+    card.onkeydown = (e) => {
+      if (e.target !== card) return; // không kích hoạt khi phím bấm đến từ ảnh đại diện lồng bên trong
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMember(); }
+    };
 
     const avatarSrc = m.avatar || DEFAULT_AVATAR;
 
     card.innerHTML = `
       <div class="avatar-wrap">
-        <img src="${escapeHtml(avatarSrc)}" onerror="this.src=DEFAULT_AVATAR">
+        <img src="${escapeHtml(avatarSrc)}" onerror="this.src=DEFAULT_AVATAR" tabindex="0" role="button" aria-label="Xem ảnh đại diện ${escapeHtml(m.name || '')}">
       </div>
       <div class="member-name">${escapeHtml(m.name || '-')}</div>
     `;
-    card.querySelector('.avatar-wrap img').onclick = (e) => {
+    const avatarImg = card.querySelector('.avatar-wrap img');
+    const openAvatar = (e) => {
       e.stopPropagation();
-      showImageModal(e.currentTarget.src, m.name || 'Ảnh đại diện');
+      showImageModal(avatarImg.src, m.name || 'Ảnh đại diện');
+    };
+    avatarImg.onclick = openAvatar;
+    avatarImg.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAvatar(e); }
     };
     grid.appendChild(card);
   });
@@ -315,15 +328,6 @@ function previewAvatarUrl(input) {
   const fileInput = document.getElementById('fAvatar');
   if (!preview || (fileInput.files && fileInput.files.length > 0)) return;
   preview.src = input.value.trim() || DEFAULT_AVATAR;
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Không thể đọc tệp ảnh.'));
-    reader.readAsDataURL(file);
-  });
 }
 
 function showHome(skipHistory = false) {
@@ -545,6 +549,7 @@ async function saveMember(e) {
   };
 
   const idx = members.findIndex(m => String(m.id) === String(id));
+  const previousName = idx >= 0 ? members[idx].name : null;
   if (idx >= 0) {
     memberObj.documents = members[idx].documents || [];
     for (const doc of memberObj.documents) {
@@ -565,6 +570,12 @@ async function saveMember(e) {
   } else {
     memberObj.documents = [];
     members.push(memberObj);
+  }
+
+  // Đổi tên thành viên: các tag tự do gắn trên tài liệu (của bất kỳ ai) tham chiếu tên cũ
+  // phải đổi theo tên mới, nếu không sẽ thành tag "mồ côi" trỏ tới cái tên không còn tồn tại.
+  if (previousName && previousName !== memberObj.name) {
+    renameMemberNameInTags(previousName, memberObj.name);
   }
 
   const btn = document.getElementById('btnSaveMember');
@@ -590,11 +601,27 @@ function editCurrentMember() {
   if (m) openForm(m);
 }
 
+// Đổi tên (hoặc xóa hẳn, khi newName rỗng) 1 tag tự do khỏi tags[] của mọi tài liệu, trên
+// mọi thành viên - dùng khi đổi tên/xóa thành viên để tag không bị "mồ côi" trỏ tới tên cũ.
+function renameMemberNameInTags(oldName, newName = null) {
+  if (!oldName) return;
+  members.forEach(m => {
+    (m.documents || []).forEach(d => {
+      if (!Array.isArray(d.tags) || !d.tags.includes(oldName)) return;
+      d.tags = newName
+        ? d.tags.map(tag => tag === oldName ? newName : tag)
+        : d.tags.filter(tag => tag !== oldName);
+    });
+  });
+}
+
 async function deleteCurrentMember() {
   const m = members.find(item => String(item.id) === String(currentMemberId));
   const name = (m && m.name) ? m.name : 'này';
   if (confirm(`Bạn có chắc chắn muốn xóa thành viên "${name}" và toàn bộ hồ sơ liên quan?`)) {
     members = members.filter(item => String(item.id) !== String(currentMemberId));
+    // Xóa luôn tag mang tên thành viên này khỏi tài liệu của người khác, tránh để lại tag mồ côi.
+    if (m && m.name) renameMemberNameInTags(m.name, null);
     try {
       await pushToFirebase();
       navigateApp('home');
@@ -685,7 +712,7 @@ function goBackFromConsolidatedView() {
 // (dùng cho bộ lọc theo tag/thành viên/Hồ sơ chung gia đình trong màn hình tổng hợp).
 function buildConsolidatedMap(filterFn = null) {
   const map = {};
-  members.forEach(m => {
+  members.filter(m => m.id !== UNASSIGNED_OWNER_ID).forEach(m => {
     (m.documents || []).forEach(d => {
       const entry = { ...d, ownerId: m.id, ownerName: m.name };
       if (filterFn && !filterFn(entry)) return;
@@ -799,6 +826,9 @@ function renderConsolidatedCategories() {
     const ownerCount = new Set(files.map(f => f.ownerId)).size;
     const card = document.createElement('div');
     card.className = 'folder-card';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Xem chi tiết danh mục ${type}`);
     card.innerHTML = `
       <div class="folder-icon">${svgIcon('folder')}</div>
       <div class="folder-info">
@@ -807,7 +837,11 @@ function renderConsolidatedCategories() {
         <span class="folder-badge">Xem chi tiết${svgIcon('arrowRight')}</span>
       </div>
     `;
-    card.onclick = () => openConsolidatedCategoryDetails(type);
+    const openCategory = () => openConsolidatedCategoryDetails(type);
+    card.onclick = openCategory;
+    card.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCategory(); }
+    };
     grid.appendChild(card);
   });
 
@@ -982,6 +1016,9 @@ function renderDocsFolders() {
     const files = folderMap[type];
     const card = document.createElement('div');
     card.className = 'folder-card';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Mở danh mục ${type}`);
     card.innerHTML = `
       <div class="folder-icon">${svgIcon('folder')}</div>
       <div class="folder-info">
@@ -994,8 +1031,11 @@ function renderDocsFolders() {
     `;
     card.querySelector('.btn-edit-category').onclick = (e) => { e.stopPropagation(); openEditCategoryModal(type); };
     card.querySelector('.btn-del-category').onclick = (e) => { e.stopPropagation(); deleteCategory(type); };
-    card.onclick = () => {
-      openFolderDetails(type);
+    const openThisFolder = () => { openFolderDetails(type); };
+    card.onclick = openThisFolder;
+    card.onkeydown = (e) => {
+      if (e.target !== card) return; // không kích hoạt khi phím bấm đến từ nút sửa/xóa lồng bên trong
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openThisFolder(); }
     };
     grid.appendChild(card);
   });
@@ -1641,6 +1681,9 @@ function openFolderDetails(docType, subfolderId = null) {
       const card = document.createElement('div');
       card.className = 'folder-card' + (isFolderSelected ? ' is-selected' : '');
       card.setAttribute('data-folder-id', f.id);
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('aria-label', `Mở thư mục ${f.name}`);
       const folderCheckboxHtml = isDocSelectMode
         ? `<input type="checkbox" class="folder-card-checkbox" ${isFolderSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleFolderSelection('${f.id}')">`
         : '';
@@ -1657,9 +1700,14 @@ function openFolderDetails(docType, subfolderId = null) {
       `;
       card.querySelector('.btn-edit-subfolder').onclick = (e) => { e.stopPropagation(); openEditFolderModal(f.id); };
       card.querySelector('.btn-del-subfolder').onclick = (e) => { e.stopPropagation(); deleteSubfolder(f.id); };
-      card.onclick = () => {
+      const activateFolderCard = () => {
         if (isDocSelectMode) { toggleFolderSelection(f.id); return; }
         openFolderDetails(docType, f.id);
+      };
+      card.onclick = activateFolderCard;
+      card.onkeydown = (e) => {
+        if (e.target !== card) return; // không kích hoạt khi phím bấm đến từ checkbox/nút sửa/xóa lồng bên trong
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateFolderCard(); }
       };
       subGrid.appendChild(card);
     });
@@ -1910,31 +1958,48 @@ async function saveDocument() {
 }
 
 // ============================================================
-// MODAL TẢI NHANH (FAB): upload 1 tệp cho bất kỳ thành viên nào hoặc cho
+// MODAL TẢI NHANH (FAB): upload nhiều tệp cùng lúc cho bất kỳ thành viên nào hoặc cho
 // Hồ sơ chung gia đình, kèm chọn danh mục/thư mục con và gắn tag đa thành viên.
 // Tái dùng chung 1 kho documents[]/folders[] với modal upload cũ (mỗi tệp chỉ
 // khác ở chỗ có thêm mảng tags[]).
+//
+// "Tải lên & Lưu" bắt buộc phải chọn Chủ sở hữu + Danh mục. "Lưu tạm" chỉ cần có tệp:
+// nếu chưa chọn chủ sở hữu, tệp được gửi vào kho "Chưa gán chủ sở hữu" (xem
+// ensureUnassignedOwnerMember() trong config.js) để hoàn tất phân loại sau trong "Hồ sơ tạm".
 // ============================================================
 async function saveGlobalDocument(isDraft = false) {
-  const ownerId = document.getElementById('guOwnerSelect').value;
-  if (!ownerId) {
-    alert('Vui lòng chọn chủ sở hữu chính!');
-    return;
-  }
-  if (!globalUploadFile || !globalUploadFile.file) {
-    alert('Vui lòng chọn ảnh/tệp hoặc chụp ảnh tài liệu để tải lên!');
+  if (!globalUploadFiles || globalUploadFiles.length === 0) {
+    alert('Vui lòng chọn ít nhất 1 ảnh/tệp giấy tờ để tải lên!');
     return;
   }
 
-  const categorySel = document.getElementById('guCategorySelect').value;
+  const ownerSelect = document.getElementById('guOwnerSelect');
+  const categorySelect = document.getElementById('guCategorySelect');
+  const ownerId = ownerSelect.value;
+  const categorySel = categorySelect.value;
+
+  if (!isDraft) {
+    const missingFields = [];
+    if (!ownerId) missingFields.push(ownerSelect);
+    if (!categorySel) missingFields.push(categorySelect);
+    if (missingFields.length > 0) {
+      missingFields.forEach(shakeInvalidField);
+      alert('Vui lòng chọn đầy đủ "Chủ sở hữu chính" và "Danh mục" trước khi Tải lên & Lưu.\nNếu chưa chắc chắn, hãy dùng nút "Lưu tạm" để phân loại sau.');
+      return;
+    }
+  }
+
   const docType = categorySel === 'custom'
     ? (document.getElementById('guCustomCategoryName').value.trim() || 'Tài liệu khác')
     : categorySel;
 
   const isNewFamilyProfile = ownerId === FAMILY_SHARED_ID && !members.some(item => String(item.id) === FAMILY_SHARED_ID);
+  const isNewUnassignedProfile = !ownerId && !members.some(item => String(item.id) === UNASSIGNED_OWNER_ID);
   const m = ownerId === FAMILY_SHARED_ID
     ? ensureFamilySharedMember()
-    : members.find(item => String(item.id) === String(ownerId));
+    : ownerId
+      ? members.find(item => String(item.id) === String(ownerId))
+      : ensureUnassignedOwnerMember();
   if (!m) {
     alert('Không tìm thấy hồ sơ chủ sở hữu đã chọn!');
     return;
@@ -1970,36 +2035,47 @@ async function saveGlobalDocument(isDraft = false) {
   }
 
   const desc = document.getElementById('guDesc').value.trim();
-  const file = globalUploadFile.file;
+  const files = globalUploadFiles.map(entry => entry.file);
   const btnId = isDraft ? 'btnSaveGlobalDocDraft' : 'btnSaveGlobalDoc';
   const btn = document.getElementById(btnId);
   const originalBtnLabel = btn.innerHTML;
-  setBtnLabel(btn, isDraft ? 'clock' : 'upload', isDraft ? 'Đang lưu tạm...' : 'Đang tải tệp & lưu...');
+  const savedDocs = [];
   try {
-    const documentId = 'doc_' + Date.now();
-    const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
-    m.documents.push({
-      id: documentId,
-      ownerId: m.id,
-      docType,
-      folderId: targetFolderId,
-      fileName: file.name,
-      fileType: file.type,
-      desc: desc || file.name,
-      tags: [...globalSelectedTags],
-      data: storageUrl,
-      encrypted: true,
-      status: isDraft ? 'pending' : 'completed',
-      createdAt: new Date().toLocaleDateString('vi-VN'),
-      uploadedAt: new Date().toISOString()
-    });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const progress = files.length > 1 ? ` ${i + 1}/${files.length}` : '';
+      setBtnLabel(btn, isDraft ? 'clock' : 'upload', (isDraft ? 'Đang lưu tạm' : 'Đang tải tệp & lưu') + progress + '...');
+      const documentId = 'doc_' + Date.now() + '_' + i;
+      const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
+      const doc = {
+        id: documentId,
+        ownerId: m.id,
+        docType,
+        folderId: targetFolderId,
+        fileName: file.name,
+        fileType: file.type,
+        desc: (files.length === 1 ? desc : '') || file.name,
+        tags: [...globalSelectedTags],
+        data: storageUrl,
+        encrypted: true,
+        status: isDraft ? 'pending' : 'completed',
+        createdAt: new Date().toLocaleDateString('vi-VN'),
+        uploadedAt: new Date().toISOString()
+      };
+      m.documents.push(doc);
+      savedDocs.push(doc);
+    }
     await pushToFirebase();
     if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
     if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
     closeGlobalUploadModal();
-    alert(isDraft
-      ? 'Đã lưu tạm giấy tờ! Vào "Hồ sơ tạm" trên thanh menu để hoàn tất phân loại sau.'
-      : 'Đã tải lên và lưu giấy tờ thành công!');
+    if (isDraft) {
+      showToast(files.length > 1
+        ? `Đã lưu tạm ${files.length} tệp! Vào "Hồ sơ tạm" để hoàn tất phân loại sau.`
+        : 'Đã lưu tạm giấy tờ! Vào "Hồ sơ tạm" trên thanh menu để hoàn tất phân loại sau.');
+    } else {
+      alert(files.length > 1 ? `Đã tải lên và lưu ${files.length} tệp thành công!` : 'Đã tải lên và lưu giấy tờ thành công!');
+    }
 
     // Làm mới màn hình đang xem nếu có liên quan, để người dùng thấy ngay tệp vừa thêm.
     if (!document.getElementById('consolidatedView').classList.contains('hidden')) {
@@ -2010,8 +2086,12 @@ async function saveGlobalDocument(isDraft = false) {
       else renderDocsFolders();
     }
   } catch (err) {
+    m.documents = m.documents.filter(d => !savedDocs.includes(d));
     if (createdFolder) m.folders = m.folders.filter(f => f.id !== createdFolder.id);
     if (isNewFamilyProfile && m.documents.length === 0 && m.folders.length === 0) {
+      members = members.filter(item => item !== m);
+    }
+    if (isNewUnassignedProfile && m.documents.length === 0 && m.folders.length === 0) {
       members = members.filter(item => item !== m);
     }
     alert('Lỗi khi lưu tài liệu: ' + err.message);
@@ -2282,6 +2362,13 @@ async function savePendingComplete() {
   const desc = document.getElementById('pdDesc').value.trim();
   const ownerChanged = String(sourceMember.id) !== String(targetMember.id);
 
+  // Lưu lại toàn bộ trường sẽ bị sửa, để có thể khôi phục đúng nguyên trạng
+  // (không chỉ vị trí trong members[], mà cả nội dung doc) nếu lưu thất bại.
+  const previousFields = {
+    ownerId: doc.ownerId, docType: doc.docType, folderId: doc.folderId,
+    desc: doc.desc, status: doc.status
+  };
+
   if (ownerChanged) {
     sourceMember.documents = (sourceMember.documents || []).filter(d => String(d.id) !== String(docId));
   }
@@ -2307,6 +2394,7 @@ async function savePendingComplete() {
       else renderDocsFolders();
     }
   } catch (err) {
+    Object.assign(doc, previousFields);
     if (ownerChanged) {
       targetMember.documents = targetMember.documents.filter(d => String(d.id) !== String(docId));
       sourceMember.documents.push(doc);

@@ -1,23 +1,23 @@
 {
   "style.css": {
-    "version": 23,
-    "hash": "ebd03791832ab13672337bc9036a62a0b1059fc1"
+    "version": 24,
+    "hash": "39c4c0da0853f16cef7084eb176b850f77253615"
   },
   "js/config.js": {
-    "version": 33,
-    "hash": "c9a7f0e03883fce27426ae14f3b6bda6d40572d4"
+    "version": 35,
+    "hash": "aeee28767b3a967faa7c997d2d599f22739931b5"
   },
   "js/auth.js": {
-    "version": 34,
-    "hash": "f009a7658d3ca43cc477999073af029ce86352c0"
+    "version": 35,
+    "hash": "7fcbe00c30bcdd50bc0682630a1152822e14dbac"
   },
   "js/ui.js": {
-    "version": 31,
-    "hash": "284ca207f2241e820fb04161a0fa2f3d5ab11910"
+    "version": 32,
+    "hash": "94bbc6ee7aae9b53bd6a297b58fc47a5feae06cc"
   },
   "js/members.js": {
-    "version": 35,
-    "hash": "6663b21234aee81bf4f75f323260567cafa14945"
+    "version": 37,
+    "hash": "e48b12adae204f86bf3ce24f5faac231b59c991b"
   },
   "js/page.js": {
     "version": 23,
