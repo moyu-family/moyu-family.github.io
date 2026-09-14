@@ -2046,13 +2046,6 @@ async function openDocInNewTabByDoc(doc) {
   let displayUrl;
   try {
     displayUrl = await getDocumentDisplayUrl(doc);
-    // Chuyển blob: URL (tài liệu đã mã hóa) sang data: URI trước khi nhúng vào tab mới:
-    // nhiều trình duyệt di động (Chrome/Safari trên Android/iOS) không mở được blob: URL
-    // được tạo ở cửa sổ khác, dẫn đến chỉ hiện tên file dạng mã băm và nút Open không hoạt động.
-    if (displayUrl.startsWith('blob:')) {
-      const blob = await (await fetch(displayUrl)).blob();
-      displayUrl = await readFileAsDataUrl(blob);
-    }
   } catch (err) {
     newTab.close();
     alert(err.message || 'Không thể giải mã tệp giấy tờ.');
@@ -2060,15 +2053,11 @@ async function openDocInNewTabByDoc(doc) {
   }
 
   if (doc.fileType && doc.fileType.includes('pdf')) {
-    newTab.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>${escapeHtml(doc.fileName)}</title></head>
-      <body style="margin:0; padding:0; height:100vh; overflow:hidden;">
-        <iframe src="${displayUrl}" frameborder="0" style="width:100%; height:100%; border:none;"></iframe>
-      </body>
-      </html>
-    `);
+    // Điều hướng thẳng cả tab sang tệp PDF thay vì nhúng qua <iframe>: trình duyệt di động
+    // (Chrome/Samsung Internet/Safari) chỉ bật trình xem PDF gốc cho điều hướng toàn trang,
+    // còn nhúng trong iframe thì bị coi là tệp tải xuống (hiện tên dạng mã băm, nút Open vô tác dụng)
+    // hoặc bị chặn hiển thị hoàn toàn (trắng trang) tùy trình duyệt.
+    newTab.location.replace(displayUrl);
   } else {
     newTab.document.write(`
       <!DOCTYPE html>
