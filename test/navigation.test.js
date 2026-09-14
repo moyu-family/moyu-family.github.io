@@ -39,9 +39,9 @@ test('viewDetails() với id không tồn tại (link cũ/đã xóa) phải quay
     'nút "+ Thêm thành viên" không được kẹt ẩn'
   );
   assert.equal(
-    window.document.getElementById('btnToggleSelect').classList.contains('hidden'),
+    window.document.getElementById('btnSummaryTable').classList.contains('hidden'),
     false,
-    'nút "Quản lý / Chọn" không được kẹt ẩn'
+    'nút "Bảng tổng hợp" không được kẹt ẩn'
   );
 });
 

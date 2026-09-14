@@ -1,6 +1,7 @@
 function initializePage() {
   const page = document.body.dataset.page;
   const params = new URLSearchParams(window.location.search);
+  if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
 
     if (params.has('member')) {
       const memberId = params.get('member');
@@ -10,8 +11,6 @@ function initializePage() {
   }
 
     if (params.has('summary')) {
-    const selected = params.get('ids');
-    if (selected) selected.split(',').filter(Boolean).forEach(id => selectedIds.add(id));
     openSummaryTable(true);
     return;
   }
@@ -47,7 +46,6 @@ function initializePage() {
       state.memberId = data.id;
     } else if (view === 'summary') {
       params.set('summary', '1');
-      if (data.ids) params.set('ids', data.ids);
     } else if (view === 'documents') {
       params.set('documents', data.id);
       state.memberId = data.id;

@@ -5,27 +5,33 @@ let docsSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'desc-asc'
 let newFolderDocType = null;
 
 function setMemberManagementButtonVisible(visible) {
-  ['btnToggleSelect', 'btnAddMember'].forEach(buttonId => {
+  ['btnSummaryTable', 'btnAddMember'].forEach(buttonId => {
     const button = document.getElementById(buttonId);
     if (button) button.classList.toggle('hidden', !visible);
   });
 }
 
-// Kéo thả sắp xếp[cite: 3]
+// Kéo thả đổi thứ tự thẻ thành viên: nhấp-giữ-kéo trên máy tính, nhấn giữ ~300ms
+// rồi kéo trên cảm ứng (delayOnTouchOnly để không cản việc cuộn trang bằng ngón tay).
 function initSortable() {
   const grid = document.getElementById('memberGrid');
   if (sortableInstance) {
     sortableInstance.destroy();
     sortableInstance = null;
   }
-  
-  if (isSelectMode) return;
 
   if (typeof Sortable !== 'undefined') {
     sortableInstance = new Sortable(grid, {
-      handle: '.drag-handle',
       animation: 200,
+      delay: 300,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
       ghostClass: 'sortable-ghost',
+      chosenClass: 'member-card-chosen',
+      dragClass: 'member-card-dragging',
+      onChoose: function () {
+        if (navigator.vibrate) navigator.vibrate(15);
+      },
       onEnd: async function () {
         const cardElements = grid.querySelectorAll('.member-card');
         const newOrderedIds = Array.from(cardElements).map(el => el.getAttribute('data-id'));
@@ -40,87 +46,14 @@ function initSortable() {
   }
 }
 
-// Chế độ chọn / Bulk Actions[cite: 3]
-const SELECT_MODE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>';
-const EXIT_SELECT_MODE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-
-function toggleSelectMode() {
-  isSelectMode = !isSelectMode;
-  selectedIds.clear();
-  document.getElementById('selectAllCheckbox').checked = false;
-  document.getElementById('batchActionToolbar').classList.toggle('hidden', !isSelectMode);
-  const btnToggleSelect = document.getElementById('btnToggleSelect');
-  btnToggleSelect.classList.toggle('is-active', isSelectMode);
-  btnToggleSelect.querySelector('.btn-icon').innerHTML = isSelectMode ? EXIT_SELECT_MODE_ICON : SELECT_MODE_ICON;
-  btnToggleSelect.querySelector('.btn-text').innerText = isSelectMode ? 'Thoát chọn' : 'Quản lý / Chọn';
-  renderGrid();
-  updateSelectedCount();
-}
-
-function updateSelectedCount() {
-  document.getElementById('selectedCountText').innerText = `(Đã chọn: ${selectedIds.size}/${displayMembers().length})`;
-}
-
-function toggleMemberSelection(id) {
-  if (selectedIds.has(id)) selectedIds.delete(id);
-  else selectedIds.add(id);
-  
-  const card = document.querySelector(`.member-card[data-id="${id}"]`);
-  if (card) {
-    const isSelected = selectedIds.has(id);
-    card.classList.toggle('is-selected', isSelected);
-    const cb = card.querySelector('.card-checkbox');
-    if (cb) cb.checked = isSelected;
-  }
-
-  document.getElementById('selectAllCheckbox').checked = (selectedIds.size === members.length && members.length > 0);
-  updateSelectedCount();
-}
-
-function toggleSelectAll(checked) {
-  selectedIds.clear();
-  if (checked) {
-    displayMembers().forEach(m => selectedIds.add(m.id));
-  }
-  document.querySelectorAll('.member-card').forEach(card => {
-    card.classList.toggle('is-selected', checked);
-    const cb = card.querySelector('.card-checkbox');
-    if (cb) cb.checked = checked;
-  });
-  updateSelectedCount();
-}
-
-async function deleteSelectedMembers() {
-  if (selectedIds.size === 0) {
-    alert('Vui lòng chọn ít nhất 1 thành viên để xóa!');
-    return;
-  }
-  if (confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} thành viên đã chọn?`)) {
-    members = members.filter(m => !selectedIds.has(m.id));
-    selectedIds.clear();
-    try {
-      await pushToFirebase();
-      renderGrid();
-      updateSelectedCount();
-      document.getElementById('selectAllCheckbox').checked = false;
-    } catch (e) {
-      alert('Lỗi xóa dữ liệu: ' + e.message);
-    }
-  }
-}
-
 // Bảng tổng hợp[cite: 3]
 function openSummaryTable(skipHistory = false) {
   setMemberManagementButtonVisible(false);
   if (!skipHistory) {
-    const ids = selectedIds.size > 0 ? [...selectedIds].join(',') : '';
-    navigateApp('summary', { ids });
+    navigateApp('summary');
     return;
   }
-  let targetMembers = displayMembers();
-  if (selectedIds.size > 0) {
-    targetMembers = members.filter(m => selectedIds.has(m.id));
-  }
+  const targetMembers = displayMembers();
 
   const tbody = document.getElementById('summaryTableBody');
   tbody.innerHTML = '';
@@ -164,17 +97,13 @@ function openSummaryTable(skipHistory = false) {
   });
 
   document.getElementById('homeView').classList.add('hidden');
-  document.getElementById('batchActionToolbar').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
   document.getElementById('tableView').classList.remove('hidden');
 }
 
 // Sao chép bảng cho Excel[cite: 3]
 function copyTableData() {
-  let targetMembers = displayMembers();
-  if (selectedIds.size > 0) {
-    targetMembers = members.filter(m => selectedIds.has(m.id));
-  }
+  const targetMembers = displayMembers();
 
   const headers = ["STT", "Họ và Tên", "Số điện thoại", "Đối tượng", "Ngày sinh", "Nơi sinh", "Số CCCD", "Ngày cấp", "BHYT", "Mã số BHXH", "Mã số thuế", "Mã HS / NV", "Tài khoản ngân hàng", "Ghi chú"];
   let text = headers.join('\t') + '\n';
@@ -227,37 +156,16 @@ function renderGrid() {
     const card = document.createElement('div');
     card.className = 'member-card';
     card.setAttribute('data-id', m.id);
-    
-    const isSelected = selectedIds.has(m.id);
-    if (isSelected) card.classList.add('is-selected');
 
-    let topControls = '';
-    if (isSelectMode) {
-      topControls = `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleMemberSelection('${m.id}')">`;
-    } else {
-      topControls = `<div class="drag-handle" title="Giữ để kéo thả sắp xếp">⠿</div>`;
-    }
-
-    card.onclick = (e) => {
-      if (isSelectMode) {
-        toggleMemberSelection(m.id);
-      } else {
-        if (!e.target.classList.contains('drag-handle')) {
-          navigateApp('member', { id: m.id });
-        }
-      }
-    };
+    card.onclick = () => navigateApp('member', { id: m.id });
 
     const avatarSrc = m.avatar || DEFAULT_AVATAR;
-    const memberRole = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
 
     card.innerHTML = `
-      ${topControls}
       <div class="avatar-wrap">
         <img src="${escapeHtml(avatarSrc)}" onerror="this.src=DEFAULT_AVATAR">
       </div>
       <div class="member-name">${escapeHtml(m.name || '-')}</div>
-      <span class="member-role">${escapeHtml(memberRole)}</span>
     `;
     card.querySelector('.avatar-wrap img').onclick = (e) => {
       e.stopPropagation();
@@ -280,8 +188,7 @@ function connectDocumentField(fieldId, member, documentTypes, tooltip) {
   field.setAttribute('aria-label', documentItem ? tooltip : '');
   field.onclick = () => {
     if (!documentItem) return;
-    if (documentItem.fileType && documentItem.fileType.includes('pdf')) openDocumentInNewTab(documentItem.id);
-    else showDocumentPreview(documentItem);
+    showDocumentPreview(documentItem);
   };
   field.onkeydown = event => {
     if (event.key === 'Enter' || event.key === ' ') field.click();
@@ -325,7 +232,6 @@ function viewDetails(id, skipHistory = false) {
 
   document.getElementById('dtAvatar').src = m.avatar || DEFAULT_AVATAR;
   document.getElementById('dtName').innerText = m.name;
-  document.getElementById('dtRole').innerText = m.type === 'child' ? 'Trẻ em' : 'Người lớn';
   document.getElementById('dtEmail').innerText = m.email || '-';
   renderPhoneField('dtPhone', m.phone, m.name);
   document.getElementById('dtSchoolClass').innerText = m.schoolClass || '-';
@@ -356,26 +262,40 @@ function viewDetails(id, skipHistory = false) {
   const bList = document.getElementById('dtBanks');
   bList.innerHTML = '';
   if (m.banks && m.banks.length > 0) {
+    const container = document.createElement('div');
+    container.className = 'bank-list-container';
     m.banks.forEach(b => {
-      const bankCard = document.createElement('div');
-      bankCard.className = 'bank-card';
+      const bankRow = document.createElement('div');
+      bankRow.className = 'bank-row';
       const bankLogo = b.bankName?.toLowerCase() === 'agribank' || b.logo?.includes('/AGR.png')
         ? 'https://cdn.vietqr.io/img/VBA.png'
         : (b.logo || DEFAULT_BANK_LOGO);
-      bankCard.innerHTML = `
-        <div class="bank-info-left">
-          <img class="bank-logo" src="${escapeHtml(bankLogo)}" title="${escapeHtml(b.bankName || 'Ngân hàng')}" alt="Logo ${escapeHtml(b.bankName || 'ngân hàng')}" onerror="this.src=DEFAULT_BANK_LOGO">
-          <div>
-            <div style="color:var(--text-muted); font-size:0.88rem;">STK: ${escapeHtml(b.accNum || '')}</div>
-          </div>
+      bankRow.innerHTML = `
+        <img class="bank-logo-sm" src="${escapeHtml(bankLogo)}" title="${escapeHtml(b.bankName || 'Ngân hàng')}" alt="Logo ${escapeHtml(b.bankName || 'ngân hàng')}" onerror="this.src=DEFAULT_BANK_LOGO">
+        <div class="bank-row-info">
+          <div class="bank-row-name">${escapeHtml(b.bankName || 'Ngân hàng')}</div>
+          <div class="bank-row-acc">STK: ${escapeHtml(b.accNum || '')}</div>
         </div>
-        <button type="button" class="btn-qr">${iconSpan('qr')}Xem mã QR</button>
+        <div class="bank-row-actions">
+          <button type="button" class="btn-qr-pastel">${iconSpan('qr')}Xem mã QR</button>
+          <button type="button" class="btn-copy-acc" title="Sao chép số tài khoản" aria-label="Sao chép số tài khoản">${svgIcon('copy')}</button>
+        </div>
       `;
-      bankCard.querySelector('.btn-qr').onclick = () => {
+      bankRow.querySelector('.btn-qr-pastel').onclick = () => {
         showQrModal(b.bankName || '', b.accNum || '', b.qrUrl || '', m.name || '');
       };
-      bList.appendChild(bankCard);
+      bankRow.querySelector('.btn-copy-acc').onclick = () => {
+        const accNum = b.accNum || '';
+        if (!accNum) return;
+        navigator.clipboard.writeText(accNum).then(() => {
+          showToast('Đã sao chép số tài khoản!');
+        }).catch(() => {
+          showToast('Không thể sao chép, vui lòng thử lại.');
+        });
+      };
+      container.appendChild(bankRow);
     });
+    bList.appendChild(container);
   } else {
     bList.innerHTML = '<div style="color:var(--text-muted); font-size:0.88rem;">Chưa có tài khoản ngân hàng nào.</div>';
   }
@@ -413,7 +333,6 @@ function showHome(skipHistory = false) {
   document.getElementById('formView').classList.add('hidden');
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
-  if (isSelectMode) document.getElementById('batchActionToolbar').classList.remove('hidden');
   renderGrid();
 }
 
@@ -670,8 +589,10 @@ function editCurrentMember() {
 }
 
 async function deleteCurrentMember() {
-  if (confirm('Bạn có chắc muốn xoá hồ sơ này?')) {
-    members = members.filter(m => String(m.id) !== String(currentMemberId));
+  const m = members.find(item => String(item.id) === String(currentMemberId));
+  const name = (m && m.name) ? m.name : 'này';
+  if (confirm(`Bạn có chắc chắn muốn xóa thành viên "${name}" và toàn bộ hồ sơ liên quan?`)) {
+    members = members.filter(item => String(item.id) !== String(currentMemberId));
     try {
       await pushToFirebase();
       navigateApp('home');
@@ -715,8 +636,15 @@ function openDocsView(memberId = null, skipHistory = false) {
   setBtnLabel(document.getElementById('btnToggleDocSelect'), 'checkSquare', 'Chọn nhiều tệp');
 
   document.getElementById('docsOwnerName').querySelector('.btn-text').innerText =
-    m.id === FAMILY_SHARED_ID ? m.name : `Hồ sơ cá nhân: ${m.name}`;
+    m.id === FAMILY_SHARED_ID ? m.name : `Giấy tờ cá nhân: ${m.name}`;
   renderDocsFolders();
+}
+
+// Banner "Hồ sơ chung gia đình" trên trang chủ: mở thẳng Hồ sơ giấy tờ của Hồ sơ chung
+// gia đình (member ảo dùng chung), tạo mới trong bộ nhớ nếu đây là lần đầu truy cập.
+function openFamilySharedDocs() {
+  ensureFamilySharedMember();
+  navigateApp('documents', { id: FAMILY_SHARED_ID });
 }
 
 // ============================================================
@@ -889,7 +817,7 @@ function openConsolidatedCategoryDetails(docType) {
   currentConsolidatedCategory = docType;
   setBtnLabel(document.getElementById('consolidatedBackBtn'), 'arrowLeft', 'Quay lại danh mục');
   document.getElementById('consolidatedBreadcrumb').innerHTML =
-    `${svgIcon('folder')}<a href="javascript:void(0)" onclick="renderConsolidatedCategories()" style="color:var(--accent-2); text-decoration:underline; cursor:pointer;">Toàn bộ danh mục</a>${svgIcon('arrowRight')}<strong style="color:var(--navy);">${escapeHtml(docType)}</strong>`;
+    `${svgIcon('folder')}<a href="javascript:void(0)" onclick="renderConsolidatedCategories()" class="breadcrumb-link">Toàn bộ danh mục</a><span class="breadcrumb-sep">${svgIcon('arrowRight')}</span><strong class="breadcrumb-current">${escapeHtml(docType)}</strong>`;
   renderConsolidatedTagFilterBar();
 
   const container = document.getElementById('consolidatedExplorerContent');
@@ -938,14 +866,8 @@ function openConsolidatedCategoryDetails(docType) {
       });
     }
     const relatedForPreview = files.filter(f => f.ownerId === doc.ownerId);
-    card.querySelector('.file-preview-button').onclick = () => {
-      if (isPdf) openDocInNewTabByDoc(doc);
-      else showDocumentPreview(doc, relatedForPreview);
-    };
-    card.querySelector('.btn-view-file').onclick = () => {
-      if (isPdf) openDocInNewTabByDoc(doc);
-      else showDocumentPreview(doc, relatedForPreview);
-    };
+    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
+    card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, relatedForPreview);
     card.querySelector('.btn-goto-owner').onclick = () => openDocsView(doc.ownerId);
     filesList.appendChild(card);
   });
@@ -963,17 +885,13 @@ function goBackFromDocsView() {
   else goBackInApp();
 }
 
-// Nút "⇦ Danh mục giấy tờ": nếu đang trong 1 thư mục con thì quay lại danh mục cha,
-// nếu đang ở danh mục thì quay lại danh sách danh mục gốc.
-function folderBackBtnClick() {
-  if (currentSubfolderId) openFolderDetails(currentDocsFolder);
-  else renderDocsFolders();
-}
-
 function updateDocsBackBtnLabel() {
   const btn = document.getElementById('docsBackBtn');
   if (!btn) return;
-  setBtnLabel(btn, 'arrowLeft', currentDocsFolder ? 'Quay lại danh mục' : 'Quay lại hồ sơ');
+  const label = currentSubfolderId ? currentDocsFolder
+    : currentDocsFolder ? 'Tất cả danh mục'
+    : 'Quay lại';
+  setBtnLabel(btn, 'arrowLeft', label);
 }
 
 // Thanh chuyển đổi hiển thị dạng lưới / dạng danh sách (kiểu Google Drive)
@@ -1008,8 +926,7 @@ function renderDocsFolders() {
   const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
 
-  document.getElementById('docsBreadcrumb').innerHTML = `${svgIcon('folder')}<span>Thư mục gốc (Chọn loại giấy tờ để xem chi tiết)</span>`;
-  document.getElementById('folderBackBtn').classList.add('hidden');
+  document.getElementById('docsBreadcrumb').innerHTML = `${svgIcon('folder')}<span>Tất cả danh mục (Chọn loại giấy tờ để xem chi tiết)</span>`;
 
   const container = document.getElementById('docsExplorerContent');
   container.innerHTML = '';
@@ -1237,6 +1154,7 @@ async function deleteSelectedDocuments() {
   selectedFolderIds.clear();
   try {
     await pushToFirebase();
+    if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
     if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
     else renderDocsFolders();
   } catch (err) {
@@ -1597,6 +1515,37 @@ function moveSingleDocument(docId) {
   openMoveDocsModal(currentDocsFolder, currentSubfolderId);
 }
 
+// Bỏ phần mở rộng (VD: ".pdf") khỏi tên hiển thị trong List View, vì định dạng đã hiện riêng ở dòng phụ
+function stripFileExtension(name) {
+  return (name || '').replace(/\.[A-Za-z0-9]{1,5}$/, '');
+}
+
+// Nhãn định dạng tệp ngắn gọn để hiển thị ở dòng phụ trong List View (VD: "PDF", "JPG")
+function getDocFormatLabel(doc) {
+  const extMatch = (doc.fileName || '').match(/\.([^.]+)$/);
+  if (extMatch) return extMatch[1].toUpperCase();
+  if (doc.fileType) {
+    const parts = doc.fileType.split('/');
+    return (parts[1] || parts[0] || '').toUpperCase();
+  }
+  return 'FILE';
+}
+
+// Menu 3 chấm (⋮) trên mỗi dòng tệp ở List View: đóng mọi menu đang mở, dùng khi mở menu khác hoặc bấm ra ngoài
+function closeAllFileKebabMenus() {
+  document.querySelectorAll('.file-kebab-menu:not(.hidden)').forEach(menu => {
+    menu.classList.add('hidden');
+    const btn = menu.parentElement?.querySelector('.file-kebab-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.file-row-menu')) closeAllFileKebabMenus();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAllFileKebabMenus();
+});
+
 // 2. Màn hình trong: Chi tiết danh sách các ảnh/tệp của loại giấy tờ đó (File Explorer Detail View)
 // subfolderId: nếu có, hiển thị nội dung của 1 thư mục con nằm bên trong danh mục docType
 function openFolderDetails(docType, subfolderId = null) {
@@ -1614,18 +1563,23 @@ function openFolderDetails(docType, subfolderId = null) {
 
   updateDocsBackBtnLabel();
   const ancestorChain = getFolderAncestorChain(m, subfolderId);
+  const isAtCategoryRoot = !subfolderId;
+  const docTypeEscaped = escapeHtml(docType).replace(/'/g, "\\'");
+  const crumbLink = (label, onclick) => `<a href="javascript:void(0)" onclick="${onclick}" class="breadcrumb-link">${label}</a>`;
   const breadcrumbParts = [
-    'Thư mục gốc',
-    `<a href="javascript:void(0)" onclick="openFolderDetails('${escapeHtml(docType).replace(/'/g, "\\'")}')" style="color:var(--accent-2); text-decoration:underline; cursor:pointer;">${escapeHtml(docType)}</a>`
+    crumbLink('Tất cả danh mục', 'renderDocsFolders()'),
+    isAtCategoryRoot
+      ? `<strong class="breadcrumb-current">${escapeHtml(docType)}</strong>`
+      : crumbLink(escapeHtml(docType), `openFolderDetails('${docTypeEscaped}')`)
   ];
   ancestorChain.forEach((f, idx) => {
     const isLast = idx === ancestorChain.length - 1;
     breadcrumbParts.push(isLast
-      ? `<strong style="color:var(--navy);">${escapeHtml(f.name)}</strong>`
-      : `<a href="javascript:void(0)" onclick="openFolderDetails('${escapeHtml(docType).replace(/'/g, "\\'")}', '${escapeHtml(f.id).replace(/'/g, "\\'")}')" style="color:var(--accent-2); text-decoration:underline; cursor:pointer;">${escapeHtml(f.name)}</a>`);
+      ? `<strong class="breadcrumb-current">${escapeHtml(f.name)}</strong>`
+      : crumbLink(escapeHtml(f.name), `openFolderDetails('${docTypeEscaped}', '${escapeHtml(f.id).replace(/'/g, "\\'")}')`));
   });
-  document.getElementById('docsBreadcrumb').innerHTML = svgIcon('folder') + breadcrumbParts.join(svgIcon('arrowRight'));
-  document.getElementById('folderBackBtn').classList.remove('hidden');
+  const breadcrumbSep = `<span class="breadcrumb-sep">${svgIcon('arrowRight')}</span>`;
+  document.getElementById('docsBreadcrumb').innerHTML = svgIcon('folder') + breadcrumbParts.join(breadcrumbSep);
 
   const container = document.getElementById('docsExplorerContent');
   container.innerHTML = '';
@@ -1641,12 +1595,15 @@ function openFolderDetails(docType, subfolderId = null) {
 
   const files = allTypeDocs.filter(d => (d.folderId || null) === (subfolderId || null));
 
-  container.appendChild(renderViewToggleBar());
-
   const toolsBar = document.createElement('div');
-  toolsBar.style.cssText = 'display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px;';
+  toolsBar.className = 'docs-toolbar-row';
+
+  const leftGroup = document.createElement('div');
+  leftGroup.className = 'docs-toolbar-left';
+  leftGroup.appendChild(renderViewToggleBar());
+
   const sortWrap = document.createElement('div');
-  sortWrap.style.cssText = 'display:flex; align-items:center; gap:8px;';
+  sortWrap.className = 'docs-sort-wrap';
   sortWrap.innerHTML = `
     <label for="docsSortSelect" style="font-size:0.85rem; color:var(--text-muted); white-space:nowrap; margin:0;">Sắp xếp:</label>
     <select id="docsSortSelect" style="max-width:220px;">
@@ -1660,7 +1617,8 @@ function openFolderDetails(docType, subfolderId = null) {
     docsSortMode = e.target.value;
     openFolderDetails(docType, subfolderId);
   };
-  toolsBar.appendChild(sortWrap);
+  leftGroup.appendChild(sortWrap);
+  toolsBar.appendChild(leftGroup);
 
   const newFolderBtn = document.createElement('button');
   newFolderBtn.type = 'button';
@@ -1728,6 +1686,8 @@ function openFolderDetails(docType, subfolderId = null) {
   const filesList = document.createElement('div');
   filesList.className = 'files-list' + (docsViewMode === 'list' ? ' view-list' : '');
 
+  const isListMode = docsViewMode === 'list';
+
   sortedFiles.forEach(doc => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
     const isSelected = selectedDocIds.has(doc.id);
@@ -1742,19 +1702,41 @@ function openFolderDetails(docType, subfolderId = null) {
     const checkboxHtml = isDocSelectMode
       ? `<input type="checkbox" class="file-card-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleDocSelection('${doc.id}')">`
       : '';
-    card.innerHTML = `
-      ${checkboxHtml}
-      <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
-      <div class="file-card-info">
-        <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
-      </div>
-      <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
-        <button type="button" class="btn-outline file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">${svgIcon('eye')}</button>
-        <button type="button" class="btn-outline file-action-button btn-edit-file" title="Sửa mô tả" aria-label="Sửa mô tả">${svgIcon('edit')}</button>
-        <button type="button" class="btn-outline file-action-button btn-move-file" title="Di chuyển sang thư mục khác" aria-label="Di chuyển sang thư mục khác">${svgIcon('move')}</button>
-        <button type="button" class="btn-danger file-action-button btn-del-file" title="Xóa tài liệu" aria-label="Xóa tài liệu">${svgIcon('trash')}</button>
-      </div>
-    `;
+
+    if (isListMode) {
+      const metaSub = `${escapeHtml(doc.createdAt || '—')} • ${escapeHtml(getDocFormatLabel(doc))}`;
+      card.innerHTML = `
+        ${checkboxHtml}
+        <button type="button" class="file-preview-button" title="Bấm để xem">${thumb}</button>
+        <button type="button" class="file-name-button" title="Xem tài liệu">
+          <strong>${escapeHtml(stripFileExtension(doc.desc) || 'Chưa có mô tả')}</strong>
+          <span class="file-meta-sub">${metaSub}</span>
+        </button>
+        <div class="file-row-menu">
+          <button type="button" class="file-kebab-btn" title="Thao tác khác" aria-label="Thao tác khác" aria-haspopup="true" aria-expanded="false">${svgIcon('moreVertical')}</button>
+          <div class="file-kebab-menu hidden">
+            <button type="button" class="file-kebab-item btn-edit-file">${iconSpan('edit')}Sửa mô tả</button>
+            <button type="button" class="file-kebab-item btn-move-file">${iconSpan('move')}Di chuyển</button>
+            <button type="button" class="file-kebab-item danger btn-del-file">${iconSpan('trash')}Xóa</button>
+          </div>
+        </div>
+      `;
+    } else {
+      card.innerHTML = `
+        ${checkboxHtml}
+        <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
+        <div class="file-card-info">
+          <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
+        </div>
+        <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
+          <button type="button" class="btn-outline file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">${svgIcon('eye')}</button>
+          <button type="button" class="btn-outline file-action-button btn-edit-file" title="Sửa mô tả" aria-label="Sửa mô tả">${svgIcon('edit')}</button>
+          <button type="button" class="btn-outline file-action-button btn-move-file" title="Di chuyển sang thư mục khác" aria-label="Di chuyển sang thư mục khác">${svgIcon('move')}</button>
+          <button type="button" class="btn-danger file-action-button btn-del-file" title="Xóa tài liệu" aria-label="Xóa tài liệu">${svgIcon('trash')}</button>
+        </div>
+      `;
+    }
+
     if (!isPdf && doc.encrypted) {
       const previewButton = card.querySelector('.file-preview-button');
       getDocumentDisplayUrl(doc).then(url => {
@@ -1763,17 +1745,29 @@ function openFolderDetails(docType, subfolderId = null) {
         previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
       });
     }
-    card.querySelector('.file-preview-button').onclick = () => {
-      if (isPdf) openDocumentInNewTab(doc.id);
-      else showDocumentPreview(doc, sortedFiles);
-    };
-    card.querySelector('.btn-view-file').onclick = () => {
-      if (isPdf) openDocumentInNewTab(doc.id);
-      else showDocumentPreview(doc, sortedFiles);
-    };
-    card.querySelector('.btn-edit-file').onclick = () => editDocumentDescription(doc.id);
-    card.querySelector('.btn-move-file').onclick = () => moveSingleDocument(doc.id);
-    card.querySelector('.btn-del-file').onclick = () => deleteDocument(doc.id);
+    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, sortedFiles);
+    if (isListMode) {
+      card.querySelector('.file-name-button').onclick = () => showDocumentPreview(doc, sortedFiles);
+      const kebabBtn = card.querySelector('.file-kebab-btn');
+      const kebabMenu = card.querySelector('.file-kebab-menu');
+      kebabBtn.onclick = (e) => {
+        e.stopPropagation();
+        const willOpen = kebabMenu.classList.contains('hidden');
+        closeAllFileKebabMenus();
+        if (willOpen) {
+          kebabMenu.classList.remove('hidden');
+          kebabBtn.setAttribute('aria-expanded', 'true');
+        }
+      };
+      card.querySelector('.btn-edit-file').onclick = () => { closeAllFileKebabMenus(); editDocumentDescription(doc.id); };
+      card.querySelector('.btn-move-file').onclick = () => { closeAllFileKebabMenus(); moveSingleDocument(doc.id); };
+      card.querySelector('.btn-del-file').onclick = () => { closeAllFileKebabMenus(); deleteDocument(doc.id); };
+    } else {
+      card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, sortedFiles);
+      card.querySelector('.btn-edit-file').onclick = () => editDocumentDescription(doc.id);
+      card.querySelector('.btn-move-file').onclick = () => moveSingleDocument(doc.id);
+      card.querySelector('.btn-del-file').onclick = () => deleteDocument(doc.id);
+    }
     filesList.appendChild(card);
   });
 
@@ -1919,7 +1913,7 @@ async function saveDocument() {
 // Tái dùng chung 1 kho documents[]/folders[] với modal upload cũ (mỗi tệp chỉ
 // khác ở chỗ có thêm mảng tags[]).
 // ============================================================
-async function saveGlobalDocument() {
+async function saveGlobalDocument(isDraft = false) {
   const ownerId = document.getElementById('guOwnerSelect').value;
   if (!ownerId) {
     alert('Vui lòng chọn chủ sở hữu chính!');
@@ -1975,8 +1969,10 @@ async function saveGlobalDocument() {
 
   const desc = document.getElementById('guDesc').value.trim();
   const file = globalUploadFile.file;
-  const btn = document.getElementById('btnSaveGlobalDoc');
-  btn.innerText = 'Đang tải tệp & lưu...';
+  const btnId = isDraft ? 'btnSaveGlobalDocDraft' : 'btnSaveGlobalDoc';
+  const btn = document.getElementById(btnId);
+  const originalBtnLabel = btn.innerHTML;
+  setBtnLabel(btn, isDraft ? 'clock' : 'upload', isDraft ? 'Đang lưu tạm...' : 'Đang tải tệp & lưu...');
   try {
     const documentId = 'doc_' + Date.now();
     const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
@@ -1991,13 +1987,17 @@ async function saveGlobalDocument() {
       tags: [...globalSelectedTags],
       data: storageUrl,
       encrypted: true,
+      status: isDraft ? 'pending' : 'completed',
       createdAt: new Date().toLocaleDateString('vi-VN'),
       uploadedAt: new Date().toISOString()
     });
     await pushToFirebase();
     if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
     closeGlobalUploadModal();
-    alert('Đã tải lên và lưu giấy tờ thành công!');
+    alert(isDraft
+      ? 'Đã lưu tạm giấy tờ! Vào "Hồ sơ tạm" trên thanh menu để hoàn tất phân loại sau.'
+      : 'Đã tải lên và lưu giấy tờ thành công!');
 
     // Làm mới màn hình đang xem nếu có liên quan, để người dùng thấy ngay tệp vừa thêm.
     if (!document.getElementById('consolidatedView').classList.contains('hidden')) {
@@ -2014,70 +2014,8 @@ async function saveGlobalDocument() {
     }
     alert('Lỗi khi lưu tài liệu: ' + err.message);
   } finally {
-    btn.innerText = 'Tải lên & Lưu';
+    btn.innerHTML = originalBtnLabel;
   }
-}
-
-// Mở tài liệu ở tab mới
-async function openDocumentInNewTab(docId) {
-  const m = members.find(item => String(item.id) === String(currentMemberId));
-  const doc = m && m.documents ? m.documents.find(d => String(d.id) === String(docId)) : null;
-  if (!doc) {
-    alert('Không tìm thấy tài liệu này!');
-    return;
-  }
-  return openDocInNewTabByDoc(doc);
-}
-
-// Giống openDocumentInNewTab, nhưng nhận thẳng object tài liệu thay vì tra cứu qua currentMemberId
-// (dùng cho các màn hình liệt kê tài liệu của nhiều thành viên cùng lúc, ví dụ Hồ sơ tổng hợp)
-async function openDocInNewTabByDoc(doc) {
-  if (!doc) {
-    alert('Không tìm thấy tài liệu này!');
-    return;
-  }
-
-  const newTab = window.open('about:blank', '_blank');
-  if (!newTab) {
-    alert('Trình duyệt đã chặn popup. Vui lòng cho phép popup để mở xem tài liệu!');
-    return;
-  }
-
-  let displayUrl;
-  try {
-    displayUrl = await getDocumentDisplayUrl(doc);
-  } catch (err) {
-    newTab.close();
-    alert(err.message || 'Không thể giải mã tệp giấy tờ.');
-    return;
-  }
-
-  if (doc.fileType && doc.fileType.includes('pdf')) {
-    // Điều hướng thẳng cả tab sang tệp PDF thay vì nhúng qua <iframe>: trình duyệt di động
-    // (Chrome/Samsung Internet/Safari) chỉ bật trình xem PDF gốc cho điều hướng toàn trang,
-    // còn nhúng trong iframe thì bị coi là tệp tải xuống (hiện tên dạng mã băm, nút Open vô tác dụng)
-    // hoặc bị chặn hiển thị hoàn toàn (trắng trang) tùy trình duyệt.
-    newTab.location.replace(displayUrl);
-  } else {
-    newTab.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${escapeHtml(doc.fileName)}</title>
-        <style>
-          body { margin:0; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-          .top-info { position:fixed; top:12px; background:rgba(0,0,0,0.75); padding:8px 18px; border-radius:30px; color:#ffffff; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
-          img { max-width:95vw; max-height:88vh; border-radius:8px; box-shadow:0 15px 35px rgba(0,0,0,0.5); object-fit:contain; }
-        </style>
-      </head>
-      <body>
-        <div class="top-info">${escapeHtml(doc.docType)}: <b>${escapeHtml(doc.desc || doc.fileName)}</b></div>
-        <img src="${displayUrl}" alt="Preview">
-      </body>
-      </html>
-    `);
-  }
-  newTab.document.close();
 }
 
 // Xóa tài liệu
@@ -2094,6 +2032,7 @@ async function deleteDocument(docId) {
     }
     try {
       await pushToFirebase();
+      if (typeof updatePendingDocsBadge === 'function') updatePendingDocsBadge();
       if (currentDocsFolder) {
         openFolderDetails(currentDocsFolder);
       } else {
@@ -2102,5 +2041,280 @@ async function deleteDocument(docId) {
     } catch (err) {
       alert('Lỗi xóa tài liệu: ' + err.message);
     }
+  }
+}
+
+// ============================================================
+// HỒ SƠ TẠM: các tệp đã lưu nhanh (status: 'pending'), chưa hoàn tất gán chủ sở hữu/danh
+// mục. Gom từ mọi thành viên (kể cả Hồ sơ chung gia đình), cho xem lại/xóa hoặc "hoàn tất
+// phân loại" (chuyển status -> 'completed', có thể đổi cả chủ sở hữu/danh mục/thư mục con).
+// ============================================================
+let editingPendingDoc = null; // { ownerId, docId }
+
+// Tài liệu cũ không có trường status luôn được coi là 'completed' (xem yêu cầu di trú dữ liệu).
+function getAllPendingDocuments() {
+  const result = [];
+  members.forEach(m => {
+    (m.documents || []).forEach(d => {
+      if (d.status === 'pending') result.push({ ...d, ownerId: m.id, ownerName: m.name });
+    });
+  });
+  return result;
+}
+
+function updatePendingDocsBadge() {
+  const badge = document.getElementById('pendingBadge');
+  if (!badge) return;
+  const count = getAllPendingDocuments().length;
+  badge.textContent = String(count);
+  badge.classList.toggle('hidden', count === 0);
+}
+
+function openPendingDocsModal() {
+  renderPendingDocsList();
+  document.getElementById('pendingDocsModal').classList.remove('hidden');
+}
+
+function closePendingDocsModal() {
+  document.getElementById('pendingDocsModal').classList.add('hidden');
+}
+
+function renderPendingDocsList() {
+  const container = document.getElementById('pendingDocsList');
+  if (!container) return;
+  const pending = getAllPendingDocuments().sort((a, b) => Number(b.id.toString().replace(/\D/g, '') || 0) - Number(a.id.toString().replace(/\D/g, '') || 0));
+
+  if (pending.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">Không có tệp nào đang chờ phân loại.</div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  pending.forEach(doc => {
+    const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const row = document.createElement('div');
+    row.className = 'pending-doc-row';
+    const thumb = isPdf
+      ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
+      : (doc.encrypted
+        ? '<div class="file-thumb file-thumb-loading">⏳</div>'
+        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
+    row.innerHTML = `
+      <button type="button" class="file-preview-button pending-doc-thumb" title="Xem trước">${thumb}</button>
+      <div class="pending-doc-info">
+        <strong>${escapeHtml(doc.desc || doc.fileName || 'Chưa có mô tả')}</strong>
+        <span class="file-meta-sub">${escapeHtml(doc.ownerName || 'Chưa gán chủ sở hữu')} · ${escapeHtml(doc.docType || 'Chưa phân loại')} · ${escapeHtml(doc.createdAt || '-')}</span>
+      </div>
+      <div class="pending-doc-actions">
+        <button type="button" class="btn-outline file-action-button btn-complete-pending" title="Hoàn tất phân loại" aria-label="Hoàn tất phân loại">${svgIcon('edit')}</button>
+        <button type="button" class="btn-danger file-action-button btn-delete-pending" title="Xóa" aria-label="Xóa">${svgIcon('trash')}</button>
+      </div>
+    `;
+    if (!isPdf && doc.encrypted) {
+      const previewButton = row.querySelector('.file-preview-button');
+      getDocumentDisplayUrl(doc).then(url => {
+        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+      }).catch(() => {
+        previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
+      });
+    }
+    row.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, [doc]);
+    row.querySelector('.btn-complete-pending').onclick = () => openPendingCompleteModal(doc.ownerId, doc.id);
+    row.querySelector('.btn-delete-pending').onclick = () => deletePendingDocument(doc.ownerId, doc.id);
+    container.appendChild(row);
+  });
+}
+
+async function deletePendingDocument(ownerId, docId) {
+  const m = members.find(item => String(item.id) === String(ownerId));
+  if (!m || !m.documents) return;
+  if (!confirm('Bạn có chắc chắn muốn xóa tệp giấy tờ tạm này?')) return;
+
+  m.documents = m.documents.filter(d => String(d.id) !== String(docId));
+  if (decryptedDocumentUrlCache.has(docId)) {
+    URL.revokeObjectURL(decryptedDocumentUrlCache.get(docId));
+    decryptedDocumentUrlCache.delete(docId);
+  }
+  try {
+    await pushToFirebase();
+    updatePendingDocsBadge();
+    renderPendingDocsList();
+  } catch (err) {
+    alert('Lỗi xóa tài liệu: ' + err.message);
+  }
+}
+
+function populatePendingOwnerSelect() {
+  const select = document.getElementById('pdOwnerSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  const familyOpt = document.createElement('option');
+  familyOpt.value = FAMILY_SHARED_ID;
+  familyOpt.textContent = FAMILY_SHARED_NAME;
+  select.appendChild(familyOpt);
+  displayMembers().forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name;
+    select.appendChild(opt);
+  });
+}
+
+function populatePendingFolderSelect(ownerId, docType) {
+  const select = document.getElementById('pdFolderSelect');
+  if (!select) return;
+  select.innerHTML = '';
+  const rootOpt = document.createElement('option');
+  rootOpt.value = '';
+  rootOpt.textContent = '(Thư mục gốc của danh mục)';
+  select.appendChild(rootOpt);
+
+  const m = members.find(item => String(item.id) === String(ownerId));
+  if (m && docType) appendFolderTreeOptions(select, m.folders, docType);
+
+  const newFolderOpt = document.createElement('option');
+  newFolderOpt.value = '__new__';
+  newFolderOpt.textContent = '+ Tạo thư mục con mới...';
+  select.appendChild(newFolderOpt);
+}
+
+function onPendingOwnerChange() {
+  const categoryVal = document.getElementById('pdCategorySelect').value;
+  populatePendingFolderSelect(document.getElementById('pdOwnerSelect').value, categoryVal === 'custom' ? null : categoryVal);
+}
+
+function onPendingCategoryChange(val) {
+  toggleCustomDocName(val, 'pdCustomCategoryGroup');
+  populatePendingFolderSelect(document.getElementById('pdOwnerSelect').value, val === 'custom' ? null : val);
+}
+
+function onPendingFolderChange(val) {
+  document.getElementById('pdNewFolderNameGroup').classList.toggle('hidden', val !== '__new__');
+  if (val === '__new__') document.getElementById('pdNewFolderName').focus();
+}
+
+function openPendingCompleteModal(ownerId, docId) {
+  const m = members.find(item => String(item.id) === String(ownerId));
+  const doc = m?.documents?.find(d => String(d.id) === String(docId));
+  if (!doc) return;
+  editingPendingDoc = { ownerId, docId };
+
+  populatePendingOwnerSelect();
+  document.getElementById('pdOwnerSelect').value = ownerId;
+
+  populateDocTypeSelect('pdCategorySelect');
+  const categorySelect = document.getElementById('pdCategorySelect');
+  const knownCategories = Array.from(categorySelect.options).map(o => o.value);
+  const currentDocType = doc.docType && knownCategories.includes(doc.docType) ? doc.docType : 'custom';
+  categorySelect.value = currentDocType;
+  document.getElementById('pdCustomCategoryName').value = currentDocType === 'custom' ? (doc.docType || '') : '';
+  toggleCustomDocName(categorySelect.value, 'pdCustomCategoryGroup');
+
+  populatePendingFolderSelect(ownerId, currentDocType === 'custom' ? null : currentDocType);
+  const folderSelect = document.getElementById('pdFolderSelect');
+  if (folderSelect && doc.folderId) folderSelect.value = doc.folderId;
+  document.getElementById('pdNewFolderName').value = '';
+  document.getElementById('pdNewFolderNameGroup').classList.add('hidden');
+
+  document.getElementById('pdDesc').value = doc.desc || '';
+
+  document.getElementById('pendingCompleteModal').classList.remove('hidden');
+}
+
+function closePendingCompleteModal() {
+  editingPendingDoc = null;
+  document.getElementById('pendingCompleteModal').classList.add('hidden');
+}
+
+async function savePendingComplete() {
+  if (!editingPendingDoc) return;
+  const { ownerId, docId } = editingPendingDoc;
+  const sourceMember = members.find(item => String(item.id) === String(ownerId));
+  const doc = sourceMember?.documents?.find(d => String(d.id) === String(docId));
+  if (!doc) { closePendingCompleteModal(); return; }
+
+  const newOwnerId = document.getElementById('pdOwnerSelect').value;
+  const isNewFamilyProfile = newOwnerId === FAMILY_SHARED_ID && !members.some(item => String(item.id) === FAMILY_SHARED_ID);
+  const targetMember = newOwnerId === FAMILY_SHARED_ID
+    ? ensureFamilySharedMember()
+    : members.find(item => String(item.id) === String(newOwnerId));
+  if (!targetMember) {
+    alert('Không tìm thấy hồ sơ chủ sở hữu đã chọn!');
+    return;
+  }
+  if (!targetMember.folders) targetMember.folders = [];
+  if (!targetMember.documents) targetMember.documents = [];
+
+  const categorySel = document.getElementById('pdCategorySelect').value;
+  const docType = categorySel === 'custom'
+    ? (document.getElementById('pdCustomCategoryName').value.trim() || 'Tài liệu khác')
+    : categorySel;
+
+  const folderSel = document.getElementById('pdFolderSelect').value;
+  let targetFolderId = null;
+  let createdFolder = null;
+  if (folderSel === '__new__') {
+    const newFolderName = document.getElementById('pdNewFolderName').value.trim();
+    if (!newFolderName) {
+      alert('Vui lòng nhập tên thư mục con mới, hoặc chọn "Thư mục gốc của danh mục"!');
+      return;
+    }
+    const existing = targetMember.folders.find(f => f.docType === docType && !f.parentId && f.name.toLowerCase() === newFolderName.toLowerCase());
+    if (existing) {
+      targetFolderId = existing.id;
+    } else {
+      createdFolder = {
+        id: String(Date.now()),
+        docType,
+        parentId: null,
+        name: newFolderName,
+        createdAt: new Date().toLocaleDateString('vi-VN')
+      };
+      targetMember.folders.push(createdFolder);
+      targetFolderId = createdFolder.id;
+    }
+  } else if (folderSel) {
+    targetFolderId = folderSel;
+  }
+
+  const desc = document.getElementById('pdDesc').value.trim();
+  const ownerChanged = String(sourceMember.id) !== String(targetMember.id);
+
+  if (ownerChanged) {
+    sourceMember.documents = (sourceMember.documents || []).filter(d => String(d.id) !== String(docId));
+  }
+
+  doc.ownerId = targetMember.id;
+  doc.docType = docType;
+  doc.folderId = targetFolderId;
+  doc.desc = desc || doc.fileName || docType;
+  doc.status = 'completed';
+
+  if (ownerChanged) targetMember.documents.push(doc);
+
+  const btn = document.getElementById('btnSavePendingComplete');
+  btn.innerText = 'Đang lưu...';
+  try {
+    await pushToFirebase();
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    closePendingCompleteModal();
+    renderPendingDocsList();
+    updatePendingDocsBadge();
+    if (currentMemberId && !document.getElementById('docsView').classList.contains('hidden')) {
+      if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
+      else renderDocsFolders();
+    }
+  } catch (err) {
+    if (ownerChanged) {
+      targetMember.documents = targetMember.documents.filter(d => String(d.id) !== String(docId));
+      sourceMember.documents.push(doc);
+    }
+    if (createdFolder) targetMember.folders = targetMember.folders.filter(f => f.id !== createdFolder.id);
+    if (isNewFamilyProfile && targetMember.documents.length === 0 && targetMember.folders.length === 0) {
+      members = members.filter(item => item !== targetMember);
+    }
+    alert('Lỗi lưu thông tin giấy tờ: ' + err.message);
+  } finally {
+    btn.innerText = 'Hoàn tất phân loại';
   }
 }

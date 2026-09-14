@@ -28,7 +28,7 @@ function biometricKey(prfBytes) {
 function setBiometricStatus(message = '', isError = false) {
   const status = document.getElementById('biometricStatus');
   status.innerText = message;
-  status.style.color = isError ? '#e11d48' : 'var(--text-muted)';
+  status.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
 }
 
 function withTimeout(promise, milliseconds, message) {
@@ -507,8 +507,6 @@ function lockApp() {
   decryptedDocumentUrlCache.forEach(url => URL.revokeObjectURL(url));
   decryptedDocumentUrlCache.clear();
   members = [];
-  selectedIds.clear();
-  isSelectMode = false;
   document.getElementById('authPwd').value = '';
   document.getElementById('appScreen').classList.add('hidden');
   document.getElementById('authScreen').classList.remove('hidden');

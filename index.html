@@ -12,11 +12,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=19">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
-  <!-- Thư viện mã hóa AES-256 và kéo thả SortableJS -->
+  <!-- Thư viện mã hóa AES-256, kéo thả SortableJS và render PDF (PDF.js) -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';"></script>
 </head>
 <body>
 
@@ -40,8 +41,8 @@
       <button type="button" id="btnRegisterBiometric" class="btn-outline" onclick="registerBiometric()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 0 1 18-6"></path><path d="M9 6.8a6 6 0 0 1 9 5.2v2"></path><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M2 16h.01"></path></svg></span>Đăng ký Face ID / vân tay</button>
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
-    <div id="authError" style="color:#e11d48; font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.5.3 · 14/09/2026</div>
+    <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
+    <div class="app-version">Phiên bản 1.5.4 · 14/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -54,13 +55,14 @@
         <span class="brand-home-text-mobile">Home</span>
       </button>
       <div class="btn-group">
-        <button class="btn-tool" id="btnToggleSelect" onclick="toggleSelectMode()" title="Quản lý / Chọn">
-          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span>
-          <span class="btn-text">Quản lý / Chọn</span>
+        <button class="btn-tool" id="btnSummaryTable" onclick="openSummaryTable()" title="Bảng tổng hợp">
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
+          <span class="btn-text">Bảng tổng hợp</span>
         </button>
-        <button class="btn-tool" onclick="navigateApp('consolidated')" title="Hồ sơ tổng hợp">
-          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
-          <span class="btn-text">Hồ sơ tổng hợp</span>
+        <button class="btn-tool" id="btnPendingDocs" onclick="openPendingDocsModal()" title="Hồ sơ tạm">
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1" ry="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path></svg></span>
+          <span class="btn-text">Hồ sơ tạm</span>
+          <span id="pendingBadge" class="badge-count hidden">0</span>
         </button>
         <button class="btn-primary" id="btnAddMember" onclick="openForm()" title="Thêm thành viên"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span><span class="btn-text">Thêm thành viên</span></button>
         <button class="btn-lock" onclick="lockApp()" title="Khóa">
@@ -70,23 +72,19 @@
       </div>
     </div>
 
-    <!-- Thanh tác vụ Hàng loạt -->
-    <div id="batchActionToolbar" class="batch-bar hidden">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
-          <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" style="width:20px; height:20px; accent-color:var(--navy); cursor:pointer;">
-          Chọn tất cả
-        </label>
-        <span id="selectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn-success" onclick="openSummaryTable()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>Xem bảng tổng hợp</button>
-        <button class="btn-danger" onclick="deleteSelectedMembers()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa đã chọn</button>
-      </div>
-    </div>
-
     <!-- Trang chủ: Danh sách thẻ -->
     <div id="homeView">
+      <div class="family-banner">
+        <div class="family-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path></svg></div>
+        <div class="family-banner-text">
+          <div class="family-banner-title">Hồ sơ chung gia đình</div>
+          <div class="family-banner-desc">Hộ khẩu, nhà đất, hợp đồng dùng chung...</div>
+        </div>
+        <div class="family-banner-actions">
+          <button type="button" class="btn-primary" onclick="openFamilySharedDocs()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Xem giấy tờ chung</button>
+          <a href="javascript:void(0)" class="family-banner-link" onclick="navigateApp('consolidated')">Tra cứu tất cả (Kho tổng)</a>
+        </div>
+      </div>
       <div class="grid" id="memberGrid"></div>
     </div>
 
@@ -125,7 +123,7 @@
     <!-- Chi tiết thành viên -->
     <div id="detailView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button class="btn-back" onclick="goBackInApp()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Quay lại</button>
+        <button class="btn-back" id="detailBackBtn" onclick="goBackInApp()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Quay lại</button>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn-outline" onclick="editCurrentMember()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span>Chỉnh sửa</button>
           <button class="btn-danger" onclick="deleteCurrentMember()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa</button>
@@ -136,8 +134,7 @@
         <img id="dtAvatar" class="detail-avatar" src="" alt="Avatar" onclick="showImageModal(this.src, this.alt)">
         <div>
           <h2 id="dtName" style="color:var(--navy); font-size:1.45rem;"></h2>
-          <span id="dtRole" class="member-role"></span>
-          <button class="btn-success" style="display:block; margin-top:12px;" onclick="openDocsView(currentMemberId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Hồ sơ cá nhân</button>
+          <button class="btn-docs-link" style="display:inline-flex; margin-top:12px;" onclick="openDocsView(currentMemberId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Giấy tờ cá nhân</button>
         </div>
       </div>
 
@@ -201,7 +198,7 @@
     <!-- Màn hình Hồ sơ cá nhân (File Explorer) -->
     <div id="docsView" class="detail-view hidden">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-        <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span><span class="btn-text">Quay lại hồ sơ</span></button>
+        <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span><span class="btn-text">Quay lại</span></button>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn-outline" id="btnToggleDocSelect" onclick="toggleDocSelectMode()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span class="btn-text">Chọn nhiều tệp</span></button>
           <button class="btn-primary" onclick="openUploadDocModal()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>Tải lên tệp giấy tờ</button>
@@ -226,10 +223,7 @@
       <div class="explorer-header">
         <div>
           <h2 id="docsOwnerName" class="view-heading" style="color:var(--navy); font-size:1.35rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span class="btn-text">Hồ sơ giấy tờ</span></h2>
-          <div id="docsBreadcrumb" class="docs-breadcrumb">Thư mục gốc</div>
-        </div>
-        <div id="folderBackBtn" class="hidden">
-          <button class="btn-back" onclick="folderBackBtnClick()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span>Danh mục giấy tờ</button>
+          <div id="docsBreadcrumb" class="docs-breadcrumb">Tất cả danh mục</div>
         </div>
       </div>
 
@@ -428,10 +422,12 @@
     <div class="document-preview-stage">
       <button type="button" id="documentPreviewPrevious" class="document-preview-nav" onclick="navigateDocumentPreview(-1)" aria-label="Trang trước">‹</button>
       <img id="documentPreviewImage" class="document-preview-image" src="" alt="Xem giấy tờ">
+      <div id="documentPreviewPdf" class="document-preview-pdf hidden"></div>
       <button type="button" id="documentPreviewNext" class="document-preview-nav" onclick="navigateDocumentPreview(1)" aria-label="Trang sau">›</button>
     </div>
     <div id="documentPreviewMeta" class="document-preview-meta"></div>
     <div id="documentPreviewCounter" class="document-preview-counter"></div>
+    <a id="documentPreviewDownload" class="document-preview-download" href="" download target="_blank" rel="noopener">Tải xuống tệp gốc</a>
   </div>
 </div>
 
@@ -571,7 +567,8 @@
     </div>
 
     <div style="display:flex; gap:8px; margin-top:18px;">
-      <button type="button" id="btnSaveGlobalDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveGlobalDocument()">Tải lên & Lưu</button>
+      <button type="button" id="btnSaveGlobalDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveGlobalDocument(false)">Tải lên & Lưu</button>
+      <button type="button" id="btnSaveGlobalDocDraft" class="btn-outline" onclick="saveGlobalDocument(true)" title="Lưu nhanh, chưa cần chọn đủ chủ sở hữu/danh mục - hoàn tất phân loại sau trong 'Hồ sơ tạm'"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>Lưu tạm</button>
       <button type="button" class="btn-outline" onclick="closeGlobalUploadModal()">Hủy</button>
     </div>
   </div>
@@ -680,12 +677,66 @@
   </div>
 </div>
 
+<!-- Modal Hồ sơ tạm: danh sách các tệp đã lưu nhanh, chưa hoàn tất phân loại -->
+<div id="pendingDocsModal" class="modal-overlay hidden" onclick="closePendingDocsModal()">
+  <div class="modal-card" style="max-width: 560px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 4px;">Hồ sơ tạm - Chờ phân loại</h3>
+    <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:14px;">Các tệp đã lưu nhanh, chưa hoàn tất gán chủ sở hữu/danh mục.</p>
+    <div id="pendingDocsList" class="pending-docs-list"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+      <button type="button" class="btn-outline" onclick="closePendingDocsModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Hoàn tất phân loại 1 tệp giấy tờ tạm -->
+<div id="pendingCompleteModal" class="modal-overlay hidden" onclick="closePendingCompleteModal()">
+  <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
+    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Hoàn tất phân loại giấy tờ</h3>
+
+    <div class="form-group">
+      <label>Chủ sở hữu</label>
+      <select id="pdOwnerSelect" onchange="onPendingOwnerChange()"></select>
+    </div>
+
+    <div class="form-group">
+      <label>Danh mục (Category)</label>
+      <select id="pdCategorySelect" onchange="onPendingCategoryChange(this.value)"></select>
+    </div>
+
+    <div class="form-group hidden" id="pdCustomCategoryGroup">
+      <label>Tên danh mục mới</label>
+      <input type="text" id="pdCustomCategoryName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
+    </div>
+
+    <div class="form-group">
+      <label>Thư mục con (tùy chọn)</label>
+      <select id="pdFolderSelect" onchange="onPendingFolderChange(this.value)"></select>
+    </div>
+
+    <div class="form-group hidden" id="pdNewFolderNameGroup">
+      <label>Tên thư mục con mới</label>
+      <input type="text" id="pdNewFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng...">
+    </div>
+
+    <div class="form-group">
+      <label>Tên trang / Nhãn nhận diện</label>
+      <input type="text" id="pdDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1...">
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button type="button" id="btnSavePendingComplete" class="btn-primary" style="flex:1; justify-content:center;" onclick="savePendingComplete()">Hoàn tất phân loại</button>
+      <button type="button" class="btn-outline" onclick="closePendingCompleteModal()">Hủy</button>
+    </div>
+  </div>
+</div>
+
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=29"></script>
-<script defer src="js/auth.js?v=32"></script>
-<script defer src="js/ui.js?v=29"></script>
-<script defer src="js/members.js?v=28"></script>
-<script defer src="js/page.js?v=21"></script>
+<script defer src="js/config.js?v=33"></script>
+<script defer src="js/auth.js?v=34"></script>
+<script defer src="js/ui.js?v=31"></script>
+<script defer src="js/members.js?v=34"></script>
+<script defer src="js/page.js?v=23"></script>
 
 </body>
 </html>

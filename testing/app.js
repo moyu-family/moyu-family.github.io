@@ -57,8 +57,6 @@ function createApp({ url = 'https://moyu-family.github.io/index.html' } = {}) {
       get members() { return members; }, set members(v) { members = v; },
       get masterPassword() { return masterPassword; }, set masterPassword(v) { masterPassword = v; },
       get customBankList() { return customBankList; }, set customBankList(v) { customBankList = v; },
-      get selectedIds() { return selectedIds; },
-      get isSelectMode() { return isSelectMode; },
       get currentMemberId() { return currentMemberId; }, set currentMemberId(v) { currentMemberId = v; },
       get lastUploadedCipherText() { return lastUploadedCipherText; },
       get globalUploadFile() { return globalUploadFile; }, set globalUploadFile(v) { globalUploadFile = v; },

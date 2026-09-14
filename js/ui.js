@@ -126,18 +126,37 @@ function showImageModal(imageSrc, title = 'Ảnh đại diện') {
   document.getElementById('imageModal').classList.remove('hidden');
 }
 
+// Toast thông báo ngắn (dùng cho các thao tác nhanh như sao chép STK)
+let toastHideTimer = null;
+function showToast(message) {
+  let toast = document.getElementById('appToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'appToast';
+    toast.className = 'app-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toastHideTimer);
+  toastHideTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
 function closeImageModal() {
   document.getElementById('imageModal').classList.add('hidden');
 }
 
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
 let documentPreviewItems = [];
 let documentPreviewIndex = 0;
+let documentPreviewRenderToken = 0;
 
 function showDocumentPreview(doc, relatedDocs = null) {
   const m = members.find(item => String(item.id) === String(currentMemberId));
-  documentPreviewItems = (relatedDocs || (m?.documents || []).filter(item =>
-    item.docType === doc.docType && !(item.fileType || '').includes('pdf')
-  )).filter(item => !(item.fileType || '').includes('pdf'));
+  documentPreviewItems = relatedDocs || (m?.documents || []).filter(item => item.docType === doc.docType);
   if (!documentPreviewItems.some(item => String(item.id) === String(doc.id))) {
     documentPreviewItems.unshift(doc);
   }
@@ -146,28 +165,77 @@ function showDocumentPreview(doc, relatedDocs = null) {
   document.getElementById('documentPreviewModal').classList.remove('hidden');
 }
 
-function renderDocumentPreview() {
+async function renderDocumentPreview() {
   const doc = documentPreviewItems[documentPreviewIndex];
   if (!doc) return;
   const hasNavigation = documentPreviewItems.length > 1;
+  const isPdf = (doc.fileType || '').includes('pdf');
   const imageEl = document.getElementById('documentPreviewImage');
+  const pdfEl = document.getElementById('documentPreviewPdf');
+  const downloadEl = document.getElementById('documentPreviewDownload');
+  const renderToken = ++documentPreviewRenderToken;
+  const isStillCurrent = () => documentPreviewItems[documentPreviewIndex]?.id === doc.id && renderToken === documentPreviewRenderToken;
+
   document.getElementById('documentPreviewTitle').innerText = doc.desc || 'Xem giấy tờ';
   imageEl.alt = doc.desc || 'Xem giấy tờ';
   imageEl.src = '';
-  const requestedDocId = doc.id;
-  getDocumentDisplayUrl(doc).then(url => {
-    if (documentPreviewItems[documentPreviewIndex]?.id !== requestedDocId) return;
-    imageEl.src = url;
-  }).catch(err => {
-    if (documentPreviewItems[documentPreviewIndex]?.id !== requestedDocId) return;
+  imageEl.classList.toggle('hidden', isPdf);
+  pdfEl.classList.toggle('hidden', !isPdf);
+  pdfEl.innerHTML = '';
+  downloadEl.href = '';
+  downloadEl.setAttribute('download', doc.fileName || '');
+
+  try {
+    const url = await getDocumentDisplayUrl(doc);
+    if (!isStillCurrent()) return;
+    downloadEl.href = url;
+    if (isPdf) await renderPdfIntoContainer(url, pdfEl, isStillCurrent);
+    else imageEl.src = url;
+  } catch (err) {
+    if (!isStillCurrent()) return;
     alert(err.message || 'Không thể giải mã tệp giấy tờ.');
-  });
+  }
+
   document.getElementById('documentPreviewMeta').innerText = `${doc.fileName || 'Tài liệu'} · Ngày tải lên: ${doc.createdAt || '-'}`;
   document.getElementById('documentPreviewPrevious').classList.toggle('hidden', !hasNavigation);
   document.getElementById('documentPreviewNext').classList.toggle('hidden', !hasNavigation);
   document.getElementById('documentPreviewCounter').innerText = hasNavigation
     ? `${documentPreviewIndex + 1} / ${documentPreviewItems.length}`
     : '';
+}
+
+// Render từng trang PDF ra <canvas> bằng PDF.js: trình xem PDF gốc của Chrome trên Android
+// không chạy được trong iframe, và Samsung Internet không có trình xem PDF gắn trong trình
+// duyệt nên mọi điều hướng tới PDF đều bị tải thẳng về máy thay vì hiển thị. Render bằng
+// canvas cho kết quả nhất quán trên mọi trình duyệt.
+async function renderPdfIntoContainer(url, container, isStillRelevant) {
+  container.classList.add('loading');
+  container.innerText = 'Đang tải PDF...';
+  try {
+    const pdf = await pdfjsLib.getDocument(url).promise;
+    if (!isStillRelevant()) return;
+    container.classList.remove('loading');
+    container.innerHTML = '';
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      if (!isStillRelevant()) return;
+      const pixelRatio = window.devicePixelRatio || 1;
+      const containerWidth = container.clientWidth || 320;
+      const baseViewport = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: (containerWidth / baseViewport.width) * pixelRatio });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${viewport.width / pixelRatio}px`;
+      canvas.style.height = `${viewport.height / pixelRatio}px`;
+      container.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    }
+  } catch (err) {
+    if (!isStillRelevant()) return;
+    container.classList.remove('loading');
+    container.innerText = 'Không thể hiển thị PDF. Hãy dùng nút "Tải xuống tệp gốc" bên dưới.';
+  }
 }
 
 function navigateDocumentPreview(direction) {
@@ -179,9 +247,11 @@ function navigateDocumentPreview(direction) {
 function closeDocumentPreview() {
   document.getElementById('documentPreviewModal').classList.add('hidden');
   document.getElementById('documentPreviewImage').src = '';
+  document.getElementById('documentPreviewPdf').innerHTML = '';
   document.getElementById('documentPreviewMeta').innerText = '';
   documentPreviewItems = [];
   documentPreviewIndex = 0;
+  documentPreviewRenderToken++;
 }
 
 // Modal thêm Bank
