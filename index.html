@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=47">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256, kéo thả SortableJS và render PDF (PDF.js) -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -42,7 +42,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.6.5 · 14/09/2026</div>
+    <div class="app-version">Phiên bản 1.6.6 · 15/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -72,12 +72,12 @@
       <div class="family-banner">
         <div class="family-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path></svg></div>
         <div class="family-banner-text">
-          <div class="family-banner-title">Hồ sơ chung gia đình</div>
-          <div class="family-banner-desc">Hộ khẩu, nhà đất, hợp đồng dùng chung...</div>
+          <div class="family-banner-title">KHO GIẤY TỜ</div>
+          <div class="family-banner-desc">Nhà kho lưu trữ của gia đình...</div>
         </div>
         <div class="family-banner-actions">
-          <button type="button" class="btn-primary" onclick="openFamilySharedDocs()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Xem giấy tờ chung</button>
-          <button type="button" class="btn-outline" onclick="navigateApp('consolidated')"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span><span class="btn-text">Tra cứu tất cả (Kho tổng)</span></button>
+          <button type="button" class="btn-primary" onclick="openFamilySharedDocs()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>Hồ sơ chung gia đình</button>
+          <button type="button" class="btn-outline" onclick="navigateApp('consolidated')"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span><span class="btn-text">Tất cả hồ sơ (Kho tổng)</span></button>
         </div>
       </div>
       <div class="members-toolbar">
@@ -209,21 +209,24 @@
         <button class="btn-back" id="docsBackBtn" onclick="goBackFromDocsView()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span><span class="btn-text">Quay lại</span></button>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn-outline" id="btnToggleDocSelect" onclick="toggleDocSelectMode()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span class="btn-text">Chọn nhiều tệp</span></button>
-          <button class="btn-primary" onclick="openUploadDocModal()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>Tải lên tệp giấy tờ</button>
+          <button class="btn-primary" id="docsUploadHeaderBtn" onclick="triggerGlobalUploadFab()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>Tải lên tệp giấy tờ</button>
         </div>
       </div>
 
       <!-- Thanh tác vụ hàng loạt cho tệp giấy tờ -->
       <div id="docsBatchToolbar" class="batch-bar hidden">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
-            <input type="checkbox" id="docSelectAllCheckbox" onchange="toggleDocSelectAll(this.checked)" style="width:20px; height:20px; accent-color:var(--navy); cursor:pointer;">
-            Chọn tất cả
-          </label>
-          <span id="docSelectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
+        <div class="batch-bar-top">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; margin:0; font-weight:700;">
+              <input type="checkbox" id="docSelectAllCheckbox" onchange="toggleDocSelectAll(this.checked)" style="width:20px; height:20px; accent-color:var(--navy); cursor:pointer;">
+              Chọn tất cả
+            </label>
+            <span id="docSelectedCountText" style="color:var(--text-muted); font-size:0.85rem; font-weight:600;">(Đã chọn: 0)</span>
+          </div>
+          <button type="button" class="btn-exit-select" onclick="toggleDocSelectMode()" aria-label="Hủy, thoát chế độ chọn"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span><span class="btn-text">Hủy</span></button>
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn-success" onclick="openMoveDocsModal(currentDocsFolder, currentSubfolderId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg></span>Chuyển thư mục</button>
+        <div class="batch-bar-actions">
+          <button class="btn-tool" onclick="openMoveDocsModal(currentDocsFolder, currentSubfolderId)"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg></span>Chuyển thư mục</button>
           <button class="btn-danger" onclick="deleteSelectedDocuments()"><span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></span>Xóa đã chọn</button>
         </div>
       </div>
@@ -471,63 +474,13 @@
   </div>
 </div>
 
-<!-- Modal Thêm giấy tờ -->
-<div id="uploadDocModal" class="modal-overlay hidden" onclick="closeUploadDocModal()">
-  <div class="modal-card" style="max-width: 440px; text-align: left;" onclick="event.stopPropagation()">
-    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 8px;">Tải lên tệp giấy tờ</h3>
-    <div id="docUploadDestination" style="font-size:0.82rem; color:var(--text-muted); background:#f8fafc; border:1px solid var(--border-color); border-radius:10px; padding:8px 12px; margin-bottom:14px;"></div>
-
-    <div class="form-group">
-      <label>Loại giấy tờ (Thư mục)</label>
-      <select id="docTypeSelect" onchange="onUploadDocTypeChange(this.value)">
-        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
-        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
-        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
-        <option value="Học tập & Công việc">Học tập & Công việc</option>
-        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
-        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
-        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
-        <option value="custom">-- Thêm loại giấy tờ mới --</option>
-      </select>
-    </div>
-
-    <div class="form-group hidden" id="customDocNameGroup">
-      <label>Tên loại giấy tờ mới</label>
-      <input type="text" id="docCustomName" placeholder="ví dụ: Hộ chiếu, Bằng lái xe..." oninput="updateUploadDestinationLabel()">
-    </div>
-
-    <div class="form-group" id="docFolderGroup">
-      <label>Thư mục con (tùy chọn)</label>
-      <select id="docFolderSelect" onchange="onUploadDocFolderChange(this.value)"></select>
-    </div>
-
-    <div class="form-group hidden" id="docNewFolderNameGroup">
-      <label>Tên thư mục mới</label>
-      <input type="text" id="docNewFolderName" placeholder="ví dụ: Năm 2024, Bản sao công chứng..." oninput="updateUploadDestinationLabel()">
-    </div>
-
-    <div class="form-group">
-      <label>Chọn tệp (Ảnh JPG/PNG hoặc tài liệu PDF)</label>
-      <input type="file" id="docFileInput" accept="image/*,application/pdf" multiple onchange="renderDocFileDescList(this)">
-      <small style="color:var(--text-muted); font-size:0.75rem;">Có thể chọn nhiều tệp cùng lúc. Mỗi file nên dưới 10MB để database đồng bộ mượt mà nhất.</small>
-    </div>
-
-    <div class="form-group" id="docFileDescGroup">
-      <label>Tên trang / Nhãn nhận diện</label>
-      <div id="docFileDescList"></div>
-      <small style="color:var(--text-muted); font-size:0.75rem;">Chọn tệp ở trên trước, sau đó đặt nhãn riêng cho từng tệp, ví dụ: Mặt trước, Mặt sau... Nếu để trống, tên tệp sẽ được dùng làm mô tả.</small>
-    </div>
-
-    <div style="display:flex; gap:8px; margin-top:18px;">
-      <button type="button" id="btnSaveDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveDocument()">Tải lên & Lưu</button>
-      <button type="button" class="btn-outline" onclick="closeUploadDocModal()">Hủy</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Xem lại nhanh (Quick Preview) sau khi chụp/chọn ảnh từ FAB: không hỏi chủ sở
-     hữu/danh mục/ghi chú/gắn thẻ - chỉ xem lại, gỡ ảnh mờ/chọn nhầm rồi lưu thẳng vào
-     "Hồ sơ tạm" để hoàn tất phân loại sau. -->
+<!-- Modal Xem lại nhanh (Quick Preview) - luồng tải lên giấy tờ DUY NHẤT của toàn app, dùng
+     chung cho cả FAB nổi lẫn nút "Tải lên tệp giấy tờ" trên Hồ sơ cá nhân/Hồ sơ chung gia đình
+     (cả 2 đều gọi triggerGlobalUploadFab()): chỉ xem lại, gỡ ảnh mờ/chọn nhầm rồi lưu, không còn
+     form/dropdown chọn danh mục-thư mục thủ công nào. Mặc định lưu thẳng vào "Hồ sơ tạm" để hoàn
+     tất phân loại sau, nhưng nếu mở ngay trong 1 danh mục/thư mục cụ thể (Context-Aware Upload,
+     xem detectGlobalUploadContext() trong js/members.js) thì nhãn nút Lưu đổi thành đúng tên danh
+     mục/thư mục đó và lưu thẳng vào vị trí đó luôn. -->
 <div id="globalUploadModal" class="modal-overlay hidden" onclick="closeGlobalUploadModal()">
   <div class="modal-card gu-modal-card" style="text-align: left;" onclick="event.stopPropagation()">
     <div class="gu-modal-header">
@@ -593,21 +546,6 @@
     <div style="display:flex; gap:8px; margin-top:16px;">
       <button type="button" id="btnSaveNewFolder" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveNewFolder()">Tạo thư mục</button>
       <button type="button" class="btn-outline" onclick="closeNewFolderModal()">Hủy</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Thêm/Sửa danh mục giấy tờ (cấp gốc) -->
-<div id="categoryModal" class="modal-overlay hidden" onclick="closeCategoryModal()">
-  <div class="modal-card" onclick="event.stopPropagation()">
-    <h3 id="categoryModalTitle" style="font-size:1.15rem; color:var(--navy); margin-bottom:12px;">Tạo danh mục mới</h3>
-    <div class="form-group">
-      <label>Tên danh mục</label>
-      <input type="text" id="categoryNameInput" placeholder="ví dụ: Hộ chiếu, Bằng lái xe...">
-    </div>
-    <div style="display:flex; gap:8px; margin-top:16px;">
-      <button type="button" id="btnSaveCategory" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveCategory()">Tạo danh mục</button>
-      <button type="button" class="btn-outline" onclick="closeCategoryModal()">Hủy</button>
     </div>
   </div>
 </div>
@@ -680,6 +618,11 @@
     </div>
 
     <div class="form-group">
+      <label>Thành viên liên quan</label>
+      <div id="pdTagsChips" class="tag-chip-row" style="margin-bottom:0;"></div>
+    </div>
+
+    <div class="form-group">
       <label>Tên trang / Nhãn nhận diện</label>
       <input type="text" id="pdDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1...">
     </div>
@@ -692,11 +635,11 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=36"></script>
+<script defer src="js/config.js?v=44"></script>
 <script defer src="js/auth.js?v=36"></script>
-<script defer src="js/ui.js?v=37"></script>
-<script defer src="js/members.js?v=42"></script>
-<script defer src="js/page.js?v=24"></script>
+<script defer src="js/ui.js?v=42"></script>
+<script defer src="js/members.js?v=56"></script>
+<script defer src="js/page.js?v=25"></script>
 
 </body>
 </html>

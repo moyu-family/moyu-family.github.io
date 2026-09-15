@@ -60,9 +60,14 @@ function createApp({ url = 'https://moyu-family.github.io/index.html' } = {}) {
       get currentMemberId() { return currentMemberId; }, set currentMemberId(v) { currentMemberId = v; },
       get lastUploadedCipherText() { return lastUploadedCipherText; },
       get globalUploadFiles() { return globalUploadFiles; }, set globalUploadFiles(v) { globalUploadFiles = v; },
-      get pendingUploadFiles() { return pendingUploadFiles; }, set pendingUploadFiles(v) { pendingUploadFiles = v; },
       get currentConsolidatedTagFilter() { return currentConsolidatedTagFilter; }, set currentConsolidatedTagFilter(v) { currentConsolidatedTagFilter = v; }
     };
+    // Vài hằng số (const) cũng không tự thành thuộc tính của window - expose thẳng ra để test
+    // đọc được (chỉ đọc, không cần set vì đây là hằng số không đổi khi chạy).
+    window.FAMILY_SHARED_ID = FAMILY_SHARED_ID;
+    window.UNASSIGNED_OWNER_ID = UNASSIGNED_OWNER_ID;
+    window.DEFAULT_CATEGORIES = DEFAULT_CATEGORIES;
+    window.STANDARD_CATEGORIES = STANDARD_CATEGORIES;
   `;
 
   window.eval(`${combinedCode}\n;\n${bridge}`);

@@ -17,7 +17,7 @@ function initializePage() {
 
     if (params.has('documents')) {
       const memberId = params.get('documents');
-      if (memberId) openDocsView(memberId, true);
+      if (memberId) openDocsView(memberId, true, params.get('docType'), params.get('folder'));
       else showHome(true);
     return;
   }
@@ -49,6 +49,8 @@ function initializePage() {
     } else if (view === 'documents') {
       params.set('documents', data.id);
       state.memberId = data.id;
+      if (data.docType) { params.set('docType', data.docType); state.docType = data.docType; }
+      if (data.folder) { params.set('folder', data.folder); state.folder = data.folder; }
     } else if (view === 'consolidated') {
       params.set('consolidated', '1');
       if (data.filter) {
@@ -63,7 +65,7 @@ function initializePage() {
     history.pushState(state, '', `index.html${query ? `?${query}` : ''}`);
     if (view === 'member') viewDetails(data.id, true);
     else if (view === 'summary') openSummaryTable(true);
-    else if (view === 'documents') openDocsView(data.id, true);
+    else if (view === 'documents') openDocsView(data.id, true, data.docType || null, data.folder || null);
     else if (view === 'consolidated') openConsolidatedView({ skipHistory: true, filter: data.filter || null });
     else if (view === 'form') openForm(members.find(item => String(item.id) === String(data.id)), true);
     else showHome(true);

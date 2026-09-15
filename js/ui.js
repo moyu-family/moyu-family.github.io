@@ -59,7 +59,7 @@ function restoreAppView(state) {
   if (state.view === 'member' || state.view === 'detail') viewDetails(state.memberId, true);
   else if (state.view === 'form') openForm(state.memberId ? members.find(m => String(m.id) === String(state.memberId)) : null, true);
   else if (state.view === 'summary' || state.view === 'table') openSummaryTable(true);
-  else if (state.view === 'documents' || state.view === 'docs') openDocsView(state.memberId, true);
+  else if (state.view === 'documents' || state.view === 'docs') openDocsView(state.memberId, true, state.docType || null, state.folder || null);
   else if (state.view === 'consolidated') openConsolidatedView({ skipHistory: true, filter: state.filter || null });
   else showHome(true);
 }
@@ -375,164 +375,26 @@ function populateDocTypeSelect(selectId) {
   }
 }
 
-// Đồng bộ đồng thời cả 3 select loại giấy tờ (thêm mới, sửa, chuyển thư mục)
+// Đồng bộ đồng thời cả 2 select loại giấy tờ còn dùng dropdown (sửa mô tả, chuyển thư mục) -
+// luồng tải lên mới (Quick Preview) không còn dropdown chọn danh mục nữa nên bỏ 'docTypeSelect'.
 function refreshAllDocTypeSelects() {
-  ['docTypeSelect', 'editDocTypeSelect', 'moveDocsTypeSelect'].forEach(populateDocTypeSelect);
+  ['editDocTypeSelect', 'moveDocsTypeSelect'].forEach(populateDocTypeSelect);
 }
 
-// Quản lý Modal Upload Giấy tờ
-function openUploadDocModal() {
-  populateDocTypeSelect('docTypeSelect');
-  const typeSelect = document.getElementById('docTypeSelect');
-  const customNameInput = document.getElementById('docCustomName');
-  const folder = typeof currentDocsFolder !== 'undefined' ? currentDocsFolder : null;
-  const subfolderId = typeof currentSubfolderId !== 'undefined' ? currentSubfolderId : null;
-
-  if (folder) {
-    const knownTypes = Array.from(typeSelect.options).map(o => o.value);
-    if (knownTypes.includes(folder)) {
-      typeSelect.value = folder;
-      customNameInput.value = "";
-    } else {
-      typeSelect.value = "custom";
-      customNameInput.value = folder;
-    }
-  } else {
-    typeSelect.value = "Định danh & Tùy thân";
-    customNameInput.value = "";
-  }
-
-  document.getElementById('docFileInput').value = "";
-  pendingUploadFiles = [];
-  document.getElementById('docFileDescList').innerHTML = "";
-  toggleCustomDocName(typeSelect.value);
-
-  // Luôn dựng cây thư mục theo đúng danh mục đang mở (folder), kể cả khi danh mục này
-  // tạm thời rơi vào ô "custom" (vì chưa có tài liệu trực tiếp nào mang đúng docType đó).
-  // Nếu không, người dùng đang ở trong 1 thư mục con sẽ bị mất lựa chọn thư mục hiện hành.
-  const folderTreeDocType = folder || (typeSelect.value !== 'custom' ? typeSelect.value : null);
-  populateUploadFolderSelect(folderTreeDocType);
-  const folderSelect = document.getElementById('docFolderSelect');
-  const preselectFolderId = (folder && subfolderId) ? subfolderId : '';
-  if (folderSelect) folderSelect.value = preselectFolderId;
-  document.getElementById('docNewFolderName').value = "";
-  document.getElementById('docNewFolderNameGroup').classList.add('hidden');
-
-  updateUploadDestinationLabel();
-  document.getElementById('uploadDocModal').classList.remove('hidden');
-}
-
-function closeUploadDocModal() {
-  document.getElementById('uploadDocModal').classList.add('hidden');
-  pendingUploadFiles = [];
-}
-
-// Khi đổi danh mục (thư mục) đích lúc tải lên: đồng bộ ô "loại giấy tờ mới" và danh sách thư mục con tương ứng
-function onUploadDocTypeChange(val) {
-  toggleCustomDocName(val);
-  populateUploadFolderSelect(val === 'custom' ? null : val);
-  updateUploadDestinationLabel();
-}
-
-// Khi chọn thư mục con lúc tải lên: hiện ô nhập tên nếu người dùng chọn "Tạo thư mục mới..."
-function onUploadDocFolderChange(val) {
-  document.getElementById('docNewFolderNameGroup').classList.toggle('hidden', val !== '__new__');
-  if (val === '__new__') document.getElementById('docNewFolderName').focus();
-  updateUploadDestinationLabel();
-}
-
-// Hiển thị rõ đường dẫn thư mục đích để người dùng luôn biết tệp sắp tải lên sẽ nằm ở đâu
-function updateUploadDestinationLabel() {
-  const label = document.getElementById('docUploadDestination');
-  if (!label) return;
-
-  const typeSelect = document.getElementById('docTypeSelect');
-  const customNameInput = document.getElementById('docCustomName');
-  const folderSelect = document.getElementById('docFolderSelect');
-  const docType = typeSelect.value === 'custom'
-    ? (customNameInput.value.trim() || 'Danh mục mới')
-    : typeSelect.value;
-
-  let path = escapeHtml(docType);
-  if (folderSelect && folderSelect.value === '__new__') {
-    const newName = document.getElementById('docNewFolderName').value.trim();
-    path += ` ➔ ${escapeHtml(newName || '(thư mục mới)')}`;
-  } else if (folderSelect && folderSelect.value) {
-    const m = members.find(item => String(item.id) === String(currentMemberId));
-    const chain = m ? getFolderAncestorChain(m, folderSelect.value) : [];
-    chain.forEach(f => { path += ` ➔ ${escapeHtml(f.name)}`; });
-  }
-  label.innerHTML = `📤 Sẽ tải lên vào: <strong>${path}</strong>`;
-}
-
-// Dựng danh sách thư mục con (theo cây, thụt lề dần) của 1 danh mục để chọn nơi lưu các tệp sắp tải lên
-function populateUploadFolderSelect(docType) {
-  const select = document.getElementById('docFolderSelect');
-  if (!select) return;
-
-  const m = members.find(item => String(item.id) === String(currentMemberId));
-  select.innerHTML = '';
-  const rootOpt = document.createElement('option');
-  rootOpt.value = '';
-  rootOpt.textContent = '(Thư mục gốc của danh mục)';
-  select.appendChild(rootOpt);
-
-  if (m && docType) {
-    appendFolderTreeOptions(select, m.folders, docType);
-  }
-
-  const newFolderOpt = document.createElement('option');
-  newFolderOpt.value = '__new__';
-  newFolderOpt.textContent = '+ Tạo thư mục con mới...';
-  select.appendChild(newFolderOpt);
-
-  document.getElementById('docNewFolderNameGroup').classList.add('hidden');
-}
-
-// Khi người dùng chọn tệp từ input: nạp vào danh sách chờ tải lên (có thể bỏ bớt từng tệp sau đó)
-function renderDocFileDescList(input) {
-  const newFiles = Array.from(input.files || []).map(file => ({ file, desc: '' }));
-  pendingUploadFiles = pendingUploadFiles.concat(newFiles);
-  // Reset input để lần chọn tiếp theo (onchange) vẫn kích hoạt được, đồng thời tránh nạp lại đúng các tệp vừa thêm
-  input.value = '';
-  renderPendingUploadFilesList();
-}
-
-// Vẽ lại danh sách tệp đang chờ tải lên (dựa trên pendingUploadFiles, không đọc trực tiếp từ input nữa
-// vì FileList gốc của input là read-only, không thể bỏ bớt từng tệp)
-function renderPendingUploadFilesList() {
-  const container = document.getElementById('docFileDescList');
-  container.innerHTML = "";
-  pendingUploadFiles.forEach((entry, i) => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
-    row.innerHTML = `
-      <span style="flex:0 0 110px; font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(entry.file.name)}">${escapeHtml(entry.file.name)}</span>
-      <input type="text" class="doc-file-desc-input" data-index="${i}" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1..." style="flex:1;" value="${escapeHtml(entry.desc)}">
-      <button type="button" class="btn-remove-pending-file" title="Bỏ chọn tệp này" aria-label="Bỏ chọn tệp này">${svgIcon('close')}</button>
-    `;
-    row.querySelector('.doc-file-desc-input').oninput = (e) => { entry.desc = e.target.value; };
-    row.querySelector('.btn-remove-pending-file').onclick = () => removePendingUploadFile(i);
-    container.appendChild(row);
-  });
-}
-
-// Bỏ bớt 1 tệp khỏi danh sách đang chờ tải lên (trước khi bấm "Tải lên & Lưu")
-function removePendingUploadFile(index) {
-  pendingUploadFiles.splice(index, 1);
-  renderPendingUploadFilesList();
-}
-
-function toggleCustomDocName(val, groupId = 'customDocNameGroup') {
+// Hiện/ẩn ô nhập tên danh mục tự đặt (groupId) khi select tương ứng chọn "custom" - dùng chung
+// cho các modal còn dropdown chọn danh mục: Sửa mô tả tệp, Chuyển tệp sang thư mục khác, Hoàn
+// tất phân loại Hồ sơ tạm.
+function toggleCustomDocName(val, groupId) {
   const customGroup = document.getElementById(groupId);
+  if (!customGroup) return;
   const inputIdMap = {
     editCustomDocNameGroup: 'editDocCustomName',
-    moveDocsCustomNameGroup: 'moveDocsCustomName'
+    moveDocsCustomNameGroup: 'moveDocsCustomName',
+    pdCustomCategoryGroup: 'pdCustomCategoryName'
   };
-  const inputId = inputIdMap[groupId] || 'docCustomName';
   if (val === 'custom') {
     customGroup.classList.remove('hidden');
-    document.getElementById(inputId).focus();
+    document.getElementById(inputIdMap[groupId])?.focus();
   } else {
     customGroup.classList.add('hidden');
   }
@@ -648,6 +510,8 @@ function triggerGlobalUploadFab() {
 }
 
 // Nạp tệp vừa chọn/chụp vào danh sách chờ lưu, rồi mở modal Xem lại nhanh (Quick Preview).
+// Nhận diện ngay ngữ cảnh hiện tại (đang đứng trong danh mục nào, nếu có) để đổi nhãn nút Lưu
+// cho đúng: "Lưu vào [Tên danh mục/thư mục]" thay vì "Lưu vào Hồ sơ tạm" mặc định.
 function onGlobalFileSelected(input) {
   const newFiles = Array.from(input.files || []).map(file => {
     const isPdf = (file.type || '').includes('pdf');
@@ -655,6 +519,9 @@ function onGlobalFileSelected(input) {
   });
   globalUploadFiles = globalUploadFiles.concat(newFiles);
   input.value = '';
+  globalUploadContext = detectGlobalUploadContext();
+  const saveBtn = document.getElementById('btnSaveGlobalDoc');
+  if (saveBtn) saveBtn.textContent = globalUploadContext ? `Lưu vào ${globalUploadContext.label}` : 'Lưu vào Hồ sơ tạm';
   renderGlobalFilePreview();
   document.getElementById('globalUploadModal').classList.remove('hidden');
 }
@@ -663,6 +530,7 @@ function closeGlobalUploadModal() {
   document.getElementById('globalUploadModal').classList.add('hidden');
   globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
   globalUploadFiles = [];
+  globalUploadContext = null;
 }
 
 // Định dạng dung lượng tệp ngắn gọn (KB/MB) để hiện kèm tên trong hàng danh sách.
@@ -673,32 +541,20 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Rút gọn tên tệp quá dài bằng "..." ở giữa nhưng luôn giữ nguyên đuôi mở rộng (không bao
-// giờ cắt mất .pdf/.jpg...). Trả về cả cờ isTruncated để chỉ gắn tooltip title khi thực sự
-// bị cắt - tên ngắn thì không cần tooltip lặp lại.
-function truncateFileName(name, maxLength) {
-  if (!name || name.length <= maxLength) return { text: name, isTruncated: false };
-  const dotIndex = name.lastIndexOf('.');
-  const hasExt = dotIndex > 0 && name.length - dotIndex <= 8;
-  const ext = hasExt ? name.slice(dotIndex) : '';
-  const base = hasExt ? name.slice(0, dotIndex) : name;
-  const keepLength = Math.max(maxLength - ext.length - 3, 3);
-  return { text: `${base.slice(0, keepLength)}...${ext}`, isTruncated: true };
-}
-
 // Tách tên/đuôi mở rộng mà KHÔNG cắt bớt ký tự nào - dùng cho hàng danh sách, nơi CSS
 // (text-overflow: ellipsis trên phần "base") tự quyết định cắt hay không tùy bề rộng
-// thực tế của hàng, thay vì cắt cứng theo số ký tự cố định như truncateFileName().
+// thực tế của hàng, thay vì cắt cứng theo số ký tự cố định.
 function splitFileNameExt(name) {
   const dotIndex = name.lastIndexOf('.');
   const hasExt = dotIndex > 0 && name.length - dotIndex <= 8;
   return hasExt ? { base: name.slice(0, dotIndex), ext: name.slice(dotIndex) } : { base: name, ext: '' };
 }
 
-// Vẽ lại danh sách tệp đang chờ lưu. Nếu TẤT CẢ tệp đều là ảnh thì dùng lưới thumbnail nhỏ
-// gọn; còn nếu có lẫn nhiều thể loại khác nhau (ảnh + PDF/tài liệu) thì thống nhất vẽ dạng
-// hàng danh sách cho toàn bộ tệp để tránh giao diện bị chia cắt rối mắt. Mỗi tệp đều kèm
-// nút gỡ bỏ nếu ảnh bị mờ hoặc chọn nhầm. Dòng phụ dưới tiêu đề báo số tệp đã chọn.
+// Vẽ lại danh sách tệp đang chờ lưu theo cơ chế thích ứng số lượng (Adaptive Layout):
+// - Đúng 1 ảnh: Single Preview - 1 thumbnail lớn, dễ nhìn rõ ảnh vừa chụp.
+// - Còn lại (từ 2 tệp trở lên, HOẶC 1 tệp nhưng là PDF/tài liệu): Compact List - mỗi
+//   tệp 1 hàng gọn (thân modal đã có overflow-y: auto nên cuộn được khi danh sách dài).
+// Dòng phụ dưới tiêu đề báo số tệp đã chọn.
 function renderGlobalFilePreview() {
   const preview = document.getElementById('guFilePreview');
   const countLabel = document.getElementById('guFileCount');
@@ -712,37 +568,43 @@ function renderGlobalFilePreview() {
     return;
   }
   const isImageEntry = entry => (entry.file.type || '').startsWith('image/');
-  const useGrid = globalUploadFiles.every(isImageEntry);
+
+  if (globalUploadFiles.length === 1 && isImageEntry(globalUploadFiles[0])) {
+    const entry = globalUploadFiles[0];
+    const size = formatFileSize(entry.file.size);
+    const item = document.createElement('div');
+    item.className = 'gu-single-preview';
+    item.innerHTML = `
+      <img src="${entry.previewUrl}" alt="Xem trước ${escapeHtml(entry.file.name)}" class="gu-single-preview-img">
+      <button type="button" class="gu-single-preview-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
+      <div class="gu-single-preview-meta">
+        <span class="gu-single-preview-name">${escapeHtml(entry.file.name)}</span>
+        ${size ? `<span class="gu-single-preview-size">${size}</span>` : ''}
+      </div>
+    `;
+    item.querySelector('.gu-single-preview-remove').onclick = () => removeGlobalFile(0);
+    preview.appendChild(item);
+    return;
+  }
 
   globalUploadFiles.forEach((entry, i) => {
     const isImage = isImageEntry(entry);
+    const { base, ext } = splitFileNameExt(entry.file.name);
+    const size = formatFileSize(entry.file.size);
+    const iconHtml = isImage
+      ? `<img src="${entry.previewUrl}" alt="" class="gu-file-row-thumb">`
+      : `<span class="gu-file-row-icon" aria-hidden="true">${svgIcon('notebook')}</span>`;
     const item = document.createElement('div');
-    if (useGrid) {
-      const { text, isTruncated } = truncateFileName(entry.file.name, 16);
-      item.className = 'gu-file-thumb-item';
-      item.innerHTML = `
-        <img src="${entry.previewUrl}" alt="Xem trước ${escapeHtml(entry.file.name)}" class="file-thumb gu-file-thumb">
-        <button type="button" class="gu-file-thumb-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
-        <span class="gu-file-thumb-name"${isTruncated ? ` title="${escapeHtml(entry.file.name)}"` : ''}>${escapeHtml(text)}</span>
-      `;
-      item.querySelector('.gu-file-thumb-remove').onclick = () => removeGlobalFile(i);
-    } else {
-      const { base, ext } = splitFileNameExt(entry.file.name);
-      const size = formatFileSize(entry.file.size);
-      const iconHtml = isImage
-        ? `<img src="${entry.previewUrl}" alt="" class="gu-file-row-thumb">`
-        : `<span class="gu-file-row-icon" aria-hidden="true">${svgIcon('notebook')}</span>`;
-      item.className = 'gu-file-row-item';
-      item.innerHTML = `
-        ${iconHtml}
-        <span class="gu-file-row-info">
-          <span class="gu-file-row-name" title="${escapeHtml(entry.file.name)}"><span class="gu-file-row-name-base">${escapeHtml(base)}</span><span class="gu-file-row-name-ext">${escapeHtml(ext)}</span></span>
-          ${size ? `<span class="gu-file-row-size">${size}</span>` : ''}
-        </span>
-        <button type="button" class="gu-file-row-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
-      `;
-      item.querySelector('.gu-file-row-remove').onclick = () => removeGlobalFile(i);
-    }
+    item.className = 'gu-file-row-item';
+    item.innerHTML = `
+      ${iconHtml}
+      <span class="gu-file-row-info">
+        <span class="gu-file-row-name" title="${escapeHtml(entry.file.name)}"><span class="gu-file-row-name-base">${escapeHtml(base)}</span><span class="gu-file-row-name-ext">${escapeHtml(ext)}</span></span>
+        ${size ? `<span class="gu-file-row-size">${size}</span>` : ''}
+      </span>
+      <button type="button" class="gu-file-row-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
+    `;
+    item.querySelector('.gu-file-row-remove').onclick = () => removeGlobalFile(i);
     preview.appendChild(item);
   });
 }

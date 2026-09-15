@@ -11,6 +11,17 @@ function setMemberManagementButtonVisible(visible) {
   });
 }
 
+// Ẩn hoàn toàn thao tác tải lên (nút Header + FAB nổi) khi đang ở màn hình gốc "Tất cả danh
+// mục" của 1 chủ sở hữu (renderDocsFolders()) - vì chưa xác định được danh mục đích nên không
+// cho phép upload ở đây. Hiện lại ngay khi vào chi tiết 1 danh mục (openFolderDetails()) hoặc
+// bất kỳ màn hình nào khác ngoài Hồ sơ giấy tờ (trang chủ, Hồ sơ tổng hợp, ...).
+function setDocsUploadControlsVisible(visible) {
+  const headerBtn = document.getElementById('docsUploadHeaderBtn');
+  const fab = document.getElementById('globalUploadFab');
+  if (headerBtn) headerBtn.classList.toggle('hidden', !visible);
+  if (fab) fab.classList.toggle('hidden', !visible);
+}
+
 // Kéo thả đổi thứ tự thẻ thành viên: nhấp-giữ-kéo trên máy tính, nhấn giữ ~300ms
 // rồi kéo trên cảm ứng (delayOnTouchOnly để không cản việc cuộn trang bằng ngón tay).
 function initSortable() {
@@ -99,6 +110,7 @@ function openSummaryTable(skipHistory = false) {
   document.getElementById('homeView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
   document.getElementById('tableView').classList.remove('hidden');
+  setDocsUploadControlsVisible(true);
 }
 
 // Sao chép bảng cho Excel[cite: 3]
@@ -244,6 +256,7 @@ function viewDetails(id, skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
   document.getElementById('detailView').classList.remove('hidden');
+  setDocsUploadControlsVisible(true);
 
   document.getElementById('dtAvatar').src = m.avatar || DEFAULT_AVATAR;
   document.getElementById('dtName').innerText = m.name;
@@ -339,6 +352,7 @@ function showHome(skipHistory = false) {
   document.getElementById('formView').classList.add('hidden');
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
+  setDocsUploadControlsVisible(true);
   renderGrid();
 }
 
@@ -351,6 +365,7 @@ function openForm(member = null, skipHistory = false) {
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
   document.getElementById('formView').classList.remove('hidden');
+  setDocsUploadControlsVisible(true);
 
   const notesGroup = document.querySelector('.form-notes-group');
   const bankGroup = document.querySelector('.form-bank-group');
@@ -635,8 +650,10 @@ async function deleteCurrentMember() {
 // LOGIC FILE EXPLORER: QUẢN LÝ THƯ MỤC & FILE CHI TIẾT
 // ============================================================
 
-// Mở màn hình Hồ sơ cá nhân
-function openDocsView(memberId = null, skipHistory = false) {
+// Mở màn hình Hồ sơ cá nhân. docType/folderId (tùy chọn): mở thẳng đúng danh mục/thư mục con
+// chứa 1 tệp cụ thể (dùng khi bấm mũi tên "Đến hồ sơ thành viên" từ Hồ sơ tổng hợp) thay vì
+// luôn về màn hình gốc "Tất cả danh mục".
+function openDocsView(memberId = null, skipHistory = false, docType = null, folderId = null) {
   const targetId = memberId || currentMemberId;
   const m = members.find(item => String(item.id) === String(targetId));
   if (!m) {
@@ -647,7 +664,7 @@ function openDocsView(memberId = null, skipHistory = false) {
   setMemberManagementButtonVisible(false);
   currentMemberId = targetId;
   if (!skipHistory) {
-    navigateApp('documents', { id: targetId });
+    navigateApp('documents', { id: targetId, docType, folder: folderId });
     return;
   }
 
@@ -657,16 +674,19 @@ function openDocsView(memberId = null, skipHistory = false) {
   document.getElementById('formView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.add('hidden');
   document.getElementById('docsView').classList.remove('hidden');
+  // Không set trạng thái nút tải lên/nút "Chọn nhiều tệp" ở đây - renderDocsFolders()/
+  // openFolderDetails() (được gọi ngay bên dưới) sẽ tự quyết định ẩn/hiện đúng theo màn hình
+  // gốc hay chi tiết danh mục.
 
   isDocSelectMode = false;
   selectedDocIds.clear();
   selectedFolderIds.clear();
   document.getElementById('docsBatchToolbar').classList.add('hidden');
-  setBtnLabel(document.getElementById('btnToggleDocSelect'), 'checkSquare', 'Chọn nhiều tệp');
 
   document.getElementById('docsOwnerName').querySelector('.btn-text').innerText =
     m.id === FAMILY_SHARED_ID ? m.name : `Giấy tờ cá nhân: ${m.name}`;
-  renderDocsFolders();
+  if (docType) openFolderDetails(docType, folderId || null);
+  else renderDocsFolders();
 }
 
 // Banner "Hồ sơ chung gia đình" trên trang chủ: mở thẳng Hồ sơ giấy tờ của Hồ sơ chung
@@ -699,6 +719,7 @@ function openConsolidatedView(opts = false) {
   document.getElementById('formView').classList.add('hidden');
   document.getElementById('docsView').classList.add('hidden');
   document.getElementById('consolidatedView').classList.remove('hidden');
+  setDocsUploadControlsVisible(true);
 
   if (filter === 'pending') {
     currentConsolidatedTagFilter = { kind: 'pending' };
@@ -850,17 +871,17 @@ function renderConsolidatedCategories() {
   types.sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' })).forEach(type => {
     const files = map[type];
     const ownerCount = new Set(files.map(f => f.ownerId)).size;
+    const defaultCat = DEFAULT_CATEGORIES.find(c => c.key === type);
     const card = document.createElement('div');
-    card.className = 'folder-card';
+    card.className = 'folder-card' + (files.length > 0 ? ' folder-card-has-files' : '') + (defaultCat ? ' folder-card-standard' : '');
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Xem chi tiết danh mục ${type}`);
     card.innerHTML = `
-      <div class="folder-icon">${svgIcon('folder')}</div>
+      <div class="folder-icon ${defaultCat ? defaultCat.colorClass : ''}">${svgIcon(defaultCat ? defaultCat.icon : 'folder')}</div>
       <div class="folder-info">
         <div class="folder-name" title="${escapeHtml(type)}">${escapeHtml(type)}</div>
         <div class="folder-count">${files.length} tệp · ${ownerCount} thành viên</div>
-        <span class="folder-badge">Xem chi tiết${svgIcon('arrowRight')}</span>
       </div>
     `;
     const openCategory = () => openConsolidatedCategoryDetails(type);
@@ -912,23 +933,26 @@ function openConsolidatedCategoryDetails(docType) {
 
   const container = document.getElementById('consolidatedExplorerContent');
   container.innerHTML = '';
+  container.appendChild(renderConsolidatedToolbar(() => openConsolidatedCategoryDetails(docType)));
 
   const map = buildConsolidatedMap(consolidatedFilterPredicate());
-  const files = (map[docType] || []).slice().sort((a, b) => {
-    const byOwner = (a.ownerName || '').localeCompare(b.ownerName || '', 'vi', { sensitivity: 'base' });
-    return byOwner !== 0 ? byOwner : Number(b.id) - Number(a.id);
-  });
+  const files = sortConsolidatedList(map[docType] || [], consolidatedSortMode);
 
   if (files.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">${currentConsolidatedTagFilter ? 'Không có tệp nào trong danh mục này khớp với bộ lọc đang chọn.' : 'Chưa có tệp nào trong danh mục này.'}</div>`;
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);';
+    empty.innerText = currentConsolidatedTagFilter ? 'Không có tệp nào trong danh mục này khớp với bộ lọc đang chọn.' : 'Chưa có tệp nào trong danh mục này.';
+    container.appendChild(empty);
     return;
   }
 
+  const isListMode = docsViewMode === 'list';
   const filesList = document.createElement('div');
-  filesList.className = 'files-list';
+  filesList.className = 'files-list' + (isListMode ? ' view-list' : '');
 
   files.forEach(doc => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const effectiveDocType = doc.docType || 'Giấy tờ khác';
     const card = document.createElement('article');
     card.className = 'file-card';
     const thumb = isPdf
@@ -936,16 +960,24 @@ function openConsolidatedCategoryDetails(docType) {
       : (doc.encrypted
         ? '<div class="file-thumb file-thumb-loading">⏳</div>'
         : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
-    card.innerHTML = `
+    const ownerRowHtml = `
+      <div class="file-owner-row">
+        <span class="file-owner-chip" title="${escapeHtml(doc.ownerName || 'Không rõ')}">👤 ${escapeHtml(doc.ownerName || 'Không rõ')}</span>
+        <button type="button" class="file-goto-owner-btn btn-goto-owner" title="Đến hồ sơ thành viên" aria-label="Đến hồ sơ thành viên">${svgIcon('arrowRight')}</button>
+      </div>
+    `;
+    card.innerHTML = isListMode ? `
+      <button type="button" class="file-preview-button" title="Bấm để xem">${thumb}</button>
+      <button type="button" class="file-name-button" title="Xem tài liệu">
+        <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
+      </button>
+      ${ownerRowHtml}
+    ` : `
       <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
       <div class="file-card-info">
         <strong>${escapeHtml(doc.desc || 'Chưa có mô tả')}</strong>
-        <div class="folder-badge" style="margin-top:4px;">👤 ${escapeHtml(doc.ownerName || 'Không rõ')}</div>
       </div>
-      <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
-        <button type="button" class="btn-outline file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">${svgIcon('eye')}</button>
-        <button type="button" class="btn-outline file-action-button btn-goto-owner" title="Đến hồ sơ thành viên" aria-label="Đến hồ sơ thành viên">${svgIcon('arrowRight')}</button>
-      </div>
+      ${ownerRowHtml}
     `;
     if (!isPdf && doc.encrypted) {
       const previewButton = card.querySelector('.file-preview-button');
@@ -957,8 +989,8 @@ function openConsolidatedCategoryDetails(docType) {
     }
     const relatedForPreview = files.filter(f => f.ownerId === doc.ownerId);
     card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
-    card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, relatedForPreview);
-    card.querySelector('.btn-goto-owner').onclick = () => openDocsView(doc.ownerId);
+    if (isListMode) card.querySelector('.file-name-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
+    card.querySelector('.btn-goto-owner').onclick = () => openDocsView(doc.ownerId, false, effectiveDocType, doc.folderId || null);
     filesList.appendChild(card);
   });
 
@@ -978,48 +1010,67 @@ function renderConsolidatedPendingList() {
 
   const container = document.getElementById('consolidatedExplorerContent');
   container.innerHTML = '';
+  container.appendChild(renderConsolidatedToolbar(renderConsolidatedPendingList));
 
-  const pending = getAllPendingDocuments().sort((a, b) => Number(b.id.toString().replace(/\D/g, '') || 0) - Number(a.id.toString().replace(/\D/g, '') || 0));
+  const pending = sortConsolidatedList(getAllPendingDocuments(), consolidatedSortMode);
 
   if (pending.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);">Không có tệp nào đang chờ phân loại.</div>`;
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center; padding:30px; color:var(--text-muted); background:#fafbfd; border-radius:12px; border:1px dashed var(--border-color);';
+    empty.innerText = 'Không có tệp nào đang chờ phân loại.';
+    container.appendChild(empty);
     return;
   }
 
+  const isListMode = docsViewMode === 'list';
   const filesList = document.createElement('div');
-  filesList.className = 'files-list';
+  filesList.className = 'files-list' + (isListMode ? ' view-list' : '');
 
   pending.forEach(doc => {
     const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const label = doc.desc || doc.fileName || 'Chưa có mô tả';
     const card = document.createElement('article');
     card.className = 'file-card';
     const thumb = isPdf
       ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
       : (doc.encrypted
         ? '<div class="file-thumb file-thumb-loading">⏳</div>'
-        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`);
-    card.innerHTML = `
+        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(label)}">`);
+    // Chân thẻ rút gọn còn đúng 1 hàng: chip cảnh báo "Chưa gán chủ sở hữu" (tông Pending/cam
+    // nhạt) bên trái - bấm chip hoặc nút sửa đều mở form gán chủ sở hữu/danh mục - và cụm 2 nút
+    // Sửa/Xóa bên phải. Không còn icon con mắt rời: bấm thẳng thumbnail hoặc tên tệp để xem trước.
+    const footerHtml = `
+      <div class="pending-footer-row">
+        <button type="button" class="pending-unassigned-chip" title="Gán chủ sở hữu & danh mục" aria-label="Chưa gán chủ sở hữu - bấm để gán">
+          ${svgIcon('alertTriangle')}<span>Chưa gán chủ sở hữu</span>
+        </button>
+        <div class="pending-footer-actions">
+          <button type="button" class="btn-outline file-action-button btn-complete-pending" title="Sửa/Phân loại" aria-label="Sửa/Phân loại">${svgIcon('edit')}</button>
+          <button type="button" class="btn-danger file-action-button btn-delete-pending" title="Xóa" aria-label="Xóa">${svgIcon('trash')}</button>
+        </div>
+      </div>
+    `;
+    card.innerHTML = isListMode ? `
+      <button type="button" class="file-preview-button" title="Bấm để xem">${thumb}</button>
+      <button type="button" class="file-name-button" title="Xem tài liệu"><strong>${escapeHtml(label)}</strong></button>
+      ${footerHtml}
+    ` : `
       <button type="button" class="file-preview-button" title="Bấm để phóng lớn">${thumb}</button>
-      <div class="file-card-info">
-        <strong>${escapeHtml(doc.desc || doc.fileName || 'Chưa có mô tả')}</strong>
-        <div class="folder-badge" style="margin-top:4px;">👤 ${escapeHtml(doc.ownerName || 'Chưa gán chủ sở hữu')}</div>
-      </div>
-      <div class="file-actions-scroll" aria-label="Thao tác giấy tờ">
-        <button type="button" class="btn-outline file-action-button btn-view-file" title="Xem tài liệu" aria-label="Xem tài liệu">${svgIcon('eye')}</button>
-        <button type="button" class="btn-outline file-action-button btn-complete-pending" title="Hoàn tất phân loại" aria-label="Hoàn tất phân loại">${svgIcon('edit')}</button>
-        <button type="button" class="btn-danger file-action-button btn-delete-pending" title="Xóa" aria-label="Xóa">${svgIcon('trash')}</button>
-      </div>
+      <button type="button" class="file-name-plain-button" title="Xem tài liệu"><strong>${escapeHtml(label)}</strong></button>
+      ${footerHtml}
     `;
     if (!isPdf && doc.encrypted) {
       const previewButton = card.querySelector('.file-preview-button');
       getDocumentDisplayUrl(doc).then(url => {
-        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(doc.desc || 'Xem trước giấy tờ')}">`;
+        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(label)}">`;
       }).catch(() => {
         previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
       });
     }
-    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, [doc]);
-    card.querySelector('.btn-view-file').onclick = () => showDocumentPreview(doc, [doc]);
+    const relatedForPreview = pending.filter(f => f.ownerId === doc.ownerId);
+    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
+    card.querySelector(isListMode ? '.file-name-button' : '.file-name-plain-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
+    card.querySelector('.pending-unassigned-chip').onclick = () => openPendingCompleteModal(doc.ownerId, doc.id);
     card.querySelector('.btn-complete-pending').onclick = () => openPendingCompleteModal(doc.ownerId, doc.id);
     card.querySelector('.btn-delete-pending').onclick = () => deletePendingDocument(doc.ownerId, doc.id);
     filesList.appendChild(card);
@@ -1047,8 +1098,11 @@ function updateDocsBackBtnLabel() {
   setBtnLabel(btn, 'arrowLeft', label);
 }
 
-// Thanh chuyển đổi hiển thị dạng lưới / dạng danh sách (kiểu Google Drive)
-function renderViewToggleBar() {
+// Thanh chuyển đổi hiển thị dạng lưới / dạng danh sách (kiểu Google Drive). docsViewMode dùng
+// chung cho mọi màn hình duyệt tệp (Hồ sơ cá nhân lẫn Hồ sơ tổng hợp) nên trạng thái luôn đồng
+// bộ dù đổi ở màn nào. onRerender (tùy chọn): hàm vẽ lại đúng màn hình đang mở sau khi đổi chế
+// độ - mặc định vẽ lại Hồ sơ cá nhân (dùng khi gọi từ renderDocsFolders()/openFolderDetails()).
+function renderViewToggleBar(onRerender) {
   const bar = document.createElement('div');
   bar.className = 'docs-view-toggle';
   bar.innerHTML = `
@@ -1056,16 +1110,16 @@ function renderViewToggleBar() {
     <button type="button" class="view-toggle-btn ${docsViewMode === 'list' ? 'active' : ''}" title="Dạng danh sách">${iconSpan('list')}Danh sách</button>
   `;
   const [gridBtn, listBtn] = bar.querySelectorAll('.view-toggle-btn');
-  gridBtn.onclick = () => setDocsViewMode('grid');
-  listBtn.onclick = () => setDocsViewMode('list');
+  const applyMode = (mode) => {
+    docsViewMode = mode;
+    try { localStorage.setItem('docsViewMode', mode); } catch (e) { /* ignore */ }
+    if (onRerender) onRerender();
+    else if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
+    else renderDocsFolders();
+  };
+  gridBtn.onclick = () => applyMode('grid');
+  listBtn.onclick = () => applyMode('list');
   return bar;
-}
-
-function setDocsViewMode(mode) {
-  docsViewMode = mode;
-  try { localStorage.setItem('docsViewMode', mode); } catch (e) { /* ignore */ }
-  if (currentDocsFolder) openFolderDetails(currentDocsFolder, currentSubfolderId);
-  else renderDocsFolders();
 }
 
 // 1. Màn hình ngoài: Danh sách các thư mục loại giấy tờ
@@ -1074,7 +1128,13 @@ function renderDocsFolders() {
   currentSubfolderId = null;
   selectedDocIds.clear();
   selectedFolderIds.clear();
+  // Màn hình gốc "Tất cả danh mục" chỉ hiện thẻ danh mục, không có tệp nào để chọn hàng loạt -
+  // luôn thoát hẳn chế độ chọn (không chỉ ẩn thanh công cụ) và ẩn luôn nút "Chọn nhiều tệp" (chỉ
+  // có ý nghĩa khi đã ở trong 1 danh mục cụ thể), tránh kẹt UI nếu người dùng rời khỏi 1 danh mục
+  // trong lúc đang chọn dở.
+  isDocSelectMode = false;
   document.getElementById('docsBatchToolbar').classList.add('hidden');
+  document.getElementById('btnToggleDocSelect').classList.add('hidden');
   updateDocsBackBtnLabel();
   const m = members.find(item => String(item.id) === String(currentMemberId));
   if (!m) return;
@@ -1088,29 +1148,16 @@ function renderDocsFolders() {
   const folders = m.folders || [];
   const categories = m.categories || [];
 
-  const toolsBar = document.createElement('div');
-  toolsBar.style.cssText = 'display:flex; justify-content:flex-end; margin-bottom:14px;';
-  const newCategoryBtn = document.createElement('button');
-  newCategoryBtn.type = 'button';
-  newCategoryBtn.className = 'btn-outline';
-  newCategoryBtn.innerHTML = `${iconSpan('plus')}Danh mục mới`;
-  newCategoryBtn.onclick = () => openNewCategoryModal();
-  toolsBar.appendChild(newCategoryBtn);
-  container.appendChild(toolsBar);
+  // 7 danh mục chuẩn là cố định (không tạo mới được nữa ở màn hình này), nên không còn nút
+  // "+ Danh mục mới" ở đây - tránh phát sinh danh mục rác làm vỡ bộ lọc. Tải lên tệp cũng
+  // không cho phép ở màn hình gốc này (chưa xác định danh mục đích) - ẩn cả nút Header lẫn FAB.
+  setDocsUploadControlsVisible(false);
 
-  if (docs.length === 0 && folders.length === 0 && categories.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center; padding: 45px; color: var(--text-muted); background: #fafbfd; border-radius: 12px; border: 1px dashed var(--border-color);';
-    empty.innerHTML = `
-      <div style="display:flex; justify-content:center; margin-bottom:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:40px; height:40px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
-      Chưa có giấy tờ lưu trữ nào.<br>Bấm <b>"Tải lên tệp giấy tờ"</b> ở trên để tải mặt trước/sau CCCD, sổ hồng, khai sinh..., hoặc <b>"Danh mục mới"</b> để tạo danh mục trống.
-    `;
-    container.appendChild(empty);
-    return;
-  }
-
-  // Nhóm file theo loại giấy tờ (docType)
+  // Nhóm file theo loại giấy tờ (docType). 7 danh mục chuẩn (DEFAULT_CATEGORIES) luôn được
+  // gieo sẵn với mảng rỗng để luôn hiển thị đủ 7 thẻ (kể cả thành viên mới tạo, 0 tệp), thay vì
+  // chỉ hiện những danh mục đã thực sự có tệp/thư mục như trước.
   const folderMap = {};
+  DEFAULT_CATEGORIES.forEach(cat => { folderMap[cat.key] = []; });
   docs.forEach(d => {
     const type = d.docType || 'Giấy tờ khác';
     if (!folderMap[type]) folderMap[type] = [];
@@ -1129,35 +1176,94 @@ function renderDocsFolders() {
   const grid = document.createElement('div');
   grid.className = 'folder-grid' + (docsViewMode === 'list' ? ' view-list' : '');
 
+  const isListMode = docsViewMode === 'list';
   Object.keys(folderMap).sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' })).forEach(type => {
     const files = folderMap[type];
+    const defaultCat = DEFAULT_CATEGORIES.find(c => c.key === type);
     const card = document.createElement('div');
-    card.className = 'folder-card';
+    card.className = 'folder-card' + (files.length > 0 ? ' folder-card-has-files' : '') + (defaultCat ? ' folder-card-standard' : '') + (isListMode ? ' category-item' : '');
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Mở danh mục ${type}`);
-    card.innerHTML = `
-      <div class="folder-icon">${svgIcon('folder')}</div>
+    // Toàn bộ danh mục ở màn hình gốc (kể cả danh mục custom còn sót lại từ trước) đều chỉ để
+    // xem/mở, không còn đổi tên/xóa được nữa - tính năng quản lý danh mục custom đã bị gỡ bỏ.
+    const iconHtml = `<div class="folder-icon${isListMode ? ' category-icon-box' : ''}${defaultCat ? ' ' + defaultCat.colorClass : ''}">${svgIcon(defaultCat ? defaultCat.icon : 'folder')}</div>`;
+    // Chế độ Danh sách: bố cục 2 bên (trái: icon+tên/phụ đề trong .category-left, phải: badge số
+    // tệp gọn) - xem .category-* trong style.css. Chế độ Lưới giữ nguyên cấu trúc
+    // .folder-info/.folder-count dọc như trước.
+    card.innerHTML = isListMode ? `
+      <div class="category-left">
+        ${iconHtml}
+        <div class="category-info">
+          <div class="category-title" title="${escapeHtml(type)}">${escapeHtml(type)}</div>
+        </div>
+      </div>
+      <div class="category-right">
+        <div class="category-badge${files.length > 0 ? ' has-docs' : ''}">${files.length > 0 ? files.length + ' tệp' : '—'}</div>
+      </div>
+    ` : `
+      ${iconHtml}
       <div class="folder-info">
         <div class="folder-name" title="${escapeHtml(type)}">${escapeHtml(type)}</div>
-        <div class="folder-count">${files.length} tệp đính kèm</div>
-        <span class="folder-badge">Xem chi tiết${svgIcon('arrowRight')}</span>
+        <div class="folder-count">${files.length} tệp</div>
       </div>
-      <button type="button" class="btn-outline file-action-button btn-edit-category" title="Đổi tên danh mục" aria-label="Đổi tên danh mục" style="flex:0 0 auto;">${svgIcon('edit')}</button>
-      <button type="button" class="btn-danger file-action-button btn-del-category" title="Xóa danh mục" aria-label="Xóa danh mục" style="flex:0 0 auto;">${svgIcon('trash')}</button>
     `;
-    card.querySelector('.btn-edit-category').onclick = (e) => { e.stopPropagation(); openEditCategoryModal(type); };
-    card.querySelector('.btn-del-category').onclick = (e) => { e.stopPropagation(); deleteCategory(type); };
     const openThisFolder = () => { openFolderDetails(type); };
     card.onclick = openThisFolder;
     card.onkeydown = (e) => {
-      if (e.target !== card) return; // không kích hoạt khi phím bấm đến từ nút sửa/xóa lồng bên trong
+      if (e.target !== card) return; // không kích hoạt khi phím bấm đến từ phần tử lồng bên trong
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openThisFolder(); }
     };
     grid.appendChild(card);
   });
 
   container.appendChild(grid);
+}
+
+// Sắp xếp danh sách tệp trong Hồ sơ tổng hợp: theo ngày tải lên hoặc theo tên tệp (A-Z/Z-A).
+// Lấy phần số trong id (thay vì Number(id) trực tiếp) vì tệp "Hồ sơ tạm" có id dạng
+// "doc_<timestamp>_<i>" chứ không phải chuỗi số thuần như tệp đã phân loại.
+function sortConsolidatedList(files, mode) {
+  const arr = [...files];
+  const idNum = doc => Number((doc.id || '').toString().replace(/\D/g, '') || 0);
+  const fileLabel = doc => doc.fileName || doc.desc || '';
+  if (mode === 'name-asc') arr.sort((a, b) => fileLabel(a).localeCompare(fileLabel(b), 'vi', { sensitivity: 'base' }));
+  else if (mode === 'name-desc') arr.sort((a, b) => fileLabel(b).localeCompare(fileLabel(a), 'vi', { sensitivity: 'base' }));
+  else if (mode === 'date-asc') arr.sort((a, b) => idNum(a) - idNum(b));
+  else arr.sort((a, b) => idNum(b) - idNum(a));
+  return arr;
+}
+
+// Thanh toolbar chuyển đổi Lưới/Danh sách + sắp xếp cho màn hình Hồ sơ tổng hợp, đặt ngay dưới
+// hàng chip lọc thành viên. onRerender: vẽ lại đúng màn hình con đang mở (chi tiết 1 danh mục).
+function renderConsolidatedToolbar(onRerender) {
+  const toolsBar = document.createElement('div');
+  toolsBar.className = 'docs-toolbar-row';
+
+  const leftGroup = document.createElement('div');
+  leftGroup.className = 'docs-toolbar-left';
+  leftGroup.appendChild(renderViewToggleBar(onRerender));
+
+  const sortWrap = document.createElement('div');
+  sortWrap.className = 'docs-sort-wrap';
+  sortWrap.innerHTML = `
+    <label for="consolidatedSortSelect" style="font-size:0.85rem; color:var(--text-muted); white-space:nowrap; margin:0;">Sắp xếp:</label>
+    <select id="consolidatedSortSelect" style="max-width:220px;">
+      <option value="date-desc">Ngày tải lên (mới nhất trước)</option>
+      <option value="date-asc">Ngày tải lên (cũ nhất trước)</option>
+      <option value="name-asc">Tên tệp (A → Z)</option>
+      <option value="name-desc">Tên tệp (Z → A)</option>
+    </select>
+  `;
+  const select = sortWrap.querySelector('#consolidatedSortSelect');
+  select.value = consolidatedSortMode;
+  select.onchange = (e) => {
+    consolidatedSortMode = e.target.value;
+    onRerender();
+  };
+  leftGroup.appendChild(sortWrap);
+  toolsBar.appendChild(leftGroup);
+  return toolsBar;
 }
 
 // Sắp xếp danh sách tệp theo ngày tải lên hoặc theo mô tả (A-Z)
@@ -1181,7 +1287,10 @@ function toggleDocSelectMode() {
   const selectAllCb = document.getElementById('docSelectAllCheckbox');
   if (selectAllCb) selectAllCb.checked = false;
   document.getElementById('docsBatchToolbar').classList.toggle('hidden', !isDocSelectMode);
-  setBtnLabel(document.getElementById('btnToggleDocSelect'), isDocSelectMode ? 'close' : 'checkSquare', isDocSelectMode ? 'Thoát chọn' : 'Chọn nhiều tệp');
+  // Nút "Chọn nhiều tệp" chỉ để BẬT chế độ chọn - khi đã bật, ẩn hẳn nó đi (thay vì đổi nhãn
+  // thành "Thoát chọn" ngay tại chỗ) vì nút "Thoát chọn" giờ nằm chung hàng trong
+  // #docsBatchToolbar (dạng ghost/link nhẹ, xem .btn-exit-select) để không bị rời rạc/thô.
+  document.getElementById('btnToggleDocSelect').classList.toggle('hidden', isDocSelectMode);
   if (currentDocsFolder) openFolderDetails(currentDocsFolder);
   else updateDocSelectedCount();
 }
@@ -1401,121 +1510,6 @@ async function moveSelectedDocuments() {
 // Quản lý thư mục con bên trong 1 danh mục giấy tờ (có thể lồng nhiều cấp)
 let newFolderParentId = null;
 let editingFolderId = null;
-let editingCategoryName = null;
-
-// Toàn bộ tên danh mục (docType) hiện có của 1 thành viên, kể cả danh mục rỗng vừa tạo (m.categories)
-function getAllCategoryNames(m) {
-  const names = new Set();
-  (m.documents || []).forEach(d => names.add(d.docType || 'Giấy tờ khác'));
-  (m.folders || []).forEach(f => names.add(f.docType));
-  (m.categories || []).forEach(name => names.add(name));
-  return [...names];
-}
-
-function openNewCategoryModal() {
-  editingCategoryName = null;
-  document.getElementById('categoryModalTitle').innerText = 'Tạo danh mục mới';
-  document.getElementById('btnSaveCategory').innerText = 'Tạo danh mục';
-  document.getElementById('categoryNameInput').value = '';
-  document.getElementById('categoryModal').classList.remove('hidden');
-}
-
-function openEditCategoryModal(docType) {
-  editingCategoryName = docType;
-  document.getElementById('categoryModalTitle').innerText = 'Đổi tên danh mục';
-  document.getElementById('btnSaveCategory').innerText = 'Lưu';
-  document.getElementById('categoryNameInput').value = docType;
-  document.getElementById('categoryModal').classList.remove('hidden');
-}
-
-function closeCategoryModal() {
-  editingCategoryName = null;
-  document.getElementById('categoryModal').classList.add('hidden');
-}
-
-async function saveCategory() {
-  const name = document.getElementById('categoryNameInput').value.trim();
-  if (!name) {
-    alert('Vui lòng nhập tên danh mục!');
-    return;
-  }
-  const m = members.find(item => String(item.id) === String(currentMemberId));
-  if (!m) return;
-  if (!m.categories) m.categories = [];
-
-  const duplicate = getAllCategoryNames(m).some(n => n.toLowerCase() === name.toLowerCase() && n !== editingCategoryName);
-  if (duplicate) {
-    alert('Danh mục này đã tồn tại!');
-    return;
-  }
-
-  const btn = document.getElementById('btnSaveCategory');
-
-  if (editingCategoryName) {
-    const oldName = editingCategoryName;
-    if (oldName === name) { closeCategoryModal(); return; }
-    (m.documents || []).forEach(d => { if ((d.docType || 'Giấy tờ khác') === oldName) d.docType = name; });
-    (m.folders || []).forEach(f => { if (f.docType === oldName) f.docType = name; });
-    m.categories = (m.categories || []).map(n => n === oldName ? name : n);
-
-    btn.innerText = 'Đang lưu...';
-    try {
-      await pushToFirebase();
-      if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
-      closeCategoryModal();
-      renderDocsFolders();
-    } catch (err) {
-      alert('Lỗi đổi tên danh mục: ' + err.message);
-    } finally {
-      btn.innerText = 'Lưu';
-    }
-    return;
-  }
-
-  m.categories.push(name);
-  btn.innerText = 'Đang tạo...';
-  try {
-    await pushToFirebase();
-    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
-    closeCategoryModal();
-    renderDocsFolders();
-  } catch (err) {
-    m.categories = m.categories.filter(n => n !== name);
-    alert('Lỗi tạo danh mục: ' + err.message);
-  } finally {
-    btn.innerText = 'Tạo danh mục';
-  }
-}
-
-async function deleteCategory(docType) {
-  const m = members.find(item => String(item.id) === String(currentMemberId));
-  if (!m) return;
-
-  const fileCount = (m.documents || []).filter(d => (d.docType || 'Giấy tờ khác') === docType).length;
-  const folderCount = (m.folders || []).filter(f => f.docType === docType).length;
-  const detail = (fileCount || folderCount)
-    ? ` Toàn bộ ${fileCount} tệp và ${folderCount} thư mục con bên trong sẽ bị xóa vĩnh viễn.`
-    : '';
-  if (!confirm(`Xóa danh mục "${docType}"?${detail}`)) return;
-
-  (m.documents || []).forEach(d => {
-    if ((d.docType || 'Giấy tờ khác') === docType && decryptedDocumentUrlCache.has(d.id)) {
-      URL.revokeObjectURL(decryptedDocumentUrlCache.get(d.id));
-      decryptedDocumentUrlCache.delete(d.id);
-    }
-  });
-  m.documents = (m.documents || []).filter(d => (d.docType || 'Giấy tờ khác') !== docType);
-  m.folders = (m.folders || []).filter(f => f.docType !== docType);
-  m.categories = (m.categories || []).filter(n => n !== docType);
-
-  try {
-    await pushToFirebase();
-    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
-    renderDocsFolders();
-  } catch (err) {
-    alert('Lỗi xóa danh mục: ' + err.message);
-  }
-}
 
 // Trả về toàn bộ id của 1 thư mục và mọi thư mục con/cháu bên trong nó (đệ quy)
 function collectFolderSubtreeIds(m, folderId) {
@@ -1730,15 +1724,27 @@ function openFolderDetails(docType, subfolderId = null) {
   }
 
   updateDocsBackBtnLabel();
+  // Vào chi tiết 1 danh mục (dù ở gốc danh mục hay đã vào thư mục con): cho phép tải lên trở
+  // lại, vì đích đến (ownerId/docType/folderId) đã rõ ràng. Nút "Chọn nhiều tệp" cũng chỉ có
+  // ý nghĩa ở đây (renderDocsFolders() luôn ẩn nó vì màn hình gốc không có tệp nào để chọn) -
+  // đồng bộ lại theo đúng trạng thái isDocSelectMode hiện tại (ẩn nếu đang ở giữa chế độ chọn).
+  setDocsUploadControlsVisible(true);
+  document.getElementById('btnToggleDocSelect').classList.toggle('hidden', isDocSelectMode);
+
+  const defaultCat = DEFAULT_CATEGORIES.find(c => c.key === docType);
+  const isDefaultCategory = Boolean(defaultCat);
   const ancestorChain = getFolderAncestorChain(m, subfolderId);
   const isAtCategoryRoot = !subfolderId;
   const docTypeEscaped = escapeHtml(docType).replace(/'/g, "\\'");
   const crumbLink = (label, onclick) => `<a href="javascript:void(0)" onclick="${onclick}" class="breadcrumb-link">${label}</a>`;
+  // Breadcrumb: [Tên thành viên / Hồ sơ chung] > [Icon + Tên danh mục] > [Tên thư mục con...]
+  const ownerLabel = escapeHtml(m.name || '');
+  const categoryLabel = `<span class="breadcrumb-cat">${svgIcon(defaultCat ? defaultCat.icon : 'folder')}${escapeHtml(docType)}</span>`;
   const breadcrumbParts = [
-    crumbLink('Tất cả danh mục', 'renderDocsFolders()'),
+    crumbLink(ownerLabel, 'renderDocsFolders()'),
     isAtCategoryRoot
-      ? `<strong class="breadcrumb-current">${escapeHtml(docType)}</strong>`
-      : crumbLink(escapeHtml(docType), `openFolderDetails('${docTypeEscaped}')`)
+      ? `<strong class="breadcrumb-current">${categoryLabel}</strong>`
+      : crumbLink(categoryLabel, `openFolderDetails('${docTypeEscaped}')`)
   ];
   ancestorChain.forEach((f, idx) => {
     const isLast = idx === ancestorChain.length - 1;
@@ -1747,7 +1753,7 @@ function openFolderDetails(docType, subfolderId = null) {
       : crumbLink(escapeHtml(f.name), `openFolderDetails('${docTypeEscaped}', '${escapeHtml(f.id).replace(/'/g, "\\'")}')`));
   });
   const breadcrumbSep = `<span class="breadcrumb-sep">${svgIcon('arrowRight')}</span>`;
-  document.getElementById('docsBreadcrumb').innerHTML = svgIcon('folder') + breadcrumbParts.join(breadcrumbSep);
+  document.getElementById('docsBreadcrumb').innerHTML = breadcrumbParts.join(breadcrumbSep);
 
   const container = document.getElementById('docsExplorerContent');
   container.innerHTML = '';
@@ -1756,7 +1762,11 @@ function openFolderDetails(docType, subfolderId = null) {
   const allTypeFolders = (m.folders || []).filter(f => f.docType === docType);
   const childFolders = allTypeFolders.filter(f => (f.parentId || null) === (subfolderId || null));
 
-  if (!subfolder && allTypeDocs.length === 0 && allTypeFolders.length === 0) {
+  // Chỉ bật lại "Tất cả danh mục" khi danh mục này thực sự không còn tồn tại (VD: vừa bị xóa ở
+  // tab khác). 7 danh mục chuẩn luôn hợp lệ để mở vào, kể cả đang trống 0 tệp - nếu không, bấm
+  // vào 1 danh mục chuẩn còn trống sẽ bị bật ngược lại màn hình gốc, mất luôn currentDocsFolder
+  // mà nút FAB cần để nhận diện ngữ cảnh lưu thẳng.
+  if (!subfolder && !isDefaultCategory && allTypeDocs.length === 0 && allTypeFolders.length === 0) {
     renderDocsFolders();
     return;
   }
@@ -1818,8 +1828,7 @@ function openFolderDetails(docType, subfolderId = null) {
         <div class="folder-icon">${svgIcon('folder')}</div>
         <div class="folder-info">
           <div class="folder-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
-          <div class="folder-count">${count} tệp đính kèm</div>
-          <span class="folder-badge">Mở thư mục${svgIcon('arrowRight')}</span>
+          <div class="folder-count">${count} tệp</div>
         </div>
         <button type="button" class="btn-outline file-action-button btn-edit-subfolder" title="Đổi tên thư mục" aria-label="Đổi tên thư mục" style="flex:0 0 auto;">${svgIcon('edit')}</button>
         <button type="button" class="btn-danger file-action-button btn-del-subfolder" title="Xóa thư mục" aria-label="Xóa thư mục" style="flex:0 0 auto;">${svgIcon('trash')}</button>
@@ -2003,97 +2012,42 @@ async function saveDocumentEdit() {
   }
 }
 
-// Lưu tài liệu mới
-async function saveDocument() {
+// ============================================================
+// QUICK PREVIEW & SAVE (FAB Camera): mặc định lưu thẳng vào "Hồ sơ tạm" (status: 'pending'),
+// KHÔNG hỏi chủ sở hữu/danh mục/ghi chú/gắn thẻ. Nhưng nếu FAB được bấm ngay trong lúc đang
+// đứng ở 1 danh mục/thư mục con cụ thể của Hồ sơ cá nhân hoặc Hồ sơ chung gia đình (Context-
+// Aware Upload, xem detectGlobalUploadContext()), lưu thẳng vào đúng vị trí đó với trạng thái
+// chính thức thay vì bắt người dùng hoàn tất phân loại lại sau. "Hồ sơ tổng hợp" (Kho tổng) và
+// trang chủ luôn về "Hồ sơ tạm" vì gộp nhiều chủ sở hữu, không có 1 đích lưu duy nhất rõ ràng.
+// ============================================================
+
+// Xác định ngữ cảnh hiện tại khi bấm FAB: chỉ nhận diện được đích lưu rõ ràng khi đang đứng
+// trong màn hình Hồ sơ cá nhân/Hồ sơ chung gia đình (docsView) VÀ đã chọn 1 danh mục cụ thể
+// (currentDocsFolder khác rỗng) - còn ở trang chủ, Kho tổng, hoặc mới vào "Tất cả danh mục"
+// (chưa bấm vào danh mục nào) đều trả về null để rơi về hành vi mặc định (Hồ sơ tạm).
+function detectGlobalUploadContext() {
+  if (document.getElementById('docsView').classList.contains('hidden')) return null;
+  if (!currentDocsFolder) return null;
   const m = members.find(item => String(item.id) === String(currentMemberId));
-  if (!m) return;
-
-  const typeSel = document.getElementById('docTypeSelect').value;
-  const docType = typeSel === 'custom' 
-    ? (document.getElementById('docCustomName').value.trim() || 'Tài liệu khác')
-    : typeSel;
-  
-  if (!pendingUploadFiles || pendingUploadFiles.length === 0) {
-    alert('Vui lòng chọn ít nhất 1 tệp hình ảnh hoặc PDF để tải lên!');
-    return;
-  }
-
-  const files = pendingUploadFiles.map(entry => entry.file);
-  const descList = pendingUploadFiles.map(entry => (entry.desc || '').trim());
-  const btn = document.getElementById('btnSaveDoc');
-  if (!m.documents) m.documents = [];
-  if (!m.folders) m.folders = [];
-
-  const folderSel = document.getElementById('docFolderSelect').value;
-  let targetFolderId = null;
-  let createdFolder = null;
-  if (folderSel === '__new__') {
-    const newFolderName = document.getElementById('docNewFolderName').value.trim();
-    if (!newFolderName) {
-      alert('Vui lòng nhập tên thư mục mới, hoặc chọn "Thư mục gốc của danh mục"!');
-      return;
-    }
-    const existing = m.folders.find(f => f.docType === docType && !f.parentId && f.name.toLowerCase() === newFolderName.toLowerCase());
-    if (existing) {
-      targetFolderId = existing.id;
-    } else {
-      createdFolder = {
-        id: String(Date.now()),
-        docType,
-        parentId: null,
-        name: newFolderName,
-        createdAt: new Date().toLocaleDateString('vi-VN')
-      };
-      m.folders.push(createdFolder);
-      targetFolderId = createdFolder.id;
-    }
-  } else if (folderSel) {
-    targetFolderId = folderSel;
-  }
-
-  try {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      btn.innerText = files.length > 1
-        ? `Đang tải tệp ${i + 1}/${files.length}...`
-        : 'Đang tải tệp & lưu...';
-      const documentId = String(Date.now() + i);
-      const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${currentMemberId}/${documentId}-${file.name}`);
-      m.documents.push({
-        id: documentId,
-        docType,
-        folderId: targetFolderId,
-        fileName: file.name,
-        fileType: file.type,
-        desc: descList[i] || file.name,
-        data: storageUrl,
-        encrypted: true,
-        createdAt: new Date().toLocaleDateString('vi-VN')
-      });
-    }
-    await pushToFirebase();
-    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
-    closeUploadDocModal();
-    if (currentDocsFolder && currentDocsFolder === docType) openFolderDetails(docType, targetFolderId);
-    else renderDocsFolders();
-    alert(files.length > 1 ? `Đã tải lên và lưu ${files.length} tệp thành công!` : 'Đã tải lên và lưu giấy tờ thành công!');
-  } catch (err) {
-    if (createdFolder) m.folders = m.folders.filter(f => f.id !== createdFolder.id);
-    alert('Lỗi khi lưu tài liệu: ' + err.message);
-  } finally {
-    btn.innerText = 'Tải lên & Lưu';
-  }
+  if (!m) return null;
+  const folder = currentSubfolderId ? (m.folders || []).find(f => String(f.id) === String(currentSubfolderId)) : null;
+  if (currentSubfolderId && !folder) return null; // thư mục đã bị xóa - phòng hờ, an toàn hơn là về Hồ sơ tạm
+  return {
+    ownerId: m.id,
+    docType: currentDocsFolder,
+    folderId: currentSubfolderId || null,
+    label: folder ? folder.name : currentDocsFolder
+  };
 }
 
-// ============================================================
-// QUICK PREVIEW & SAVE (FAB Camera): lưu thẳng các tệp vừa chụp/chọn vào "Hồ sơ tạm"
-// (status: 'pending'), không hỏi chủ sở hữu/danh mục/ghi chú/gắn thẻ. Tệp được gửi vào
-// kho "Chưa gán chủ sở hữu" (xem ensureUnassignedOwnerMember() trong config.js) để
-// hoàn tất phân loại sau trong "Hồ sơ tạm".
-// ============================================================
 async function saveGlobalDocument() {
   if (!globalUploadFiles || globalUploadFiles.length === 0) {
     alert('Vui lòng chụp/chọn ít nhất 1 ảnh hoặc tệp PDF để lưu!');
+    return;
+  }
+
+  if (globalUploadContext) {
+    await saveGlobalDocumentToContext(globalUploadContext);
     return;
   }
 
@@ -2150,6 +2104,64 @@ async function saveGlobalDocument() {
   }
 }
 
+// Lưu thẳng vào đúng danh mục/thư mục hiện hành (Context-Aware Upload) với trạng thái chính
+// thức, thay vì đẩy vào "Hồ sơ tạm" chờ phân loại - dùng khi FAB được bấm ngay trong lúc đang
+// đứng ở 1 danh mục cụ thể của Hồ sơ cá nhân/Hồ sơ chung gia đình (xem detectGlobalUploadContext()).
+async function saveGlobalDocumentToContext(context) {
+  const m = members.find(item => String(item.id) === String(context.ownerId));
+  if (!m) {
+    alert('Không tìm thấy hồ sơ thành viên tương ứng!');
+    return;
+  }
+  if (!m.documents) m.documents = [];
+
+  const files = globalUploadFiles.map(entry => entry.file);
+  const btn = document.getElementById('btnSaveGlobalDoc');
+  const originalBtnLabel = btn.innerHTML;
+  const savedDocs = [];
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const progress = files.length > 1 ? ` ${i + 1}/${files.length}` : '';
+      setBtnLabel(btn, 'clock', 'Đang lưu' + progress + '...');
+      const documentId = String(Date.now() + i);
+      const storageUrl = await uploadEncryptedFileToStorage(file, `documents/${m.id}/${documentId}-${file.name}`);
+      const doc = {
+        id: documentId,
+        docType: context.docType,
+        folderId: context.folderId,
+        fileName: file.name,
+        fileType: file.type,
+        desc: file.name,
+        data: storageUrl,
+        encrypted: true,
+        status: 'completed',
+        createdAt: new Date().toLocaleDateString('vi-VN'),
+        uploadedAt: new Date().toISOString()
+      };
+      m.documents.push(doc);
+      savedDocs.push(doc);
+    }
+    await pushToFirebase();
+    if (typeof refreshAllDocTypeSelects === 'function') refreshAllDocTypeSelects();
+    closeGlobalUploadModal();
+    showToast(`Đã lưu ${files.length} tệp vào ${context.label}.`);
+
+    // Vẽ lại ngay danh sách tệp tại đúng thư mục hiện hành để thấy file mới tức thì (chỉ khi
+    // người dùng vẫn còn đứng ở đúng màn hình đó, phòng trường hợp đã điều hướng đi nơi khác
+    // trong lúc chờ tải lên).
+    if (!document.getElementById('docsView').classList.contains('hidden')
+      && String(currentMemberId) === String(context.ownerId) && currentDocsFolder === context.docType) {
+      openFolderDetails(context.docType, context.folderId || null);
+    }
+  } catch (err) {
+    m.documents = m.documents.filter(d => !savedDocs.includes(d));
+    alert('Lỗi khi lưu tài liệu: ' + err.message);
+  } finally {
+    btn.innerHTML = originalBtnLabel;
+  }
+}
+
 // Xóa tài liệu
 async function deleteDocument(docId) {
   const m = members.find(item => String(item.id) === String(currentMemberId));
@@ -2182,6 +2194,7 @@ async function deleteDocument(docId) {
 // phân loại" (chuyển status -> 'completed', có thể đổi cả chủ sở hữu/danh mục/thư mục con).
 // ============================================================
 let editingPendingDoc = null; // { ownerId, docId }
+let pendingEditingTags = []; // Bản nháp mảng tags (tên thành viên liên quan) đang chỉnh trong modal Hoàn tất phân loại
 
 // Tài liệu cũ không có trường status luôn được coi là 'completed' (xem yêu cầu di trú dữ liệu).
 function getAllPendingDocuments() {
@@ -2277,7 +2290,11 @@ function openPendingCompleteModal(ownerId, docId) {
   editingPendingDoc = { ownerId, docId };
 
   populatePendingOwnerSelect();
-  document.getElementById('pdOwnerSelect').value = ownerId;
+  const ownerSelect = document.getElementById('pdOwnerSelect');
+  // Tệp lưu nhanh qua FAB luôn nằm ở "Chưa gán chủ sở hữu" (ownerId không có mặt trong danh
+  // sách lựa chọn) - trường hợp đó mặc định chọn "Hồ sơ chung gia đình" thay vì để trống lựa chọn.
+  const ownerExists = Array.from(ownerSelect.options).some(o => o.value === String(ownerId));
+  ownerSelect.value = ownerExists ? ownerId : FAMILY_SHARED_ID;
 
   populateDocTypeSelect('pdCategorySelect');
   const categorySelect = document.getElementById('pdCategorySelect');
@@ -2295,11 +2312,38 @@ function openPendingCompleteModal(ownerId, docId) {
 
   document.getElementById('pdDesc').value = doc.desc || '';
 
+  pendingEditingTags = Array.isArray(doc.tags) ? [...doc.tags] : [];
+  renderPendingTagsChips();
+
   document.getElementById('pendingCompleteModal').classList.remove('hidden');
+}
+
+// Chip chọn nhiều "Thành viên liên quan" trong modal Hoàn tất phân loại: bấm để thêm/bớt tên
+// thành viên khỏi mảng pendingEditingTags (chỉ gồm thành viên thật, không tính Hồ sơ chung/Chưa
+// gán chủ sở hữu - dùng lại displayMembers() như bộ lọc tag của Hồ sơ tổng hợp).
+function renderPendingTagsChips() {
+  const wrap = document.getElementById('pdTagsChips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  displayMembers().forEach(mem => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const active = pendingEditingTags.includes(mem.name);
+    chip.className = `tag-chip${active ? ' is-active' : ''}`;
+    chip.textContent = mem.name;
+    chip.onclick = () => {
+      pendingEditingTags = active
+        ? pendingEditingTags.filter(t => t !== mem.name)
+        : [...pendingEditingTags, mem.name];
+      renderPendingTagsChips();
+    };
+    wrap.appendChild(chip);
+  });
 }
 
 function closePendingCompleteModal() {
   editingPendingDoc = null;
+  pendingEditingTags = [];
   document.getElementById('pendingCompleteModal').classList.add('hidden');
 }
 
@@ -2361,7 +2405,7 @@ async function savePendingComplete() {
   // (không chỉ vị trí trong members[], mà cả nội dung doc) nếu lưu thất bại.
   const previousFields = {
     ownerId: doc.ownerId, docType: doc.docType, folderId: doc.folderId,
-    desc: doc.desc, status: doc.status
+    desc: doc.desc, status: doc.status, tags: doc.tags
   };
 
   if (ownerChanged) {
@@ -2373,6 +2417,7 @@ async function savePendingComplete() {
   doc.folderId = targetFolderId;
   doc.desc = desc || doc.fileName || docType;
   doc.status = 'completed';
+  doc.tags = pendingEditingTags.slice();
 
   if (ownerChanged) targetMember.documents.push(doc);
 

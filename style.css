@@ -25,6 +25,14 @@
                  radial-gradient(circle at 90% 0%, #fdf4ff 0%, transparent 40%),
                  var(--bg);
 
+  /* Tông tím đậm hơn --accent, dành riêng cho việc làm nổi bật DỨT KHOÁT thẻ danh mục đã có
+     tệp (.folder-card-has-files) và badge số lượng tương ứng (.category-badge.has-docs) -
+     tách khỏi --accent/--accent-2 vì đây là 1 mức nhấn mạnh mạnh hơn, không phải trạng thái
+     hover/active thông thường. --accent-glow-rgb dùng cho box-shadow (cần kênh alpha). */
+  --accent-vivid: #a78bfa;
+  --accent-glow-rgb: 124, 58, 237;
+  --badge-solid: #6c5ce7;
+
   /* ===== Trạng thái ngữ nghĩa (Success / Danger / Info) ===== */
   --success: #047857;
   --success-soft: #ecfdf5;
@@ -49,6 +57,20 @@
   --pending-soft: var(--gold-light);
   --pending-soft-hover: #fde68a;
   --pending-border: #fcd34d;
+
+  /* ===== Bảng màu nhận diện 7 danh mục tài liệu chuẩn (icon-box danh mục) =====
+     Đây là màu nhận diện NỘI DUNG (mỗi danh mục 1 màu cố định để dễ phân biệt bằng mắt),
+     khác với 4 nhóm ngữ nghĩa Success/Danger/Info/Pending ở trên vốn biểu thị TRẠNG THÁI
+     tương tác - nên tách riêng, không đổi theo hover/active và không mượn lại các biến đó
+     dù trùng tông màu (VD: Info cũng xanh dương nhưng đã dành riêng cho nút prev/next modal
+     xem trước tài liệu). Dùng cho .folder-icon.icon-xxx trong style.css. */
+  --cat-identity-soft: #e0f2fe; --cat-identity: #0284c7; --cat-identity-rgb: 2, 132, 199;   /* Định danh & Tùy thân - xanh dương */
+  --cat-health-soft: #fee2e2;   --cat-health: #ef4444;   --cat-health-rgb: 239, 68, 68;     /* Y tế & Sức khỏe - đỏ */
+  --cat-legal-soft: #ede9fe;    --cat-legal: #7c3aed;    --cat-legal-rgb: 124, 58, 237;     /* Tài sản & Pháp lý - tím */
+  --cat-finance-soft: #dcfce7; --cat-finance: #16a34a;   --cat-finance-rgb: 22, 163, 74;    /* Thuế & Tài chính - xanh lá */
+  --cat-edu-soft: #fef3c7;      --cat-edu: #d97706;      --cat-edu-rgb: 217, 119, 6;        /* Học tập & Công việc - cam */
+  --cat-family-soft: #ccfbf1;   --cat-family: #0d9488;   --cat-family-rgb: 13, 148, 136;    /* Hộ tịch & Gia đình - xanh ngọc */
+  --cat-bills-soft: #f1f5f9;    --cat-bills: #334155;    --cat-bills-rgb: 51, 65, 85;       /* Chi phí & Hóa đơn - xám than */
 
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
   --shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.06);
@@ -224,16 +246,35 @@ button:focus-visible { outline: none; box-shadow: var(--ring-accent); }
   .members-toolbar-actions button { flex: 1 1 auto; justify-content: center; }
 }
 
-/* Thanh tác vụ hàng loạt (chọn nhiều tệp) trong Hồ sơ cá nhân */
+/* Thanh tác vụ hàng loạt (chọn nhiều tệp) trong Hồ sơ cá nhân - nền trung tính (không dùng
+   --accent-soft) để không bị ám tím chồng lên các nút hành động tông tím/đỏ bên trong
+   (.btn-tool "Chuyển thư mục", .btn-danger "Xóa đã chọn") - lỗi đã gặp khi bar + nút cùng
+   tông tím nhạt gần như hoà lẫn vào nhau. Bố cục 2 hàng: hàng trên (.batch-bar-top) gồm
+   checkbox/số lượng đã chọn bên trái và nút đóng dải chọn (.btn-exit-select) ở góc phải; hàng
+   dưới (.batch-bar-actions) chứa các nút hành động hàng loạt. */
 .batch-bar {
-  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 10px 16px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 12px rgba(109, 91, 208, 0.08);
+  box-shadow: var(--shadow-sm);
 }
+.batch-bar-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.batch-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Nút đóng dải chọn (✕ Hủy) ở góc phải thanh công cụ chọn hàng loạt: Ghost Button nhẹ nhàng
+   tông tím thương hiệu (không nền/viền mặc định để không cạnh tranh với các nút hành động
+   chính .btn-tool/.btn-danger), chỉ nổi lên khi hover/active/focus. */
+.btn-exit-select {
+  background: none; border: 1px solid transparent; color: var(--accent-2); font-size: 13px; font-weight: 700;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+}
+.btn-exit-select:hover { background: var(--accent-soft-hover); border-color: var(--accent-border-hover); }
+.btn-exit-select:active { background: var(--accent-border); border-color: var(--accent); transform: scale(0.96); }
+.btn-exit-select:focus-visible { outline: none; box-shadow: var(--ring-accent); }
 
 /* Lưới thành viên */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
@@ -407,16 +448,6 @@ table.summary-table tr:hover { background: #faf9ff; }
 
 .form-group { margin-bottom: 14px; text-align: left; }
 
-/* Danh sách mô tả từng tệp khi tải lên nhiều tệp cùng lúc: giới hạn chiều cao + thanh cuộn */
-#docFileDescList { max-height: 240px; overflow-y: auto; padding-right: 6px; }
-.btn-remove-pending-file {
-  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: none;
-  background: var(--danger-soft); color: var(--danger); line-height: 1; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease;
-}
-.btn-remove-pending-file:hover { background: var(--danger-soft-hover); }
-.btn-remove-pending-file:active { background: var(--danger-border); transform: scale(0.9); }
-.btn-remove-pending-file svg { width: 14px; height: 14px; display: block; }
 label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--navy); margin-bottom: 5px; }
 input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.9rem; background: #fafbfd; transition: all 0.2s ease; }
 input:focus, select:focus { border-color: var(--accent); background: #fff; outline: none; box-shadow: var(--ring-accent); }
@@ -457,7 +488,14 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
   flex-wrap: wrap; gap: 10px;
 }
 .docs-breadcrumb { font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; margin-bottom: 16px; display: flex; align-items: center; flex-wrap: wrap; }
-.docs-breadcrumb > svg:first-child { width: 14px; height: 14px; flex: 0 0 auto; display: block; margin-right: 6px; }
+/* Icon "folder" đặt trực tiếp làm con đầu tiên của .docs-breadcrumb (renderDocsFolders()/
+   renderConsolidatedCategories()/openConsolidatedCategoryDetails()...) không có class bọc
+   ngoài (khác .breadcrumb-cat svg có sẵn kích thước) nên trước đây bị trình duyệt vẽ theo
+   kích thước mặc định của SVG thay thế (300x150) - vỡ layout khổng lồ. Chặn tận gốc bằng
+   selector con trực tiếp, không phụ thuộc JS phải tự bọc từng nơi gọi. */
+.docs-breadcrumb > svg { width: 16px; height: 16px; flex: 0 0 auto; display: block; margin-right: 6px; }
+.breadcrumb-cat { display: inline-flex; align-items: center; gap: 5px; }
+.breadcrumb-cat svg { width: 14px; height: 14px; flex: 0 0 auto; display: block; }
 .breadcrumb-link {
   color: var(--text-muted); text-decoration: none; cursor: pointer; padding: 2px 6px; border-radius: 6px;
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
@@ -508,11 +546,15 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
   color: var(--accent-2); line-height: 1; width: 52px; height: 52px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 14px; background: var(--accent-soft);
+  border: 1px solid rgba(0, 0, 0, 0.04); transition: all 0.2s ease;
 }
-.folder-icon svg { width: 26px; height: 26px; display: block; }
+.folder-icon svg { width: 24px; height: 24px; display: block; }
 .folder-info { flex: 1; overflow: hidden; }
 .folder-name { font-weight: 700; color: var(--navy); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.folder-count { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+.folder-count {
+  display: inline-block; font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  background: var(--border-color); padding: 3px 10px; border-radius: 20px; transition: all 0.2s ease;
+}
 .folder-badge {
   display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; font-weight: 700;
   color: var(--accent-2); background: var(--accent-soft); padding: 3px 8px; border-radius: 20px; margin-top: 5px;
@@ -526,6 +568,74 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .folder-card-pending .folder-icon { background: var(--pending-soft); color: var(--pending); }
 .folder-card-pending .folder-name { color: var(--pending); }
 .folder-card-pending .folder-badge { background: var(--pending-soft); color: var(--pending); }
+
+/* Làm nổi bật thẻ danh mục đã có tệp đính kèm (count > 0) trên màn hình danh mục của Hồ sơ
+   chung/Giấy tờ cá nhân (renderDocsFolders()) và Kho tổng (renderConsolidatedCategories()) -
+   danh mục còn trống (0 tệp) giữ nguyên tông trung tính mặc định của .folder-card để không
+   thu hút sự chú ý. Áp dụng chung cho cả .folder-grid (Lưới) lẫn .folder-grid.view-list
+   (Danh sách) vì chỉ dựa vào class trên chính thẻ, không phụ thuộc thẻ bao ngoài. */
+.folder-card-has-files {
+  border: 1.5px solid var(--accent-vivid); background: linear-gradient(180deg, var(--accent-soft) 0%, #ffffff 65%);
+  box-shadow: 0 4px 16px rgba(var(--accent-glow-rgb), 0.08);
+}
+.folder-card-has-files:hover { background: linear-gradient(180deg, var(--accent-soft-hover) 0%, #fdfcff 65%); }
+.folder-card-has-files .folder-icon { background: var(--gradient-primary); color: #ffffff; }
+.folder-card-has-files .folder-count { background: var(--badge-solid); color: #ffffff; font-weight: 700; }
+
+/* Icon-box 7 danh mục chuẩn (renderDocsFolders()/renderConsolidatedCategories()): mỗi danh
+   mục 1 màu nhận diện pastel cố định (biến --cat-* ở :root), không đổi theo has-files/hover -
+   chỉ badge số tệp (.folder-count) đổi màu để báo hiệu có tệp hay chưa. Đặt sau rule
+   .folder-card-has-files .folder-icon ở trên để thắng nhờ thứ tự nguồn (cùng độ đặc hiệu
+   2 lớp: .folder-icon.icon-xxx). */
+.folder-icon.icon-identity { background: var(--cat-identity-soft); color: var(--cat-identity); }
+.folder-icon.icon-health   { background: var(--cat-health-soft); color: var(--cat-health); }
+.folder-icon.icon-legal    { background: var(--cat-legal-soft); color: var(--cat-legal); }
+.folder-icon.icon-finance  { background: var(--cat-finance-soft); color: var(--cat-finance); }
+.folder-icon.icon-edu      { background: var(--cat-edu-soft); color: var(--cat-edu); }
+.folder-icon.icon-family   { background: var(--cat-family-soft); color: var(--cat-family); }
+.folder-icon.icon-bills    { background: var(--cat-bills-soft); color: var(--cat-bills); }
+
+/* Glow nhẹ theo đúng màu icon (Modern Rounded DuoTone) cho khối icon-box 7 danh mục chuẩn -
+   áp dụng chung cho cả .folder-icon (chế độ Lưới) lẫn .category-icon-box (chế độ Danh sách)
+   vì cả 2 đều dùng chung 1 bộ class .icon-xxx. */
+.folder-icon.icon-identity, .category-icon-box.icon-identity { box-shadow: 0 4px 10px -3px rgba(var(--cat-identity-rgb), 0.35); }
+.folder-icon.icon-health,   .category-icon-box.icon-health   { box-shadow: 0 4px 10px -3px rgba(var(--cat-health-rgb), 0.35); }
+.folder-icon.icon-legal,    .category-icon-box.icon-legal    { box-shadow: 0 4px 10px -3px rgba(var(--cat-legal-rgb), 0.35); }
+.folder-icon.icon-finance,  .category-icon-box.icon-finance  { box-shadow: 0 4px 10px -3px rgba(var(--cat-finance-rgb), 0.35); }
+.folder-icon.icon-edu,      .category-icon-box.icon-edu      { box-shadow: 0 4px 10px -3px rgba(var(--cat-edu-rgb), 0.35); }
+.folder-icon.icon-family,   .category-icon-box.icon-family   { box-shadow: 0 4px 10px -3px rgba(var(--cat-family-rgb), 0.35); }
+.folder-icon.icon-bills,    .category-icon-box.icon-bills    { box-shadow: 0 4px 10px -3px rgba(var(--cat-bills-rgb), 0.22); }
+
+/* 7 thẻ danh mục chuẩn (.folder-card-standard) giữ nền trắng sạch dù có tệp hay không - không
+   dùng lớp phủ tím nhạt của .folder-card-has-files nữa vì đã đủ phân biệt bằng màu icon riêng
+   + badge số tệp ở trên. Danh mục tự tạo (custom, không có .folder-card-standard) vẫn giữ
+   nguyên lớp phủ tím cũ. */
+.folder-card-standard.folder-card-has-files,
+.folder-card-standard.folder-card-has-files:hover { background: var(--card-bg); }
+
+/* Hàng danh mục ở chế độ Danh sách (renderDocsFolders(), docsViewMode === 'list'): bố cục
+   2 bên hẳn hoi (trái: icon-box vuông + tên/phụ đề, phải: badge số tệp + nút quản lý nếu là
+   danh mục tự tạo) - khác bố cục dọc của .folder-card ở chế độ Lưới nên tách riêng thành 1 bộ
+   class .category-* thay vì cố nhồi vào .folder-name/.folder-count. Vẫn giữ class .folder-card
+   (+ .folder-card-has-files/-standard) trên cùng gốc để dùng chung hover/active/focus-visible
+   và màu nền/viền đã có, chỉ đổi cấu trúc bên trong. */
+.category-item { justify-content: space-between; }
+.category-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; overflow: hidden; }
+.category-icon-box {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.04); transition: all 0.2s ease;
+}
+.category-icon-box svg { width: 24px; height: 24px; display: block; }
+.category-info { min-width: 0; overflow: hidden; }
+.category-title { font-weight: 700; color: var(--navy); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.category-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px; }
+.category-badge {
+  display: inline-block; white-space: nowrap; font-size: 0.8125rem; font-weight: 600;
+  padding: 4px 12px; border-radius: 20px; background: var(--border-color); color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+.category-badge.has-docs { background: var(--badge-solid); color: #ffffff; }
 
 /* Lưới chi tiết tệp */
 .files-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
@@ -549,6 +659,61 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .file-actions-scroll { display: flex; gap: 8px; padding: 0 14px 14px; overflow-x: auto; }
 .file-action-button { width: 36px; height: 32px; padding: 0; border-radius: 8px; justify-content: center; font-size: 1rem; }
 .file-action-button svg { width: 16px; height: 16px; display: block; }
+
+/* Chân thẻ tệp trong Hồ sơ tổng hợp: chip tên chủ sở hữu bên trái + nút mũi tên nhảy thẳng
+   đến đúng thư mục cá nhân của thành viên đó bên phải, nằm ngay dưới tên tệp - thay cho hàng
+   icon mắt/mũi tên rời rạc trước đây. */
+.file-owner-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px 14px; }
+.file-owner-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700;
+  color: var(--accent-2); background: var(--accent-soft); padding: 3px 10px; border-radius: 20px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-goto-owner-btn {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--accent-border);
+  background: #ffffff; color: var(--accent-2); display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer; transition: all 0.2s ease;
+}
+.file-goto-owner-btn svg { width: 15px; height: 15px; display: block; }
+.file-goto-owner-btn:hover { background: var(--accent-soft-hover); border-color: var(--accent-border-hover); }
+.file-goto-owner-btn:active { background: var(--accent-border); transform: scale(0.94); }
+.file-goto-owner-btn:focus-visible { outline: none; box-shadow: var(--ring-accent); border-color: var(--accent-border-hover); }
+/* Chế độ Danh sách: hàng chủ sở hữu/mũi tên nằm gọn bên phải, không kéo dài hết hàng */
+.files-list.view-list .file-owner-row { flex: 0 0 auto; width: auto; max-width: 45%; padding: 0 12px 0 0; }
+.files-list.view-list .file-owner-chip { max-width: 150px; }
+
+/* Chân thẻ tệp trong màn hình "Hồ sơ tạm": đúng 1 hàng ngang - chip cảnh báo "Chưa gán chủ sở
+   hữu" (tông Pending/cam nhạt, bấm được để mở form gán) bên trái, cụm nút Sửa/Xóa bên phải.
+   Không còn icon con mắt rời: thumbnail/tên tệp đã tự bấm được để xem trước (xem
+   .file-name-plain-button bên dưới). */
+.pending-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px 14px; }
+.pending-unassigned-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700;
+  color: var(--pending); background: var(--pending-soft); border: 1px solid var(--pending-border);
+  padding: 4px 10px; border-radius: 20px; cursor: pointer; transition: all 0.2s ease;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pending-unassigned-chip svg { width: 13px; height: 13px; flex: 0 0 auto; display: block; }
+.pending-unassigned-chip:hover { background: var(--pending-soft-hover); }
+.pending-unassigned-chip:active { background: var(--pending-border); transform: scale(0.97); }
+.pending-unassigned-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--pending-soft); border-color: var(--pending-border); }
+.pending-footer-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.pending-footer-actions .file-action-button { width: 32px; height: 32px; }
+/* Chế độ Danh sách: chip + nút thao tác gọn bên phải hàng, không kéo dài hết chiều ngang */
+.files-list.view-list .pending-footer-row { flex: 0 0 auto; width: auto; max-width: 55%; padding: 0 12px 0 0; }
+.files-list.view-list .pending-unassigned-chip { max-width: 150px; }
+
+/* Tên tệp bấm được để xem trước ở chế độ Lưới (thay thế khối .file-card-info tĩnh cũ) */
+.file-name-plain-button {
+  display: block; width: 100%; text-align: left; background: none; border: 0; margin: 0;
+  padding: 12px 14px 8px; cursor: pointer; font: inherit; transition: all 0.2s ease;
+}
+.file-name-plain-button strong {
+  display: block; color: var(--navy); font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-name-plain-button:hover strong { color: var(--accent-2); }
+.file-name-plain-button:active strong { color: var(--accent-2); }
+.file-name-plain-button:focus-visible { outline: none; box-shadow: var(--ring-accent); border-radius: 6px; }
 
 /* Dạng danh sách (list view) cho các tệp giấy tờ */
 .files-list.view-list .file-card {
@@ -688,29 +853,34 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .gu-modal-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 24px; }
 .gu-modal-footer { flex: 0 0 auto; display: flex; gap: 8px; padding: 14px 24px calc(20px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border-color); }
 
-/* Lưới thumbnail to, dễ nhìn cho ảnh + hàng danh sách gọn cho PDF/tài liệu trong modal
-   Xem lại nhanh (Quick Preview) sau khi chụp/chọn từ FAB - mỗi tệp kèm nút "x" để gỡ
-   nếu bị mờ hoặc chọn nhầm. */
+/* Khung chứa: Single Preview (đúng 1 ảnh) căn giữa hoặc Compact List (còn lại) xếp
+   dọc từng hàng - mỗi tệp kèm nút "x" để gỡ nếu bị mờ hoặc chọn nhầm. */
 .gu-file-preview { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 16px; padding: 14px 0; }
-.gu-file-thumb-item { position: relative; width: 104px; }
-.gu-file-thumb { width: 100%; aspect-ratio: 1 / 1; height: auto; border-radius: 12px; }
-.gu-file-thumb-name {
-  display: block; margin-top: 6px; font-size: 0.7rem; color: var(--text-muted); text-align: center;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+
+/* Single Preview: đúng 1 ảnh được chọn - hiện 1 thumbnail lớn để xem rõ trước khi lưu,
+   thay vì thu nhỏ như danh sách nhiều tệp. */
+.gu-single-preview { position: relative; width: 100%; max-width: 320px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.gu-single-preview-img {
+  width: 100%; max-height: min(52vh, 420px); object-fit: contain; border-radius: 14px;
+  background: #e2e8f0; border: 1px solid #cbd5e1;
 }
-.gu-file-thumb-remove {
-  position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid #ffffff; background: var(--danger-soft); color: var(--danger); line-height: 1; cursor: pointer;
+.gu-single-preview-remove {
+  position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%;
+  border: 2px solid #ffffff; background: var(--danger-soft); color: var(--danger); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
-.gu-file-thumb-remove:hover { background: var(--danger-soft-hover); }
-.gu-file-thumb-remove:active { background: var(--danger-border); transform: scale(0.9); }
-.gu-file-thumb-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
-.gu-file-thumb-remove svg { width: 13px; height: 13px; display: block; }
+.gu-single-preview-remove:hover { background: var(--danger-soft-hover); }
+.gu-single-preview-remove:active { background: var(--danger-border); transform: scale(0.9); }
+.gu-single-preview-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.gu-single-preview-remove svg { width: 15px; height: 15px; display: block; }
+.gu-single-preview-meta { text-align: center; max-width: 100%; }
+.gu-single-preview-name { display: block; font-size: 0.85rem; font-weight: 600; color: var(--navy); word-break: break-word; }
+.gu-single-preview-size { display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
 
-/* Hàng danh sách gọn cho PDF/tài liệu (không phải ảnh): icon đỏ nhỏ bên trái, tên +
-   dung lượng ở giữa, nút "x" gỡ bỏ ở mép phải - chiếm trọn hàng để không lẫn vào lưới thumbnail. */
+/* Compact List: hàng danh sách gọn cho mọi tệp khi có từ 2 tệp trở lên hoặc là PDF/tài
+   liệu (không đủ điều kiện Single Preview) - icon/thumbnail nhỏ bên trái, tên + dung
+   lượng ở giữa, nút "x" gỡ bỏ ở mép phải. */
 .gu-file-row-item {
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 10px;
   border-radius: 12px; border: 1px solid var(--border-color); background: #ffffff; transition: all 0.2s ease;

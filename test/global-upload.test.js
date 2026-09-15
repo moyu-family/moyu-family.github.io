@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createApp } = require('../testing/app');
 
-test('renderGlobalFilePreview(): hiện thông báo trống khi chưa có ảnh nào; toàn ảnh thì vẽ lưới thumbnail', () => {
+test('renderGlobalFilePreview(): hiện thông báo trống khi chưa có ảnh nào', () => {
   const { window } = createApp();
   window.__state.globalUploadFiles = [];
 
@@ -11,18 +11,47 @@ test('renderGlobalFilePreview(): hiện thông báo trống khi chưa có ảnh 
   const preview = window.document.getElementById('guFilePreview');
   assert.match(preview.textContent, /Chưa có ảnh nào/);
   assert.equal(window.document.getElementById('guFileCount').textContent, '');
+});
 
+test('renderGlobalFilePreview(): đúng 1 ảnh -> Single Preview (1 thumbnail lớn)', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [
+    { file: { name: 'mat-truoc.jpg', type: 'image/jpeg', size: 512_000 }, previewUrl: 'blob:mat-truoc' }
+  ];
+  window.renderGlobalFilePreview();
+  const preview = window.document.getElementById('guFilePreview');
+  assert.equal(preview.querySelectorAll('.gu-single-preview').length, 1);
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 0, 'không được vẽ dạng Compact List khi chỉ có 1 ảnh');
+  assert.equal(preview.querySelector('.gu-single-preview-img').src, 'blob:mat-truoc');
+  assert.match(preview.querySelector('.gu-single-preview-size').textContent, /KB/);
+  assert.equal(window.document.getElementById('guFileCount').textContent, 'Đã chọn 1 tệp');
+});
+
+test('renderGlobalFilePreview(): đúng 1 tệp nhưng là PDF -> vẫn Compact List, không phải Single Preview', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [
+    { file: { name: 'to-khai.pdf', type: 'application/pdf', size: 900_000 }, previewUrl: null }
+  ];
+  window.renderGlobalFilePreview();
+  const preview = window.document.getElementById('guFilePreview');
+  assert.equal(preview.querySelectorAll('.gu-single-preview').length, 0, 'PDF thì dù chỉ 1 tệp cũng không dùng Single Preview');
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 1);
+});
+
+test('renderGlobalFilePreview(): từ 2 tệp trở lên (kể cả toàn ảnh) -> Compact List, không còn dạng lưới thumbnail cũ', () => {
+  const { window } = createApp();
   window.__state.globalUploadFiles = [
     { file: { name: 'mat-truoc.jpg', type: 'image/jpeg' }, previewUrl: null },
     { file: { name: 'mat-sau.jpg', type: 'image/jpeg' }, previewUrl: null }
   ];
   window.renderGlobalFilePreview();
-  assert.equal(preview.querySelectorAll('.gu-file-thumb-item').length, 2);
-  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 0);
+  const preview = window.document.getElementById('guFilePreview');
+  assert.equal(preview.querySelectorAll('.gu-single-preview').length, 0);
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 2);
   assert.equal(window.document.getElementById('guFileCount').textContent, 'Đã chọn 2 tệp');
 });
 
-test('renderGlobalFilePreview(): có lẫn nhiều thể loại (ảnh + PDF) thì thống nhất vẽ toàn bộ dạng hàng danh sách, không chia cắt lưới/list', () => {
+test('renderGlobalFilePreview(): có lẫn nhiều thể loại (ảnh + PDF) thì thống nhất vẽ toàn bộ dạng Compact List', () => {
   const { window } = createApp();
   window.__state.globalUploadFiles = [
     { file: { name: 'mat-truoc.jpg', type: 'image/jpeg' }, previewUrl: null },
@@ -30,7 +59,7 @@ test('renderGlobalFilePreview(): có lẫn nhiều thể loại (ảnh + PDF) th
   ];
   window.renderGlobalFilePreview();
   const preview = window.document.getElementById('guFilePreview');
-  assert.equal(preview.querySelectorAll('.gu-file-thumb-item').length, 0, 'không được còn item dạng lưới khi có nhiều thể loại');
+  assert.equal(preview.querySelectorAll('.gu-single-preview').length, 0);
   assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 2, 'kể cả ảnh cũng phải vẽ dạng hàng danh sách');
   assert.equal(preview.querySelectorAll('.gu-file-row-thumb').length, 1, 'hàng của ảnh dùng thumbnail ảnh thay vì icon tài liệu');
   assert.equal(preview.querySelectorAll('.gu-file-row-icon').length, 1, 'hàng của PDF dùng icon tài liệu màu đỏ');
@@ -63,18 +92,21 @@ test('renderGlobalFilePreview(): tên tệp trong hàng danh sách không bị J
   );
 });
 
-test('removeGlobalFile(): gỡ đúng 1 ảnh khỏi danh sách đang chờ lưu (lỡ chọn nhầm/ảnh mờ)', () => {
+test('removeGlobalFile(): gỡ đúng 1 ảnh khỏi danh sách đang chờ lưu (lỡ chọn nhầm/ảnh mờ), tự chuyển từ Compact List sang Single Preview khi chỉ còn lại 1 ảnh', () => {
   const { window } = createApp();
   window.__state.globalUploadFiles = [
     { file: { name: 'a.jpg', type: 'image/jpeg' }, previewUrl: null },
     { file: { name: 'b.jpg', type: 'image/jpeg' }, previewUrl: null }
   ];
   window.renderGlobalFilePreview();
+  const preview = window.document.getElementById('guFilePreview');
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 2, '2 ảnh trở lên phải hiện Compact List');
 
   window.removeGlobalFile(0);
 
   assert.deepEqual(Array.from(window.__state.globalUploadFiles).map(e => e.file.name), ['b.jpg']);
-  assert.equal(window.document.getElementById('guFilePreview').querySelectorAll('.gu-file-thumb-item').length, 1);
+  assert.equal(preview.querySelectorAll('.gu-single-preview').length, 1, 'chỉ còn 1 ảnh phải tự chuyển sang Single Preview');
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 0);
 });
 
 test('onGlobalFileSelected(): nạp tệp vừa chụp/chọn rồi tự mở modal Xem lại nhanh', () => {

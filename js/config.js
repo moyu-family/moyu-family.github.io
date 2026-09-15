@@ -41,17 +41,27 @@ const FAMILY_SHARED_NAME = 'Hồ sơ chung gia đình';
 const UNASSIGNED_OWNER_ID = 'unassigned_pending';
 const UNASSIGNED_OWNER_NAME = 'Chưa gán chủ sở hữu';
 
-// 7 nhóm danh mục chuẩn: chỉ là gợi ý hiển thị trong dropdown chọn danh mục (kèm
-// "+ Tạo danh mục mới..."), không tự tạo sẵn thư mục con nào bên trong.
-const STANDARD_CATEGORIES = [
-  'Định danh & Tùy thân',
-  'Hộ tịch & Gia đình',
-  'Y tế & Sức khỏe',
-  'Học tập & Công việc',
-  'Thuế & Tài chính',
-  'Chi phí & Hóa đơn',
-  'Tài sản & Pháp lý'
+// 7 danh mục chuẩn (Single Source of Truth): luôn hiển thị sẵn trên trang Hồ sơ cá nhân của
+// MỌI thành viên (kể cả thành viên mới tạo, chưa có tệp nào) lẫn Hồ sơ chung gia đình - xem
+// renderDocsFolders() trong members.js. `key` chính là giá trị docType thật lưu trên tài liệu/
+// thư mục (không phải mã rút gọn riêng) để tương thích ngược với toàn bộ dữ liệu/chức năng
+// hiện có (lọc, di chuyển, Kho tổng...) vốn đã dùng đúng chuỗi tên này làm định danh danh mục.
+// colorClass: màu nhận diện riêng cho khối icon-box của từng danh mục (xem biến --cat-* và
+// .folder-icon.icon-xxx trong style.css) - thuần trang trí/nhận diện nội dung, không phải
+// trạng thái tương tác nên tách khỏi bộ 4 biến ngữ nghĩa Success/Danger/Info/Pending.
+const DEFAULT_CATEGORIES = [
+  { key: 'Định danh & Tùy thân', icon: 'catIdentity', colorClass: 'icon-identity' },
+  { key: 'Hộ tịch & Gia đình', icon: 'catFamily', colorClass: 'icon-family' },
+  { key: 'Y tế & Sức khỏe', icon: 'catHealth', colorClass: 'icon-health' },
+  { key: 'Học tập & Công việc', icon: 'catEdu', colorClass: 'icon-edu' },
+  { key: 'Thuế & Tài chính', icon: 'catFinance', colorClass: 'icon-finance' },
+  { key: 'Chi phí & Hóa đơn', icon: 'catBills', colorClass: 'icon-bills' },
+  { key: 'Tài sản & Pháp lý', icon: 'catLegal', colorClass: 'icon-legal' }
 ];
+
+// Chỉ gồm tên (docType) của 7 danh mục chuẩn ở trên - dùng cho những chỗ chỉ cần so khớp/liệt kê
+// tên, không cần icon (dropdown chọn danh mục, di trú dữ liệu cũ...).
+const STANDARD_CATEGORIES = DEFAULT_CATEGORIES.map(c => c.key);
 
 // Ánh xạ tên danh mục (docType) cũ sang đúng 1 trong 7 nhóm chuẩn ở trên, dùng khi
 // di trú dữ liệu cũ (xem migrateCategoryNames() trong auth.js). Chỉ áp dụng cho các
@@ -91,12 +101,13 @@ let isDocSelectMode = false;
 let selectedDocIds = new Set();
 let selectedFolderIds = new Set();
 let currentSubfolderId = null;
-let pendingUploadFiles = []; // { file, desc } - danh sách tệp đang chờ tải lên trong modal upload, có thể bỏ bớt từng tệp
-let globalUploadFiles = []; // [{ file, previewUrl }] - các tệp đang chờ lưu trong modal Xem lại nhanh (FAB Camera)
+let globalUploadFiles = []; // [{ file, previewUrl }] - các tệp đang chờ lưu trong modal Xem lại nhanh (FAB Camera/nút "Tải lên tệp giấy tờ")
 let currentConsolidatedTagFilter = null; // { kind:'family' } | { kind:'member', id, name } | { kind:'custom', name }
 let docsViewMode = (function () {
   try { return localStorage.getItem('docsViewMode') || 'grid'; } catch (e) { return 'grid'; }
 })();
+let consolidatedSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'
+let globalUploadContext = null; // { ownerId, docType, folderId, label } khi FAB được bấm ngay trong 1 danh mục/thư mục cụ thể - null nghĩa là lưu vào "Hồ sơ tạm" như hành vi mặc định
 let sortableInstance = null;
 let lastUploadedCipherText = null;
 let activeSavePromise = null;
@@ -128,7 +139,25 @@ const ICONS = {
   moreVertical: '<circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"></circle>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
   clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
-  home: '<path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path>'
+  home: '<path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path>',
+  alertTriangle: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+
+  // Bộ icon riêng cho 7 danh mục chuẩn (Modern Rounded DuoTone/Solid) - xem DEFAULT_CATEGORIES.
+  // Tách khỏi các icon dùng chung ở trên (VD: 'notebook' vẫn giữ nguyên dạng cũ vì đang được
+  // gu-file-row-icon trong ui.js tái dùng làm icon tệp chung, không liên quan danh mục Học tập)
+  // để đổi kiểu dáng ở đây không ảnh hưởng các chỗ khác. Mỗi icon là 1 khối solid (fill đặc)
+  // + 1 lớp duotone mềm (fill-opacity thấp) cùng tông currentColor, để màu vẫn do CSS
+  // (.folder-icon.icon-xxx / .category-icon-box.icon-xxx) quyết định như trước - không hardcode
+  // hex ở đây. Mọi path/rect/circle tự khai báo stroke="none" hoặc fill="none" tường minh vì
+  // svgIcon() bọc ngoài bằng fill="none" stroke="currentColor" stroke-width="2" (thuộc tính có
+  // thể bị kế thừa xuống các phần tử con nếu không ghi đè).
+  catIdentity: '<rect x="2.5" y="5" width="19" height="14" rx="2.5" fill="currentColor" fill-opacity="0.22" stroke="none"></rect><circle cx="8.3" cy="10.6" r="2.1" fill="currentColor" stroke="none"></circle><path d="M4.6 16.2c.3-1.9 1.8-3 3.7-3s3.4 1.1 3.7 3c.1.5-.3 1-.9 1H5.5c-.6 0-1-.5-.9-1Z" fill="currentColor" stroke="none"></path><rect x="14.2" y="8.6" width="5.3" height="1.5" rx="0.75" fill="currentColor" stroke="none"></rect><rect x="14.2" y="11.4" width="5.3" height="1.5" rx="0.75" fill="currentColor" stroke="none"></rect><rect x="14.2" y="14.2" width="3.6" height="1.5" rx="0.75" fill="currentColor" stroke="none"></rect>',
+  catEdu: '<path d="M12 3.2 22 8l-10 4.8L2 8l10-4.8Z" fill="currentColor" stroke="none"></path><path d="M6 10.4v4.1c0 2.1 2.7 3.8 6 3.8s6-1.7 6-3.8v-4.1l-6 2.9-6-2.9Z" fill="currentColor" fill-opacity="0.32" stroke="none"></path><path d="M20 9.3v5.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"></path><circle cx="20" cy="15.6" r="1.15" fill="currentColor" stroke="none"></circle>',
+  catFamily: '<path d="M12 3 2 12.2 3.4 13.6 12 5.8 20.6 13.6 22 12.2 12 3Z" fill="currentColor" stroke="none"></path><rect x="5" y="12" width="14" height="8" rx="1" fill="currentColor" fill-opacity="0.3" stroke="none"></rect><rect x="10" y="15" width="4" height="5" rx="0.6" fill="currentColor" stroke="none"></rect>',
+  catLegal: '<circle cx="12" cy="4" r="1.4" fill="currentColor" stroke="none"></circle><rect x="11.15" y="4.6" width="1.7" height="13" rx="0.85" fill="currentColor" stroke="none"></rect><path d="M12 5.6 4.3 8.2M12 5.6l7.7 2.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path><path d="M1.6 8.6h5.4a2.7 2.7 0 0 1-5.4 0Z" fill="currentColor" fill-opacity="0.32" stroke="none"></path><path d="M17 8.6h5.4a2.7 2.7 0 0 1-5.4 0Z" fill="currentColor" fill-opacity="0.32" stroke="none"></path><rect x="7" y="19" width="10" height="1.8" rx="0.9" fill="currentColor" stroke="none"></rect>',
+  catFinance: '<rect x="3" y="13" width="4" height="8" rx="1" fill="currentColor" fill-opacity="0.3" stroke="none"></rect><rect x="10" y="9" width="4" height="12" rx="1" fill="currentColor" fill-opacity="0.6" stroke="none"></rect><rect x="17" y="4" width="4" height="17" rx="1" fill="currentColor" stroke="none"></rect><path d="M3 15 9 9.5 13 12 20 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path><path d="M16.5 4h3.8v3.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  catHealth: '<path d="M12 20.5s-7.7-4.6-10-9.4C.4 7.7 2.4 4 6 4c2 0 3.6 1.1 4.5 2.6a1.8 1.8 0 0 0 3 0C14.4 5.1 16 4 18 4c3.6 0 5.6 3.7 4 7.1-2.3 4.8-10 9.4-10 9.4Z" fill="currentColor" fill-opacity="0.26" stroke="none"></path><path d="M3.2 12.4h3.4l1.6-2.8 2.2 5.2 1.6-3.4h1.5l1.6 2.4 1.4-2.4h4.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  catBills: '<path d="M5 2.5h14a.5.5 0 0 1 .5.5v18.3a.4.4 0 0 1-.6.35l-1.9-1.1-1.9 1.1a.4.4 0 0 1-.4 0l-1.9-1.1-1.9 1.1a.4.4 0 0 1-.4 0l-1.9-1.1-1.9 1.1a.4.4 0 0 1-.6-.35V3a.5.5 0 0 1 .5-.5Z" fill="currentColor" fill-opacity="0.26" stroke="none"></path><path d="M7.5 7.5h9M7.5 11h9M7.5 14.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"></path>'
 };
 
 function svgIcon(name) {

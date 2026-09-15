@@ -82,6 +82,55 @@ test('savePendingComplete(): nếu pushToFirebase() thất bại sau khi đổi 
   assert.equal(oldOwner.documents[0].status, 'pending', 'status phải được giữ nguyên là pending vì thao tác chưa thực sự hoàn tất');
 });
 
+test('openPendingCompleteModal(): tệp thuộc "Chưa gán chủ sở hữu" (ownerId không có trong danh sách lựa chọn) mặc định chọn "Hồ sơ chung gia đình"', () => {
+  const { window } = createApp();
+  window.__state.members = [{
+    id: window.UNASSIGNED_OWNER_ID, type: 'unassigned', name: window.UNASSIGNED_OWNER_NAME, folders: [],
+    documents: [{ id: 'd1', ownerId: window.UNASSIGNED_OWNER_ID, docType: 'Chưa phân loại', desc: '', status: 'pending', fileType: 'image/jpeg', createdAt: '01/01/2024' }]
+  }];
+
+  window.openPendingCompleteModal(window.UNASSIGNED_OWNER_ID, 'd1');
+
+  assert.equal(window.document.getElementById('pdOwnerSelect').value, window.FAMILY_SHARED_ID);
+});
+
+test('openPendingCompleteModal()/renderPendingTagsChips(): hiện chip cho từng thành viên thật, đánh dấu is-active đúng theo tags đã lưu', () => {
+  const { window } = createApp();
+  window.__state.members = [
+    { id: '1', type: 'adult', name: 'Bố', folders: [], documents: [{ id: 'd1', ownerId: '1', docType: 'Chi phí', desc: '', status: 'pending', tags: ['Mẹ'], fileType: 'image/jpeg', createdAt: '01/01/2024' }] },
+    { id: '2', type: 'adult', name: 'Mẹ', folders: [], documents: [] }
+  ];
+
+  window.openPendingCompleteModal('1', 'd1');
+
+  const chips = Array.from(window.document.querySelectorAll('#pdTagsChips .tag-chip'));
+  assert.deepEqual(chips.map(c => c.textContent), ['Bố', 'Mẹ']);
+  const activeChip = chips.find(c => c.classList.contains('is-active'));
+  assert.equal(activeChip.textContent, 'Mẹ');
+});
+
+test('savePendingComplete(): chọn nhiều chip "Thành viên liên quan" phải lưu đúng vào tags[] của tài liệu', async () => {
+  const { window } = createApp();
+  window.__state.masterPassword = 'pass123';
+  window.__state.members = [
+    { id: '1', type: 'adult', name: 'Bố', folders: [], documents: [{ id: 'd1', ownerId: '1', docType: 'Chưa phân loại', desc: '', status: 'pending', fileType: 'image/jpeg', createdAt: '01/01/2024' }] },
+    { id: '2', type: 'adult', name: 'Mẹ', folders: [], documents: [] }
+  ];
+  window.fetch = async () => ({ ok: true, headers: { get: () => null } });
+  window.alert = () => {};
+
+  window.openPendingCompleteModal('1', 'd1');
+  setupPendingCompleteDom(window, { owner: '1', category: 'Y tế', desc: 'Sổ khám bệnh' });
+  window.document.querySelectorAll('#pdTagsChips .tag-chip').forEach(chip => {
+    if (chip.textContent === 'Mẹ') chip.click();
+  });
+
+  await window.savePendingComplete();
+
+  const doc = window.__state.members[0].documents[0];
+  assert.deepEqual(Array.from(doc.tags || []), ['Mẹ']);
+});
+
 test('getAllPendingDocuments(): chỉ gồm tài liệu status=pending, gộp từ mọi thành viên kể cả Hồ sơ chung gia đình', () => {
   const { window } = createApp();
   window.__state.members = [
@@ -90,29 +139,6 @@ test('getAllPendingDocuments(): chỉ gồm tài liệu status=pending, gộp t�
   ];
   const pending = window.getAllPendingDocuments();
   assert.deepEqual(Array.from(pending, d => d.id).sort(), ['d2', 'd3']);
-});
-
-test('deleteCategory(): xóa danh mục phải xóa cả tài liệu lẫn thư mục con của đúng danh mục đó, không đụng danh mục khác', async () => {
-  const { window } = createApp();
-  window.__state.masterPassword = 'pass123';
-  window.__state.currentMemberId = '1';
-  window.__state.members = [{
-    id: '1', name: 'Bố', type: 'adult',
-    documents: [
-      { id: 'd1', docType: 'Y tế', fileType: 'image/jpeg', createdAt: '01/01/2024' },
-      { id: 'd2', docType: 'Học tập', fileType: 'image/jpeg', createdAt: '01/01/2024' }
-    ],
-    folders: [{ id: 'f1', docType: 'Y tế', name: 'Thư mục con Y tế', parentId: null }]
-  }];
-  window.fetch = async () => ({ ok: true, headers: { get: () => null } });
-  window.confirm = () => true;
-  window.alert = () => {};
-
-  await window.deleteCategory('Y tế');
-
-  const member = window.__state.members[0];
-  assert.deepEqual(Array.from(member.documents, d => d.id), ['d2'], 'chỉ được xóa tài liệu thuộc danh mục Y tế');
-  assert.equal(member.folders.length, 0, 'thư mục con thuộc danh mục Y tế cũng phải bị xóa theo');
 });
 
 test('deleteSubfolder(): xóa thư mục con phải đưa các tệp bên trong ra thư mục cha, không để tệp mồ côi', async () => {
@@ -137,31 +163,6 @@ test('deleteSubfolder(): xóa thư mục con phải đưa các tệp bên trong 
   assert.deepEqual(Array.from(issues), [], 'sau khi xóa thư mục, validateDataIntegrity() không được báo tệp mồ côi nào');
 });
 
-test('saveDocument(): tải lên nhiều tệp trùng tên vẫn lưu đủ từng tệp với id riêng biệt, không ghi đè lẫn nhau', async () => {
-  const { window } = createApp();
-  window.__state.masterPassword = 'pass123';
-  window.__state.currentMemberId = '1';
-  window.__state.members = [{ id: '1', name: 'Bố', type: 'adult', documents: [], folders: [] }];
-  window.uploadEncryptedFileToStorage = async (file, path) => `https://res.cloudinary.com/${path}.enc`;
-  window.fetch = async () => ({ ok: true, headers: { get: () => null } });
-  window.alert = () => {};
-
-  window.document.getElementById('docTypeSelect').innerHTML = '<option value="Y tế">Y tế</option>';
-  window.document.getElementById('docTypeSelect').value = 'Y tế';
-  window.document.getElementById('docFolderSelect').innerHTML = '<option value="">root</option>';
-  window.__state.pendingUploadFiles = [
-    { file: { name: 'scan.jpg', type: 'image/jpeg' }, desc: 'Lần 1' },
-    { file: { name: 'scan.jpg', type: 'image/jpeg' }, desc: 'Lần 2' }
-  ];
-
-  await window.saveDocument();
-
-  const docs = window.__state.members[0].documents;
-  assert.equal(docs.length, 2, 'cả 2 tệp trùng tên phải được lưu, không được ghi đè nhau');
-  assert.notEqual(docs[0].id, docs[1].id, 'mỗi tệp phải có id riêng biệt dù trùng tên');
-  assert.deepEqual(Array.from(docs, d => d.fileName), ['scan.jpg', 'scan.jpg']);
-  assert.deepEqual(Array.from(docs, d => d.desc), ['Lần 1', 'Lần 2']);
-});
 
 function fillMinimalMemberFormForRename(window, { id, name }) {
   const byId = (elId) => window.document.getElementById(elId);
