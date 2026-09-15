@@ -665,28 +665,84 @@ function closeGlobalUploadModal() {
   globalUploadFiles = [];
 }
 
-// Vẽ lại lưới thumbnail (to, dễ nhìn) các tệp đang chờ lưu, mỗi tệp kèm tên rút gọn và
-// nút "x" để gỡ bỏ nếu ảnh bị mờ hoặc chọn nhầm.
+// Định dạng dung lượng tệp ngắn gọn (KB/MB) để hiện kèm tên trong hàng danh sách.
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Rút gọn tên tệp quá dài bằng "..." ở giữa nhưng luôn giữ nguyên đuôi mở rộng (không bao
+// giờ cắt mất .pdf/.jpg...). Trả về cả cờ isTruncated để chỉ gắn tooltip title khi thực sự
+// bị cắt - tên ngắn thì không cần tooltip lặp lại.
+function truncateFileName(name, maxLength) {
+  if (!name || name.length <= maxLength) return { text: name, isTruncated: false };
+  const dotIndex = name.lastIndexOf('.');
+  const hasExt = dotIndex > 0 && name.length - dotIndex <= 8;
+  const ext = hasExt ? name.slice(dotIndex) : '';
+  const base = hasExt ? name.slice(0, dotIndex) : name;
+  const keepLength = Math.max(maxLength - ext.length - 3, 3);
+  return { text: `${base.slice(0, keepLength)}...${ext}`, isTruncated: true };
+}
+
+// Tách tên/đuôi mở rộng mà KHÔNG cắt bớt ký tự nào - dùng cho hàng danh sách, nơi CSS
+// (text-overflow: ellipsis trên phần "base") tự quyết định cắt hay không tùy bề rộng
+// thực tế của hàng, thay vì cắt cứng theo số ký tự cố định như truncateFileName().
+function splitFileNameExt(name) {
+  const dotIndex = name.lastIndexOf('.');
+  const hasExt = dotIndex > 0 && name.length - dotIndex <= 8;
+  return hasExt ? { base: name.slice(0, dotIndex), ext: name.slice(dotIndex) } : { base: name, ext: '' };
+}
+
+// Vẽ lại danh sách tệp đang chờ lưu. Nếu TẤT CẢ tệp đều là ảnh thì dùng lưới thumbnail nhỏ
+// gọn; còn nếu có lẫn nhiều thể loại khác nhau (ảnh + PDF/tài liệu) thì thống nhất vẽ dạng
+// hàng danh sách cho toàn bộ tệp để tránh giao diện bị chia cắt rối mắt. Mỗi tệp đều kèm
+// nút gỡ bỏ nếu ảnh bị mờ hoặc chọn nhầm. Dòng phụ dưới tiêu đề báo số tệp đã chọn.
 function renderGlobalFilePreview() {
   const preview = document.getElementById('guFilePreview');
+  const countLabel = document.getElementById('guFileCount');
   if (!preview) return;
   preview.innerHTML = '';
+  if (countLabel) {
+    countLabel.textContent = globalUploadFiles.length > 0 ? `Đã chọn ${globalUploadFiles.length} tệp` : '';
+  }
   if (globalUploadFiles.length === 0) {
-    preview.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">Chưa có ảnh nào.</div>';
+    preview.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem; width:100%;">Chưa có ảnh nào.</div>';
     return;
   }
+  const isImageEntry = entry => (entry.file.type || '').startsWith('image/');
+  const useGrid = globalUploadFiles.every(isImageEntry);
+
   globalUploadFiles.forEach((entry, i) => {
+    const isImage = isImageEntry(entry);
     const item = document.createElement('div');
-    item.className = 'gu-file-thumb-item';
-    const thumbHtml = entry.previewUrl
-      ? `<img src="${entry.previewUrl}" alt="Xem trước ${escapeHtml(entry.file.name)}" class="file-thumb gu-file-thumb">`
-      : '<div class="file-thumb file-thumb-pdf gu-file-thumb">PDF</div>';
-    item.innerHTML = `
-      ${thumbHtml}
-      <button type="button" class="gu-file-thumb-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
-      <span class="gu-file-thumb-name" title="${escapeHtml(entry.file.name)}">${escapeHtml(entry.file.name)}</span>
-    `;
-    item.querySelector('.gu-file-thumb-remove').onclick = () => removeGlobalFile(i);
+    if (useGrid) {
+      const { text, isTruncated } = truncateFileName(entry.file.name, 16);
+      item.className = 'gu-file-thumb-item';
+      item.innerHTML = `
+        <img src="${entry.previewUrl}" alt="Xem trước ${escapeHtml(entry.file.name)}" class="file-thumb gu-file-thumb">
+        <button type="button" class="gu-file-thumb-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
+        <span class="gu-file-thumb-name"${isTruncated ? ` title="${escapeHtml(entry.file.name)}"` : ''}>${escapeHtml(text)}</span>
+      `;
+      item.querySelector('.gu-file-thumb-remove').onclick = () => removeGlobalFile(i);
+    } else {
+      const { base, ext } = splitFileNameExt(entry.file.name);
+      const size = formatFileSize(entry.file.size);
+      const iconHtml = isImage
+        ? `<img src="${entry.previewUrl}" alt="" class="gu-file-row-thumb">`
+        : `<span class="gu-file-row-icon" aria-hidden="true">${svgIcon('notebook')}</span>`;
+      item.className = 'gu-file-row-item';
+      item.innerHTML = `
+        ${iconHtml}
+        <span class="gu-file-row-info">
+          <span class="gu-file-row-name" title="${escapeHtml(entry.file.name)}"><span class="gu-file-row-name-base">${escapeHtml(base)}</span><span class="gu-file-row-name-ext">${escapeHtml(ext)}</span></span>
+          ${size ? `<span class="gu-file-row-size">${size}</span>` : ''}
+        </span>
+        <button type="button" class="gu-file-row-remove" aria-label="Bỏ chọn tệp ${escapeHtml(entry.file.name)}">${svgIcon('close')}</button>
+      `;
+      item.querySelector('.gu-file-row-remove').onclick = () => removeGlobalFile(i);
+    }
     preview.appendChild(item);
   });
 }

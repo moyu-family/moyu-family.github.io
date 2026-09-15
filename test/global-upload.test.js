@@ -3,20 +3,64 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createApp } = require('../testing/app');
 
-test('renderGlobalFilePreview(): hiện thông báo trống khi chưa có ảnh nào, vẽ đủ số thumbnail khi có tệp', () => {
+test('renderGlobalFilePreview(): hiện thông báo trống khi chưa có ảnh nào; toàn ảnh thì vẽ lưới thumbnail', () => {
   const { window } = createApp();
   window.__state.globalUploadFiles = [];
 
   window.renderGlobalFilePreview();
   const preview = window.document.getElementById('guFilePreview');
   assert.match(preview.textContent, /Chưa có ảnh nào/);
+  assert.equal(window.document.getElementById('guFileCount').textContent, '');
 
   window.__state.globalUploadFiles = [
     { file: { name: 'mat-truoc.jpg', type: 'image/jpeg' }, previewUrl: null },
-    { file: { name: 'to-khai.pdf', type: 'application/pdf' }, previewUrl: null }
+    { file: { name: 'mat-sau.jpg', type: 'image/jpeg' }, previewUrl: null }
   ];
   window.renderGlobalFilePreview();
   assert.equal(preview.querySelectorAll('.gu-file-thumb-item').length, 2);
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 0);
+  assert.equal(window.document.getElementById('guFileCount').textContent, 'Đã chọn 2 tệp');
+});
+
+test('renderGlobalFilePreview(): có lẫn nhiều thể loại (ảnh + PDF) thì thống nhất vẽ toàn bộ dạng hàng danh sách, không chia cắt lưới/list', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [
+    { file: { name: 'mat-truoc.jpg', type: 'image/jpeg' }, previewUrl: null },
+    { file: { name: 'to-khai.pdf', type: 'application/pdf', size: 2_400_000 }, previewUrl: null }
+  ];
+  window.renderGlobalFilePreview();
+  const preview = window.document.getElementById('guFilePreview');
+  assert.equal(preview.querySelectorAll('.gu-file-thumb-item').length, 0, 'không được còn item dạng lưới khi có nhiều thể loại');
+  assert.equal(preview.querySelectorAll('.gu-file-row-item').length, 2, 'kể cả ảnh cũng phải vẽ dạng hàng danh sách');
+  assert.equal(preview.querySelectorAll('.gu-file-row-thumb').length, 1, 'hàng của ảnh dùng thumbnail ảnh thay vì icon tài liệu');
+  assert.equal(preview.querySelectorAll('.gu-file-row-icon').length, 1, 'hàng của PDF dùng icon tài liệu màu đỏ');
+  assert.match(preview.querySelector('.gu-file-row-size').textContent, /MB/);
+});
+
+test('renderGlobalFilePreview(): tên tệp trong hàng danh sách không bị JS cắt cứng theo số ký tự - luôn giữ trọn văn bản (để CSS ellipsis tự cắt khi thật sự tràn hàng), đuôi mở rộng tách riêng khỏi phần có thể bị ellipsis, kèm tooltip đầy đủ tên gốc', () => {
+  const { window } = createApp();
+  const longName = 'day-la-mot-ten-tep-rat-la-dai-can-duoc-rut-gon-hop-ly.pdf';
+  window.__state.globalUploadFiles = [
+    { file: { name: longName, type: 'application/pdf' }, previewUrl: null },
+    { file: { name: 'ngan.pdf', type: 'application/pdf' }, previewUrl: null }
+  ];
+  window.renderGlobalFilePreview();
+  const preview = window.document.getElementById('guFilePreview');
+  const names = preview.querySelectorAll('.gu-file-row-name');
+
+  const longNameEl = Array.from(names).find(el => el.title === longName);
+  assert.ok(longNameEl, 'phải có tooltip title đầy đủ tên gốc');
+  const longBase = longNameEl.querySelector('.gu-file-row-name-base');
+  const longExt = longNameEl.querySelector('.gu-file-row-name-ext');
+  assert.equal(longExt.textContent, '.pdf', 'đuôi mở rộng phải tách riêng, không nằm trong phần có thể bị ellipsis');
+  assert.equal(longBase.textContent + longExt.textContent, longName, 'không được JS cắt bớt ký tự nào của tên gốc');
+
+  const shortNameEl = Array.from(names).find(el => el.title === 'ngan.pdf');
+  assert.ok(shortNameEl, 'tên ngắn cũng render đầy đủ với title tương ứng');
+  assert.equal(
+    shortNameEl.querySelector('.gu-file-row-name-base').textContent + shortNameEl.querySelector('.gu-file-row-name-ext').textContent,
+    'ngan.pdf'
+  );
 });
 
 test('removeGlobalFile(): gỡ đúng 1 ảnh khỏi danh sách đang chờ lưu (lỡ chọn nhầm/ảnh mờ)', () => {

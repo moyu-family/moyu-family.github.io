@@ -2,7 +2,7 @@
 <html lang="vi">  
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Quản lý thông tin gia đình</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=36">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256, kéo thả SortableJS và render PDF (PDF.js) -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -42,7 +42,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.6.1 · 14/09/2026</div>
+    <div class="app-version">Phiên bản 1.6.5 · 14/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -529,12 +529,17 @@
      hữu/danh mục/ghi chú/gắn thẻ - chỉ xem lại, gỡ ảnh mờ/chọn nhầm rồi lưu thẳng vào
      "Hồ sơ tạm" để hoàn tất phân loại sau. -->
 <div id="globalUploadModal" class="modal-overlay hidden" onclick="closeGlobalUploadModal()">
-  <div class="modal-card" style="max-width: 460px; text-align: left;" onclick="event.stopPropagation()">
-    <h3 style="font-size: 1.15rem; color: var(--navy); margin-bottom: 14px;">Xem lại ảnh vừa chụp / chọn</h3>
+  <div class="modal-card gu-modal-card" style="text-align: left;" onclick="event.stopPropagation()">
+    <div class="gu-modal-header">
+      <h3 style="font-size: 1.15rem; color: var(--navy);">Xem lại ảnh vừa chụp / chọn</h3>
+      <div id="guFileCount" class="gu-modal-subtitle"></div>
+    </div>
 
-    <div id="guFilePreview" class="gu-file-preview"></div>
+    <div class="gu-modal-body">
+      <div id="guFilePreview" class="gu-file-preview"></div>
+    </div>
 
-    <div style="display:flex; gap:8px; margin-top:18px;">
+    <div class="gu-modal-footer">
       <button type="button" id="btnSaveGlobalDoc" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveGlobalDocument()">Lưu vào Hồ sơ tạm</button>
       <button type="button" class="btn-outline" onclick="closeGlobalUploadModal()">Hủy</button>
     </div>
@@ -689,7 +694,7 @@
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
 <script defer src="js/config.js?v=36"></script>
 <script defer src="js/auth.js?v=36"></script>
-<script defer src="js/ui.js?v=34"></script>
+<script defer src="js/ui.js?v=37"></script>
 <script defer src="js/members.js?v=42"></script>
 <script defer src="js/page.js?v=24"></script>
 

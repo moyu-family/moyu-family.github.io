@@ -630,7 +630,7 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 /* NÚT NỔI (FAB) TẢI NHANH GIẤY TỜ */
 /* ============================================================ */
 .fab-upload {
-  position: fixed; bottom: 24px; right: 24px; z-index: 99;
+  position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: 24px; z-index: 999;
   width: 58px; height: 58px; padding: 0; border-radius: 50%; border: none;
   background: var(--gradient-primary); color: #ffffff; box-shadow: var(--shadow-glow), 0 10px 25px -6px rgba(79, 70, 229, 0.5);
   display: inline-flex; align-items: center; justify-content: center;
@@ -641,7 +641,7 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .fab-upload:active { background: var(--accent-2); transform: scale(0.95); }
 .fab-upload:focus-visible { outline: none; box-shadow: var(--ring-accent), var(--shadow-glow); }
 @media(max-width: 640px) {
-  .fab-upload { bottom: 16px; right: 16px; width: 52px; height: 52px; }
+  .fab-upload { bottom: calc(28px + env(safe-area-inset-bottom, 0px)); right: 20px; width: 52px; height: 52px; }
   .fab-upload svg { width: 22px; height: 22px; }
 }
 
@@ -671,9 +671,27 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .tag-chip-pending:hover { background: var(--pending-soft-hover); }
 .tag-chip-pending:active { background: var(--pending-border); }
 
-/* Lưới thumbnail to, dễ nhìn cho modal Xem lại nhanh (Quick Preview) sau khi chụp/chọn
-   ảnh từ FAB - mỗi ảnh kèm nút "x" để gỡ nếu bị mờ hoặc chọn nhầm. */
-.gu-file-preview { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+/* Modal Xem lại nhanh (Quick Preview): header/footer cố định, chỉ phần thân (danh sách
+   tệp) cuộn dọc - tránh vỡ layout khi chọn nhiều tệp cùng lúc (nút Lưu/Hủy bị đội ra
+   ngoài màn hình). */
+.gu-modal-card { display: flex; flex-direction: column; padding: 0; max-height: min(82vh, 720px); max-width: 460px; }
+/* Màn hình đủ rộng (máy tính/tablet): mở rộng modal thoáng hơn để hàng danh sách
+   PDF/tài liệu có đủ chỗ hiển thị trọn tên tệp (không chia 2 cột - làm hẹp lại và
+   gây cắt "..." không cần thiết khi vẫn còn dư chiều ngang) - điện thoại (dưới
+   breakpoint) giữ nguyên kích thước gọn như cũ. */
+@media (min-width: 700px) {
+  .gu-modal-card { width: 90%; max-width: 680px; }
+}
+.gu-modal-header { flex: 0 0 auto; padding: 24px 24px 0; }
+.gu-modal-header h3 { margin-bottom: 4px; }
+.gu-modal-subtitle { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; }
+.gu-modal-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 2px 24px; }
+.gu-modal-footer { flex: 0 0 auto; display: flex; gap: 8px; padding: 14px 24px calc(20px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border-color); }
+
+/* Lưới thumbnail to, dễ nhìn cho ảnh + hàng danh sách gọn cho PDF/tài liệu trong modal
+   Xem lại nhanh (Quick Preview) sau khi chụp/chọn từ FAB - mỗi tệp kèm nút "x" để gỡ
+   nếu bị mờ hoặc chọn nhầm. */
+.gu-file-preview { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 16px; padding: 14px 0; }
 .gu-file-thumb-item { position: relative; width: 104px; }
 .gu-file-thumb { width: 100%; aspect-ratio: 1 / 1; height: auto; border-radius: 12px; }
 .gu-file-thumb-name {
@@ -690,3 +708,42 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 .gu-file-thumb-remove:active { background: var(--danger-border); transform: scale(0.9); }
 .gu-file-thumb-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
 .gu-file-thumb-remove svg { width: 13px; height: 13px; display: block; }
+
+/* Hàng danh sách gọn cho PDF/tài liệu (không phải ảnh): icon đỏ nhỏ bên trái, tên +
+   dung lượng ở giữa, nút "x" gỡ bỏ ở mép phải - chiếm trọn hàng để không lẫn vào lưới thumbnail. */
+.gu-file-row-item {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+  border-radius: 12px; border: 1px solid var(--border-color); background: #ffffff; transition: all 0.2s ease;
+}
+.gu-file-row-item:hover { background: #f5f3ff; border-color: var(--accent-border-hover); }
+.gu-file-row-icon {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.gu-file-row-icon svg { width: 17px; height: 17px; }
+.gu-file-row-thumb {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; object-fit: cover;
+  border: 1px solid var(--border-color); background: #e2e8f0;
+}
+.gu-file-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Tên tệp tách 2 phần: "base" co giãn hết khoảng trống còn dư của hàng và chỉ hiện "..."
+   khi thật sự tràn (text-overflow: ellipsis tự tính toán theo bề rộng thực tế lúc render,
+   không cắt cứng theo số ký tự cố định); "ext" (đuôi mở rộng) luôn giữ nguyên, không bao
+   giờ bị ellipsis nuốt mất .pdf/.jpg... */
+.gu-file-row-name {
+  display: flex; min-width: 0; max-width: 100%;
+  font-size: 0.85rem; font-weight: 600; color: var(--navy);
+}
+.gu-file-row-name-base { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gu-file-row-name-ext { flex: 0 0 auto; white-space: nowrap; }
+.gu-file-row-size { font-size: 0.72rem; color: var(--text-muted); }
+.gu-file-row-remove {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: var(--danger-soft); color: var(--danger); cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease;
+}
+.gu-file-row-remove:hover { background: var(--danger-soft-hover); }
+.gu-file-row-remove:active { background: var(--danger-border); transform: scale(0.92); }
+.gu-file-row-remove:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.gu-file-row-remove svg { width: 13px; height: 13px; display: block; }
