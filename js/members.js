@@ -1,7 +1,7 @@
 // Biến theo dõi thư mục giấy tờ hiện tại
 let currentDocsFolder = null;
 let editingDocId = null;
-let docsSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'desc-asc'
+let docsSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'
 let newFolderDocType = null;
 let editDocEditingTags = []; // Bản nháp mảng tags (tên thành viên liên quan) đang chỉnh trong modal Sửa thông tin giấy tờ
 
@@ -1060,7 +1060,7 @@ function openConsolidatedCategoryDetails(docType) {
   container.appendChild(renderConsolidatedToolbar(() => openConsolidatedCategoryDetails(docType)));
 
   const map = buildConsolidatedMap(consolidatedFilterPredicate());
-  const files = sortConsolidatedList(map[docType] || [], consolidatedSortMode);
+  const files = sortFileList(map[docType] || [], consolidatedSortMode);
 
   if (files.length === 0) {
     const empty = document.createElement('div');
@@ -1136,7 +1136,7 @@ function renderConsolidatedPendingList() {
   container.innerHTML = '';
   container.appendChild(renderConsolidatedToolbar(renderConsolidatedPendingList));
 
-  const pending = sortConsolidatedList(getAllPendingDocuments(), consolidatedSortMode);
+  const pending = sortFileList(getAllPendingDocuments(), consolidatedSortMode);
 
   if (pending.length === 0) {
     const empty = document.createElement('div');
@@ -1237,7 +1237,7 @@ function getDocumentsTaggedForMember(memberId) {
 }
 
 function renderTaggedDocumentsSection(container, memberId) {
-  const taggedDocuments = sortDocsList(getDocumentsTaggedForMember(memberId), docsSortMode);
+  const taggedDocuments = sortFileList(getDocumentsTaggedForMember(memberId), docsSortMode);
   if (taggedDocuments.length === 0) return;
 
   const section = document.createElement('section');
@@ -1419,10 +1419,10 @@ function renderDocsFolders() {
   renderTaggedDocumentsSection(container, m.id);
 }
 
-// Sắp xếp danh sách tệp trong Hồ sơ tổng hợp: theo ngày tải lên hoặc theo tên tệp (A-Z/Z-A).
-// Lấy phần số trong id (thay vì Number(id) trực tiếp) vì tệp "Hồ sơ tạm" có id dạng
-// "doc_<timestamp>_<i>" chứ không phải chuỗi số thuần như tệp đã phân loại.
-function sortConsolidatedList(files, mode) {
+// Sắp xếp danh sách tệp (dùng chung cho cả Hồ sơ cá nhân lẫn Hồ sơ tổng hợp): theo ngày tải lên
+// hoặc theo tên tệp (A-Z/Z-A). Lấy phần số trong id (thay vì Number(id) trực tiếp) vì tệp
+// "Hồ sơ tạm" có id dạng "doc_<timestamp>_<i>" chứ không phải chuỗi số thuần như tệp đã phân loại.
+function sortFileList(files, mode) {
   const arr = [...files];
   const idNum = doc => Number((doc.id || '').toString().replace(/\D/g, '') || 0);
   const fileLabel = doc => doc.fileName || doc.desc || '';
@@ -1463,19 +1463,6 @@ function renderConsolidatedToolbar(onRerender) {
   leftGroup.appendChild(sortWrap);
   toolsBar.appendChild(leftGroup);
   return toolsBar;
-}
-
-// Sắp xếp danh sách tệp theo ngày tải lên hoặc theo mô tả (A-Z)
-function sortDocsList(files, mode) {
-  const arr = [...files];
-  if (mode === 'desc-asc') {
-    arr.sort((a, b) => (a.desc || '').localeCompare(b.desc || '', 'vi', { sensitivity: 'base' }));
-  } else if (mode === 'date-asc') {
-    arr.sort((a, b) => Number(a.id) - Number(b.id));
-  } else {
-    arr.sort((a, b) => Number(b.id) - Number(a.id));
-  }
-  return arr;
 }
 
 // Chế độ chọn nhiều tệp giấy tờ / Bulk Actions cho hồ sơ cá nhân
@@ -1990,7 +1977,8 @@ function openFolderDetails(docType, subfolderId = null) {
     <select id="docsSortSelect" style="max-width:220px;">
       <option value="date-desc">Ngày tải lên (mới nhất trước)</option>
       <option value="date-asc">Ngày tải lên (cũ nhất trước)</option>
-      <option value="desc-asc">Mô tả (A-Z)</option>
+      <option value="name-asc">Tên tệp (A → Z)</option>
+      <option value="name-desc">Tên tệp (Z → A)</option>
     </select>
   `;
   sortWrap.querySelector('#docsSortSelect').value = docsSortMode;
@@ -2069,7 +2057,7 @@ function openFolderDetails(docType, subfolderId = null) {
     return;
   }
 
-  const sortedFiles = sortDocsList(files, docsSortMode);
+  const sortedFiles = sortFileList(files, docsSortMode);
 
   const filesList = document.createElement('div');
   filesList.className = 'files-list' + (docsViewMode === 'list' ? ' view-list' : '');

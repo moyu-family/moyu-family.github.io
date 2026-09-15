@@ -42,7 +42,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.7.1 · 15/09/2026</div>
+    <div class="app-version">Phiên bản 1.7.2 · 16/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -546,16 +546,11 @@
 
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục)</label>
-      <select id="editDocTypeSelect" onchange="toggleCustomDocName(this.value, 'editCustomDocNameGroup')">
-        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
-        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
-        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
-        <option value="Học tập & Công việc">Học tập & Công việc</option>
-        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
-        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
-        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
-        <option value="custom">-- Thêm loại giấy tờ mới --</option>
-      </select>
+      <!-- Rỗng có chủ đích: populateDocTypeSelect('editDocTypeSelect') (js/ui.js), gọi ngay khi
+           mở modal (openEditDocModal()), luôn dựng lại toàn bộ option từ DEFAULT_CATEGORIES
+           (js/config.js) - danh mục chuẩn CHỈ khai báo ở đó, không lặp lại trong HTML để tránh
+           2 danh sách bị lệch nhau khi thêm/sửa danh mục sau này. -->
+      <select id="editDocTypeSelect" onchange="toggleCustomDocName(this.value, 'editCustomDocNameGroup')"></select>
     </div>
 
     <div class="form-group hidden" id="editCustomDocNameGroup">
@@ -603,16 +598,10 @@
 
     <div class="form-group">
       <label>Loại giấy tờ (Thư mục đích)</label>
-      <select id="moveDocsTypeSelect" onchange="onMoveDocsTypeChange(this.value)">
-        <option value="Định danh & Tùy thân">Định danh & Tùy thân</option>
-        <option value="Hộ tịch & Gia đình">Hộ tịch & Gia đình</option>
-        <option value="Y tế & Sức khỏe">Y tế & Sức khỏe</option>
-        <option value="Học tập & Công việc">Học tập & Công việc</option>
-        <option value="Thuế & Tài chính">Thuế & Tài chính</option>
-        <option value="Chi phí & Hóa đơn">Chi phí & Hóa đơn</option>
-        <option value="Tài sản & Pháp lý">Tài sản & Pháp lý</option>
-        <option value="custom">-- Thêm loại giấy tờ mới --</option>
-      </select>
+      <!-- Rỗng có chủ đích: populateDocTypeSelect('moveDocsTypeSelect') (js/ui.js), gọi ngay khi
+           mở modal (openMoveDocsModal()), luôn dựng lại toàn bộ option từ DEFAULT_CATEGORIES
+           (js/config.js) - xem ghi chú tương tự ở #editDocTypeSelect. -->
+      <select id="moveDocsTypeSelect" onchange="onMoveDocsTypeChange(this.value)"></select>
     </div>
 
     <div class="form-group hidden" id="moveDocsCustomNameGroup">
@@ -683,7 +672,7 @@
 <script defer src="js/config.js?v=45"></script>
 <script defer src="js/auth.js?v=36"></script>
 <script defer src="js/ui.js?v=46"></script>
-<script defer src="js/members.js?v=59"></script>
+<script defer src="js/members.js?v=60"></script>
 <script defer src="js/page.js?v=25"></script>
 
 </body>

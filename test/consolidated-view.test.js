@@ -14,7 +14,7 @@ function seedOneDoc(window, overrides = {}) {
   }];
 }
 
-test('sortConsolidatedList(): sắp xếp theo ngày tải lên (mới/cũ nhất trước) và theo tên tệp (A-Z/Z-A)', () => {
+test('sortFileList(): sắp xếp theo ngày tải lên (mới/cũ nhất trước) và theo tên tệp (A-Z/Z-A) - dùng chung cho Hồ sơ cá nhân và Hồ sơ tổng hợp', () => {
   const { window } = createApp();
   const files = [
     { id: '1700000000001', fileName: 'b.jpg' },
@@ -22,10 +22,10 @@ test('sortConsolidatedList(): sắp xếp theo ngày tải lên (mới/cũ nhấ
     { id: '1700000000002', fileName: 'c.jpg' }
   ];
 
-  assert.deepEqual(Array.from(window.sortConsolidatedList(files, 'date-desc')).map(f => f.id), ['1700000000003', '1700000000002', '1700000000001']);
-  assert.deepEqual(Array.from(window.sortConsolidatedList(files, 'date-asc')).map(f => f.id), ['1700000000001', '1700000000002', '1700000000003']);
-  assert.deepEqual(Array.from(window.sortConsolidatedList(files, 'name-asc')).map(f => f.fileName), ['a.jpg', 'b.jpg', 'c.jpg']);
-  assert.deepEqual(Array.from(window.sortConsolidatedList(files, 'name-desc')).map(f => f.fileName), ['c.jpg', 'b.jpg', 'a.jpg']);
+  assert.deepEqual(Array.from(window.sortFileList(files, 'date-desc')).map(f => f.id), ['1700000000003', '1700000000002', '1700000000001']);
+  assert.deepEqual(Array.from(window.sortFileList(files, 'date-asc')).map(f => f.id), ['1700000000001', '1700000000002', '1700000000003']);
+  assert.deepEqual(Array.from(window.sortFileList(files, 'name-asc')).map(f => f.fileName), ['a.jpg', 'b.jpg', 'c.jpg']);
+  assert.deepEqual(Array.from(window.sortFileList(files, 'name-desc')).map(f => f.fileName), ['c.jpg', 'b.jpg', 'a.jpg']);
 });
 
 test('openConsolidatedCategoryDetails(): có toolbar Lưới/Danh sách + dropdown sắp xếp đúng 4 lựa chọn, mặc định "mới nhất trước"', () => {
