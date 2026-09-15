@@ -38,6 +38,28 @@ test('renderDocsFolders(): thành viên mới tạo (chưa có tệp/thư mục/
   });
 });
 
+test('renderDocsFolders(): hiện tài liệu của người khác được tag cho thành viên đang xem', () => {
+  const { window } = createApp();
+  window.__state.currentMemberId = '1';
+  window.__state.members = [
+    { id: '1', name: 'Mẹ', type: 'adult', documents: [], folders: [] },
+    {
+      id: '2', name: 'Bố', type: 'adult', documents: [{
+        id: 'doc-1', desc: 'Hóa đơn điện', docType: 'Chi phí', tags: ['Mẹ'],
+        fileType: 'application/pdf', createdAt: '01/01/2026', data: 'data:application/pdf;base64,abc'
+      }], folders: []
+    }
+  ];
+
+  window.renderDocsFolders();
+
+  const section = window.document.querySelector('.tagged-documents-section');
+  assert.ok(section, 'phải hiện khu vực tài liệu được tag');
+  assert.match(section.textContent, /Hóa đơn điện/);
+  assert.match(section.textContent, /Bố/);
+  assert.equal(section.querySelectorAll('.file-card').length, 1);
+});
+
 test('renderDocsFolders(): Hồ sơ chung gia đình cũng hiện đủ 7 danh mục chuẩn', () => {
   const { window } = createApp();
   window.ensureFamilySharedMember();

@@ -146,6 +146,57 @@ html.has-session body::after {
   87%, 100% { left: 56px; }
 }
 
+/* Ô tìm kiếm toàn cục trên header (searchAllDocuments() trong js/members.js) - đặt ngay dưới
+   .top-bar thành 1 hàng riêng (không nhồi vào trong .top-bar) để không phá layout marquee của
+   .brand-home hay bố cục nowrap sẵn có. Dropdown kết quả tràn ra ngoài .header-search-box nên
+   .header-search-row cần position: relative làm điểm neo. */
+.header-search-row { position: relative; margin-bottom: 20px; }
+.header-search-box {
+  display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 48px;
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
+  box-shadow: var(--shadow-sm); transition: all 0.2s ease;
+}
+.header-search-box:focus-within { border-color: var(--accent); box-shadow: var(--ring-accent); }
+.header-search-icon { flex: 0 0 auto; width: 18px; height: 18px; color: var(--text-muted); display: flex; }
+.header-search-icon svg { width: 100%; height: 100%; display: block; }
+.header-search-input {
+  flex: 1 1 auto; min-width: 0; border: 0; padding: 0; background: transparent;
+  font-size: 0.92rem; color: var(--navy);
+}
+.header-search-input:focus { outline: none; box-shadow: none; }
+.header-search-clear {
+  flex: 0 0 auto; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 0;
+  background: var(--border-color); color: var(--text-muted); display: inline-flex;
+  align-items: center; justify-content: center; transition: all 0.2s ease;
+}
+.header-search-clear svg { width: 13px; height: 13px; display: block; }
+.header-search-clear:hover { background: var(--accent-soft-hover); color: var(--accent-2); }
+.header-search-clear:active { background: var(--accent-border); transform: scale(0.94); }
+.header-search-clear:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.header-search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50;
+  max-height: 360px; overflow-y: auto; background: var(--card-bg);
+  border: 1px solid var(--accent-border); border-radius: 14px; box-shadow: var(--shadow-hover);
+  padding: 6px;
+}
+.header-search-empty { padding: 14px 12px; font-size: 0.85rem; color: var(--text-muted); text-align: center; }
+.header-search-result-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px; border: 0;
+  border-radius: 10px; background: transparent; text-align: left; font-weight: 400;
+  transition: all 0.2s ease;
+}
+.header-search-result-item:hover { background: var(--accent-soft); }
+.header-search-result-item:active { background: var(--accent-border); transform: scale(0.98); }
+.header-search-result-item:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.header-search-result-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
+.header-search-result-info strong { overflow: hidden; color: var(--navy); font-size: 0.88rem; text-overflow: ellipsis; white-space: nowrap; }
+.header-search-result-meta { overflow: hidden; color: var(--text-muted); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
+
+@media(max-width: 640px) {
+  .header-search-box { height: 44px; padding: 0 10px; }
+  .header-search-input { font-size: 0.85rem; }
+}
+
 button {
   padding: 9px 15px; border-radius: 10px; font-weight: 600; font-size: 0.85rem;
   cursor: pointer; transition: all 0.2s ease;
@@ -681,6 +732,15 @@ input[type="file"]::file-selector-button:active { background: var(--accent-2); t
 /* Chế độ Danh sách: hàng chủ sở hữu/mũi tên nằm gọn bên phải, không kéo dài hết hàng */
 .files-list.view-list .file-owner-row { flex: 0 0 auto; width: auto; max-width: 45%; padding: 0 12px 0 0; }
 .files-list.view-list .file-owner-chip { max-width: 150px; }
+
+/* Khối "Tài liệu được gắn với thành viên này" (renderTaggedDocumentsSection()) luôn nằm dưới
+   lưới 7 danh mục chính chủ ở màn hình gốc Hồ sơ cá nhân - là khu vực phụ/tham khảo (tệp do
+   người khác gắn thẻ), nên tách hẳn bằng đường viền nhẹ phía trên thay vì trộn lẫn thứ tự với
+   danh mục chính chủ. */
+.tagged-documents-section { border-top: 1px solid #f1f5f9; margin-top: 32px; padding-top: 24px; }
+.docs-section-heading { margin-bottom: 16px; }
+.docs-section-heading h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; color: var(--navy); }
+.docs-section-heading p { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
 
 /* Chân thẻ tệp trong màn hình "Hồ sơ tạm": đúng 1 hàng ngang - chip cảnh báo "Chưa gán chủ sở
    hữu" (tông Pending/cam nhạt, bấm được để mở form gán) bên trái, cụm nút Sửa/Xóa bên phải.

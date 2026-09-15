@@ -141,6 +141,7 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
   home: '<path d="M3 11.5 12 4l9 7.5"></path><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"></path>',
   alertTriangle: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+  search: '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
 
   // Bộ icon riêng cho 7 danh mục chuẩn (Modern Rounded DuoTone/Solid) - xem DEFAULT_CATEGORIES.
   // Tách khỏi các icon dùng chung ở trên (VD: 'notebook' vẫn giữ nguyên dạng cũ vì đang được

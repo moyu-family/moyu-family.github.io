@@ -3,6 +3,130 @@ let currentDocsFolder = null;
 let editingDocId = null;
 let docsSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'desc-asc'
 let newFolderDocType = null;
+let editDocEditingTags = []; // Bản nháp mảng tags (tên thành viên liên quan) đang chỉnh trong modal Sửa thông tin giấy tờ
+
+// ============================================================
+// Ô TÌM KIẾM TOÀN CỤC trên header (#globalSearchInput, xem index.html) - gõ kết hợp nhiều từ
+// khóa (VD "khai sinh của Minh") vẫn ra đúng tệp dù các từ nằm rải rác ở nhiều trường khác nhau
+// (tên tệp thuộc danh mục "Khai sinh" nhưng lại được gắn thẻ cho thành viên "Minh"). Cách làm:
+// bỏ dấu tiếng Việt + chữ thường cả từ khóa lẫn dữ liệu tệp, bỏ qua các từ nối vô nghĩa với tìm
+// kiếm, rồi yêu cầu MỌI từ khóa còn lại phải xuất hiện đâu đó trong chuỗi text hợp nhất của tệp
+// (không quan tâm thứ tự/vị trí).
+// ============================================================
+const SEARCH_STOPWORDS = ['cua', 'va', 'cho', 'o', 'tai', 'trong'];
+
+// Bỏ dấu tiếng Việt (kể cả "đ") rồi chuyển về chữ thường, dùng chung cho cả từ khóa gõ vào lẫn
+// dữ liệu tệp để so khớp không phân biệt dấu/hoa-thường.
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
+
+// Tách chuỗi tìm kiếm đã gõ thành mảng từ khóa (searchTokens), loại bỏ từ nối thông dụng và
+// khoảng trắng thừa. VD: "khai sinh của Minh" -> ['khai', 'sinh', 'minh'].
+function tokenizeSearchQuery(query) {
+  return normalizeSearchText(query)
+    .split(/[^a-z0-9]+/)
+    .filter(token => token && !SEARCH_STOPWORDS.includes(token));
+}
+
+// Chuỗi tìm kiếm hợp nhất của 1 tệp: tên tệp + mô tả/ghi chú + tên danh mục + tên chủ sở hữu +
+// tên những người được gắn thẻ (tags) - đã bỏ dấu + chữ thường.
+function buildDocumentSearchText(doc, ownerName) {
+  return normalizeSearchText(
+    [doc.fileName, doc.desc, doc.docType, ownerName, ...(doc.tags || [])].filter(Boolean).join(' ')
+  );
+}
+
+// Tìm trong tài liệu của TẤT CẢ thành viên (kể cả Hồ sơ chung gia đình): 1 tệp khớp nếu mọi từ
+// trong searchTokens đều có mặt trong normalizedText của tệp đó. Trả về tệp kèm ownerId/ownerName
+// (giống buildConsolidatedMap()/getDocumentsTaggedForMember()) để có thể điều hướng đến đúng hồ
+// sơ chủ sở hữu khi bấm vào kết quả.
+function searchAllDocuments(query) {
+  const searchTokens = tokenizeSearchQuery(query);
+  if (searchTokens.length === 0) return [];
+
+  const results = [];
+  members.forEach(owner => {
+    (owner.documents || []).forEach(doc => {
+      const normalizedText = buildDocumentSearchText(doc, owner.name);
+      if (searchTokens.every(token => normalizedText.includes(token))) {
+        results.push({ ...doc, ownerId: owner.id, ownerName: owner.name });
+      }
+    });
+  });
+  return results;
+}
+
+// Gõ vào ô tìm kiếm header -> lọc và vẽ lại danh sách kết quả thả xuống ngay bên dưới.
+function onGlobalSearchInput(rawValue) {
+  const clearBtn = document.getElementById('globalSearchClearBtn');
+  if (clearBtn) clearBtn.classList.toggle('hidden', !rawValue);
+
+  const results = document.getElementById('globalSearchResults');
+  if (!results) return;
+  if (!rawValue.trim()) {
+    results.classList.add('hidden');
+    results.innerHTML = '';
+    return;
+  }
+  renderGlobalSearchResults(searchAllDocuments(rawValue));
+}
+
+// Vẽ danh sách kết quả (tối đa 20 tệp để tránh thả xuống quá dài) - mỗi dòng dùng icon màu theo
+// đúng danh mục (đồng bộ với lưới 7 danh mục chính), kèm "Từ: <chủ sở hữu>" để biết tệp thuộc hồ
+// sơ ai trước khi bấm vào.
+function renderGlobalSearchResults(matches) {
+  const results = document.getElementById('globalSearchResults');
+  if (!results) return;
+  results.innerHTML = '';
+
+  if (matches.length === 0) {
+    results.innerHTML = '<div class="header-search-empty">Không tìm thấy tệp nào phù hợp.</div>';
+  } else {
+    matches.slice(0, 20).forEach(doc => {
+      const label = doc.desc || doc.fileName || 'Chưa có mô tả';
+      const defaultCat = DEFAULT_CATEGORIES.find(c => c.key === doc.docType);
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'header-search-result-item';
+      item.innerHTML = `
+        <span class="category-icon-box${defaultCat ? ' ' + defaultCat.colorClass : ''}">${svgIcon(defaultCat ? defaultCat.icon : 'folder')}</span>
+        <span class="header-search-result-info">
+          <strong>${escapeHtml(label)}</strong>
+          <span class="header-search-result-meta">${escapeHtml(doc.docType || 'Giấy tờ khác')} · Từ: ${escapeHtml(doc.ownerName || 'Không rõ')}</span>
+        </span>
+      `;
+      item.onclick = () => openGlobalSearchResult(doc);
+      results.appendChild(item);
+    });
+  }
+  results.classList.remove('hidden');
+}
+
+// Bấm vào 1 kết quả: đóng ô tìm kiếm, mở đúng màn hình danh mục của chủ sở hữu rồi mở luôn modal
+// xem trước tệp đó (giống hành vi nút "Đến hồ sơ chủ sở hữu" ở thẻ tài liệu được gắn thẻ).
+function openGlobalSearchResult(doc) {
+  clearGlobalSearch();
+  openDocsView(doc.ownerId, false, doc.docType, doc.folderId || null);
+  showDocumentPreview(doc, [doc]);
+}
+
+function clearGlobalSearch() {
+  const input = document.getElementById('globalSearchInput');
+  if (input) input.value = '';
+  const clearBtn = document.getElementById('globalSearchClearBtn');
+  if (clearBtn) clearBtn.classList.add('hidden');
+  const results = document.getElementById('globalSearchResults');
+  if (results) {
+    results.classList.add('hidden');
+    results.innerHTML = '';
+  }
+}
 
 function setMemberManagementButtonVisible(visible) {
   ['btnSummaryTable', 'btnAddMember'].forEach(buttonId => {
@@ -1098,6 +1222,76 @@ function updateDocsBackBtnLabel() {
   setBtnLabel(btn, 'arrowLeft', label);
 }
 
+function getDocumentsTaggedForMember(memberId) {
+  const member = members.find(item => String(item.id) === String(memberId));
+  if (!member || !member.name) return [];
+
+  const taggedDocuments = [];
+  members.forEach(owner => {
+    (owner.documents || []).forEach(doc => {
+      if (String(owner.id) === String(memberId) || !(doc.tags || []).includes(member.name)) return;
+      taggedDocuments.push({ ...doc, ownerId: owner.id, ownerName: owner.name });
+    });
+  });
+  return taggedDocuments;
+}
+
+function renderTaggedDocumentsSection(container, memberId) {
+  const taggedDocuments = sortDocsList(getDocumentsTaggedForMember(memberId), docsSortMode);
+  if (taggedDocuments.length === 0) return;
+
+  const section = document.createElement('section');
+  section.className = 'tagged-documents-section';
+  section.innerHTML = `
+    <div class="docs-section-heading">
+      <div>
+        <h2>Tài liệu được gắn với thành viên này</h2>
+        <p>${taggedDocuments.length} tệp từ hồ sơ thành viên khác</p>
+      </div>
+    </div>
+  `;
+
+  const filesList = document.createElement('div');
+  filesList.className = 'files-list' + (docsViewMode === 'list' ? ' view-list' : '');
+  taggedDocuments.forEach(doc => {
+    const isPdf = doc.fileType && doc.fileType.includes('pdf');
+    const label = doc.desc || doc.fileName || 'Chưa có mô tả';
+    const card = document.createElement('article');
+    card.className = 'file-card tagged-document-card';
+    const thumb = isPdf
+      ? '<div class="file-thumb file-thumb-pdf">PDF</div>'
+      : (doc.encrypted
+        ? '<div class="file-thumb file-thumb-loading">⏳</div>'
+        : `<img src="${escapeHtml(doc.data)}" class="file-thumb" alt="${escapeHtml(label)}">`);
+    card.innerHTML = `
+      <button type="button" class="file-preview-button" title="Bấm để xem">${thumb}</button>
+      <div class="file-card-info">
+        <strong>${escapeHtml(label)}</strong>
+        <span class="file-meta-sub">${escapeHtml(doc.docType || 'Giấy tờ khác')}</span>
+      </div>
+      <div class="file-owner-row">
+        <span class="file-owner-chip" title="Từ: ${escapeHtml(doc.ownerName || 'Không rõ')}">Từ: ${escapeHtml(doc.ownerName || 'Không rõ')}</span>
+        <button type="button" class="file-goto-owner-btn btn-goto-owner" title="Đến hồ sơ chủ sở hữu" aria-label="Đến hồ sơ chủ sở hữu">${svgIcon('arrowRight')}</button>
+      </div>
+    `;
+    if (!isPdf && doc.encrypted) {
+      const previewButton = card.querySelector('.file-preview-button');
+      getDocumentDisplayUrl(doc).then(url => {
+        previewButton.innerHTML = `<img src="${url}" class="file-thumb" alt="${escapeHtml(label)}">`;
+      }).catch(() => {
+        previewButton.innerHTML = '<div class="file-thumb file-thumb-pdf">⚠️</div>';
+      });
+    }
+    const relatedForPreview = taggedDocuments.filter(item => item.ownerId === doc.ownerId);
+    card.querySelector('.file-preview-button').onclick = () => showDocumentPreview(doc, relatedForPreview);
+    card.querySelector('.btn-goto-owner').onclick = () => openDocsView(doc.ownerId, false, doc.docType, doc.folderId || null);
+    filesList.appendChild(card);
+  });
+
+  section.appendChild(filesList);
+  container.appendChild(section);
+}
+
 // Thanh chuyển đổi hiển thị dạng lưới / dạng danh sách (kiểu Google Drive). docsViewMode dùng
 // chung cho mọi màn hình duyệt tệp (Hồ sơ cá nhân lẫn Hồ sơ tổng hợp) nên trạng thái luôn đồng
 // bộ dù đổi ở màn nào. onRerender (tùy chọn): hàm vẽ lại đúng màn hình đang mở sau khi đổi chế
@@ -1218,6 +1412,11 @@ function renderDocsFolders() {
   });
 
   container.appendChild(grid);
+
+  // Tài liệu do thành viên khác gắn thẻ luôn nằm dưới lưới 7 danh mục chính chủ, ngăn cách bằng
+  // đường viền nhẹ (.tagged-documents-section) - đây là khu vực phụ/tham khảo, không phải hồ sơ
+  // gốc của thành viên này nên không được lẫn lên trên cùng thứ tự với danh mục chính chủ.
+  renderTaggedDocumentsSection(container, m.id);
 }
 
 // Sắp xếp danh sách tệp trong Hồ sơ tổng hợp: theo ngày tải lên hoặc theo tên tệp (A-Z/Z-A).
@@ -1703,9 +1902,13 @@ function positionFileKebabMenu(menu) {
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.file-row-menu')) closeAllFileKebabMenus();
+  if (!e.target.closest('.header-search-row')) document.getElementById('globalSearchResults')?.classList.add('hidden');
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeAllFileKebabMenus();
+  if (e.key === 'Escape') {
+    closeAllFileKebabMenus();
+    clearGlobalSearch();
+  }
 });
 
 // 2. Màn hình trong: Chi tiết danh sách các ảnh/tệp của loại giấy tờ đó (File Explorer Detail View)
@@ -1972,7 +2175,34 @@ function editDocumentDescription(docId) {
   if (!doc) return;
 
   editingDocId = docId;
+  editDocEditingTags = Array.isArray(doc.tags) ? [...doc.tags] : [];
   openEditDocModal(doc.docType || 'Giấy tờ khác', doc.desc);
+  renderEditDocTagsChips();
+}
+
+// Chip chọn nhiều "Thành viên liên quan (Gắn thẻ)" trong modal Sửa thông tin giấy tờ - bấm để
+// thêm/bớt tên khỏi mảng nháp editDocEditingTags (chỉ gồm thành viên thật, giống hệt
+// renderPendingTagsChips() của modal Hoàn tất phân loại). Lưu ý: đây chính là mảng doc.tags mà
+// getDocumentsTaggedForMember() đọc để dựng khối "Tài liệu được gắn với thành viên này", nên sửa
+// ở đây cũng tự đồng bộ với khu vực đó ngay khi màn hình gốc renderDocsFolders() được vẽ lại.
+function renderEditDocTagsChips() {
+  const wrap = document.getElementById('editDocTagsChips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  displayMembers().forEach(mem => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const active = editDocEditingTags.includes(mem.name);
+    chip.className = `tag-chip${active ? ' is-active' : ''}`;
+    chip.textContent = mem.name;
+    chip.onclick = () => {
+      editDocEditingTags = active
+        ? editDocEditingTags.filter(t => t !== mem.name)
+        : [...editDocEditingTags, mem.name];
+      renderEditDocTagsChips();
+    };
+    wrap.appendChild(chip);
+  });
 }
 
 async function saveDocumentEdit() {
@@ -1991,6 +2221,7 @@ async function saveDocumentEdit() {
   if (doc.docType !== docType) doc.folderId = null;
   doc.docType = docType;
   doc.desc = desc || doc.fileName || docType;
+  doc.tags = editDocEditingTags.slice();
 
   const btn = document.getElementById('btnSaveDocEdit');
   btn.innerText = 'Đang lưu...';

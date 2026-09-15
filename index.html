@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=47">
+  <link rel="stylesheet" href="style.css?v=48">
   <script>(function(){try{const localSession=JSON.parse(localStorage.getItem('moyu-family-session-password')||'null');if(sessionStorage.getItem('moyu-family-session-password')||(localSession&&localSession.expiresAt>Date.now()))document.documentElement.classList.add('has-session')}catch{}})();</script>
   <!-- Thư viện mã hóa AES-256, kéo thả SortableJS và render PDF (PDF.js) -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js';"></script>
@@ -42,7 +42,7 @@
     </div>
     <div id="biometricStatus" class="biometric-status"></div>
     <div id="authError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
-    <div class="app-version">Phiên bản 1.6.6 · 15/09/2026</div>
+    <div class="app-version">Phiên bản 1.7.0 · 15/09/2026</div>
   </div>
 
   <!-- Ứng dụng chính -->
@@ -65,6 +65,20 @@
           <span class="btn-text">Khóa</span>
         </button>
       </div>
+    </div>
+
+    <!-- Ô tìm kiếm toàn cục: gõ kết hợp nhiều từ khóa (VD "khai sinh của Minh") để tìm tệp theo
+         tên tệp/mô tả/danh mục/chủ sở hữu/người được gắn thẻ, gộp từ mọi thành viên - xem
+         searchAllDocuments() trong js/members.js -->
+    <div class="header-search-row">
+      <div class="header-search-box">
+        <span class="header-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+        <input type="text" id="globalSearchInput" class="header-search-input" placeholder="Tìm tệp: tên, mô tả, danh mục, người liên quan..." autocomplete="off" oninput="onGlobalSearchInput(this.value)" onfocus="if (this.value.trim()) onGlobalSearchInput(this.value)">
+        <button type="button" id="globalSearchClearBtn" class="header-search-clear hidden" onclick="clearGlobalSearch()" aria-label="Xóa tìm kiếm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div id="globalSearchResults" class="header-search-results hidden"></div>
     </div>
 
     <!-- Trang chủ: Danh sách thẻ -->
@@ -528,6 +542,11 @@
       <input type="text" id="editDocDesc" placeholder="ví dụ: Mặt trước, Mặt sau, Trang 1, Phụ lục... (để trống sẽ dùng tên tệp)">
     </div>
 
+    <div class="form-group">
+      <label>Thành viên liên quan (Gắn thẻ)</label>
+      <div id="editDocTagsChips" class="tag-chip-row" style="margin-bottom:0;"></div>
+    </div>
+
     <div style="display:flex; gap:8px; margin-top:18px;">
       <button type="button" id="btnSaveDocEdit" class="btn-primary" style="flex:1; justify-content:center;" onclick="saveDocumentEdit()">Lưu thay đổi</button>
       <button type="button" class="btn-outline" onclick="closeEditDocModal()">Hủy</button>
@@ -635,10 +654,10 @@
 </div>
 
 <!-- Nạp các file JS với tham số phiên bản để làm mới cache -->
-<script defer src="js/config.js?v=44"></script>
+<script defer src="js/config.js?v=45"></script>
 <script defer src="js/auth.js?v=36"></script>
-<script defer src="js/ui.js?v=42"></script>
-<script defer src="js/members.js?v=56"></script>
+<script defer src="js/ui.js?v=43"></script>
+<script defer src="js/members.js?v=59"></script>
 <script defer src="js/page.js?v=25"></script>
 
 </body>

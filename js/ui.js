@@ -418,6 +418,7 @@ function openEditDocModal(docType, desc) {
 }
 
 function closeEditDocModal() {
+  editDocEditingTags = [];
   document.getElementById('editDocModal').classList.add('hidden');
 }
 
