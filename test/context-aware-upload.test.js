@@ -133,7 +133,7 @@ test('saveGlobalDocument(): có ngữ cảnh, chọn nhiều tệp trùng tên v
   assert.ok(newDocs.every(d => d.docType === 'Bằng cấp' && d.folderId === 'f1' && d.status === 'completed'));
 });
 
-test('header "Tải lên tệp giấy tờ" dùng chung logic với FAB: onclick gọi thẳng triggerGlobalUploadFab(), không còn mở form/modal upload cũ', () => {
+test('header "Tải lên tệp giấy tờ" dùng chung modal Xem lại nhanh với FAB nhưng KHÁC điểm vào: gọi openGlobalUploadModal() để mở modal ở trạng thái rỗng trước (không tự mở trình chọn tệp như FAB), không còn mở form/modal upload cũ', () => {
   const { window } = createApp();
   seedMemberWithFolder(window);
   window.openDocsView('1', true);
@@ -141,11 +141,29 @@ test('header "Tải lên tệp giấy tờ" dùng chung logic với FAB: onclick
   const headerButtons = Array.from(window.document.querySelectorAll('#docsView button'));
   const uploadBtn = headerButtons.find(b => b.textContent.includes('Tải lên tệp giấy tờ'));
   assert.ok(uploadBtn, 'phải còn nút "Tải lên tệp giấy tờ" trên đầu trang Hồ sơ cá nhân');
-  assert.equal(uploadBtn.getAttribute('onclick'), 'triggerGlobalUploadFab()');
+  assert.equal(uploadBtn.getAttribute('onclick'), 'openGlobalUploadModal()');
+  assert.equal(uploadBtn.classList.contains('btn-primary'), true, 'nút phải dùng Solid Button màu tím thương hiệu');
 
   assert.equal(window.document.getElementById('uploadDocModal'), null, 'modal form upload cũ (dropdown danh mục/thư mục) phải được xóa hoàn toàn khỏi DOM');
   assert.equal(typeof window.openUploadDocModal, 'undefined', 'hàm render form cũ không còn tồn tại');
   assert.equal(typeof window.saveDocument, 'undefined', 'hàm lưu của form cũ không còn tồn tại');
+});
+
+test('openGlobalUploadModal(): mở thẳng modal Xem lại nhanh ở trạng thái rỗng, không tự mở trình chọn tệp - khác hẳn FAB (triggerGlobalUploadFab() gọi thẳng input file)', () => {
+  const { window } = createApp();
+  seedMemberWithFolder(window);
+  window.openDocsView('1', true);
+  window.openFolderDetails('Bằng cấp', 'f1');
+  window.__state.globalUploadFiles = [{ file: { name: 'cu.jpg', type: 'image/jpeg' }, previewUrl: null }];
+
+  window.openGlobalUploadModal();
+
+  assert.equal(window.document.getElementById('globalUploadModal').classList.contains('hidden'), false, 'phải mở modal ngay');
+  assert.equal(window.__state.globalUploadFiles.length, 0, 'phải dọn sạch danh sách tệp cũ để bắt đầu phiên chọn mới');
+  assert.equal(window.document.getElementById('guFileCount').textContent, '', 'chưa chọn tệp nào thì chưa có số đếm');
+  assert.match(window.document.getElementById('guFilePreview').textContent, /Chưa có ảnh nào/);
+  assert.equal(window.document.getElementById('btnSaveGlobalDoc').disabled, true, 'chưa có tệp nào thì nút Lưu phải bị khoá');
+  assert.equal(window.document.getElementById('btnSaveGlobalDoc').textContent, 'Lưu vào Bằng tốt nghiệp', 'vẫn phải nhận diện đúng ngữ cảnh danh mục hiện hành ngay khi mở');
 });
 
 test('saveGlobalDocument(): bấm Hủy vẫn hoạt động bình thường khi đang có ngữ cảnh - đóng modal, không lưu gì, xóa sạch ngữ cảnh', () => {

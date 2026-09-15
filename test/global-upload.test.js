@@ -204,3 +204,125 @@ test('saveGlobalDocument(): nếu upload thất bại và kho "Chưa gán chủ 
 
   assert.equal(window.__state.members.length, 0, 'kho rỗng phải được rollback khi lưu thất bại');
 });
+
+test('modal Xem lại nhanh: có khung Dropzone kéo-thả/bấm để chọn tệp, dùng input riêng #guAddFileInput (không có "capture" để không ép mở camera)', () => {
+  const { window } = createApp();
+
+  const dropzone = window.document.getElementById('guDropzone');
+  assert.ok(dropzone, 'phải có khung Dropzone trong modal');
+  assert.equal(dropzone.getAttribute('onclick'), "document.getElementById('guAddFileInput').click()");
+  assert.match(dropzone.textContent, /Kéo thả tệp hoặc bấm vào đây/);
+  assert.match(dropzone.textContent, /10MB/);
+
+  const addInput = window.document.getElementById('guAddFileInput');
+  assert.ok(addInput, 'phải có input file riêng cho khung Dropzone/nút "+ Thêm tệp"');
+  assert.equal(addInput.hasAttribute('capture'), false, 'không được ép mở camera khi bấm chọn tệp qua modal');
+  assert.equal(addInput.multiple, true, 'phải cho chọn nhiều tệp cùng lúc');
+});
+
+test('modal Xem lại nhanh: nút "+ Thêm tệp" chỉ hiện khi danh sách đã có tệp, ẩn đi khi danh sách rỗng', () => {
+  const { window } = createApp();
+
+  const addMoreBtn = window.document.getElementById('guAddMoreBtn');
+  assert.ok(addMoreBtn, 'phải có nút "+ Thêm tệp" trong modal');
+  assert.match(addMoreBtn.textContent, /Thêm tệp/);
+  assert.equal(addMoreBtn.getAttribute('onclick'), "document.getElementById('guAddFileInput').click()");
+
+  window.__state.globalUploadFiles = [];
+  window.renderGlobalFilePreview();
+  assert.equal(addMoreBtn.classList.contains('hidden'), true, 'danh sách rỗng thì ẩn nút, chỉ dùng khung Dropzone');
+
+  window.__state.globalUploadFiles = [{ file: { name: 'a.jpg', type: 'image/jpeg' }, previewUrl: null }];
+  window.renderGlobalFilePreview();
+  assert.equal(addMoreBtn.classList.contains('hidden'), false, 'còn tệp thì phải hiện nút để thêm tệp khác');
+});
+
+test('onGlobalDropzoneDrop(): kéo-thả tệp vào khung Dropzone cũng nạp được tệp như chọn qua input', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [];
+
+  const dropzone = window.document.getElementById('guDropzone');
+  let prevented = false;
+  window.onGlobalDropzoneDrop({
+    preventDefault: () => { prevented = true; },
+    currentTarget: dropzone,
+    dataTransfer: { files: [{ name: 'scan.pdf', type: 'application/pdf', size: 1000 }] }
+  });
+
+  assert.ok(prevented, 'phải chặn hành vi mặc định của trình duyệt khi thả tệp');
+  assert.equal(dropzone.classList.contains('gu-dropzone--dragover'), false, 'phải gỡ class highlight sau khi thả xong');
+  assert.equal(window.__state.globalUploadFiles.length, 1);
+  assert.equal(window.__state.globalUploadFiles[0].file.name, 'scan.pdf');
+});
+
+test('addGlobalFiles(): bỏ qua tệp vượt quá 10MB, vẫn nạp các tệp hợp lệ còn lại', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [];
+  let alertMessage = null;
+  window.alert = (msg) => { alertMessage = msg; };
+
+  // Dùng PDF cho tệp hợp lệ để tránh phải giả lập URL.createObjectURL() (jsdom không hỗ trợ
+  // sẵn) - xem ghi chú tương tự ở test onGlobalFileSelected() phía trên.
+  window.onGlobalFileSelected({
+    files: [
+      { name: 'qua-lon.jpg', type: 'image/jpeg', size: 11 * 1024 * 1024 },
+      { name: 'binh-thuong.pdf', type: 'application/pdf', size: 1024 }
+    ],
+    value: 'C:\\fakepath\\x'
+  });
+
+  assert.deepEqual(Array.from(window.__state.globalUploadFiles, e => e.file.name), ['binh-thuong.pdf']);
+  assert.match(alertMessage || '', /qua-lon\.jpg/);
+  assert.match(alertMessage || '', /10MB/);
+});
+
+test('onGlobalFileSelected(): cộng dồn tệp mới chọn thêm vào danh sách đang có sẵn, bỏ qua tệp trùng tên + dung lượng đã có trong danh sách', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [
+    { file: { name: 'a.pdf', type: 'application/pdf', size: 100 }, previewUrl: null }
+  ];
+
+  window.onGlobalFileSelected({
+    files: [
+      { name: 'a.pdf', type: 'application/pdf', size: 100 }, // trùng hệt tệp đã có -> phải bị bỏ qua
+      { name: 'b.pdf', type: 'application/pdf', size: 200 }
+    ],
+    value: 'C:\\fakepath\\x'
+  });
+
+  const names = Array.from(window.__state.globalUploadFiles, e => e.file.name).sort();
+  assert.deepEqual(names, ['a.pdf', 'b.pdf'], 'phải giữ tệp cũ, thêm tệp mới, không nhân đôi tệp trùng');
+});
+
+test('renderGlobalFilePreview()/removeGlobalFile(): vô hiệu hoá nút "Lưu vào..." khi danh sách rỗng, bật lại ngay khi còn ít nhất 1 tệp', () => {
+  const { window } = createApp();
+  window.__state.globalUploadFiles = [
+    { file: { name: 'a.jpg', type: 'image/jpeg' }, previewUrl: null }
+  ];
+  window.renderGlobalFilePreview();
+  const saveBtn = window.document.getElementById('btnSaveGlobalDoc');
+  assert.equal(saveBtn.disabled, false, 'còn tệp thì nút Lưu phải bấm được');
+
+  window.removeGlobalFile(0);
+
+  assert.equal(window.__state.globalUploadFiles.length, 0);
+  assert.equal(saveBtn.disabled, true, 'xóa hết tệp thì phải khoá nút Lưu lại');
+});
+
+test('renderGlobalFilePreview(): khu vực danh sách tệp (Compact List) có class khống chế chiều cao + cuộn riêng, không áp dụng cho Single Preview', () => {
+  const { window } = createApp();
+  const preview = window.document.getElementById('guFilePreview');
+
+  window.__state.globalUploadFiles = [
+    { file: { name: 'a.jpg', type: 'image/jpeg' }, previewUrl: null },
+    { file: { name: 'b.jpg', type: 'image/jpeg' }, previewUrl: null }
+  ];
+  window.renderGlobalFilePreview();
+  assert.ok(preview.classList.contains('gu-file-preview--list'), 'Compact List phải có class khống chế chiều cao/cuộn');
+
+  window.__state.globalUploadFiles = [
+    { file: { name: 'a.jpg', type: 'image/jpeg', size: 1000 }, previewUrl: 'blob:a' }
+  ];
+  window.renderGlobalFilePreview();
+  assert.equal(preview.classList.contains('gu-file-preview--list'), false, 'Single Preview không cần cuộn riêng');
+});

@@ -1,7 +1,7 @@
 {
   "style.css": {
-    "version": 48,
-    "hash": "bc847bb3ed9bc57556cb017c60eb4048243f1d3d"
+    "version": 52,
+    "hash": "3591f650946d7244f608350006b61e252a0da215"
   },
   "js/config.js": {
     "version": 45,
@@ -12,8 +12,8 @@
     "hash": "4fab05816c986c535fd3215df0ffda7459f6b549"
   },
   "js/ui.js": {
-    "version": 43,
-    "hash": "ccf010fe988d3b629a060d8ecbad6c22368192dd"
+    "version": 46,
+    "hash": "d5c9a4d537b5b0b795256384099c4c8c24d985a4"
   },
   "js/members.js": {
     "version": 59,

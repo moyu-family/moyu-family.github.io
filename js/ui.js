@@ -504,27 +504,89 @@ function populateMoveFolderSelect(docType) {
 
 // Bấm FAB: dọn sẵn danh sách tệp cũ (nếu có) rồi mở thẳng camera/trình chọn tệp của hệ
 // điều hành. Modal Xem lại nhanh chỉ hiện ra sau khi onGlobalFileSelected() nhận được tệp.
+// Ưu tiên nhanh gọn (đúng tinh thần FAB chụp nhanh) nên KHÔNG dừng lại ở modal trống trước.
 function triggerGlobalUploadFab() {
   globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
   globalUploadFiles = [];
   document.getElementById('guFileInput').click();
 }
 
-// Nạp tệp vừa chọn/chụp vào danh sách chờ lưu, rồi mở modal Xem lại nhanh (Quick Preview).
-// Nhận diện ngay ngữ cảnh hiện tại (đang đứng trong danh mục nào, nếu có) để đổi nhãn nút Lưu
-// cho đúng: "Lưu vào [Tên danh mục/thư mục]" thay vì "Lưu vào Hồ sơ tạm" mặc định.
-function onGlobalFileSelected(input) {
-  const newFiles = Array.from(input.files || []).map(file => {
-    const isPdf = (file.type || '').includes('pdf');
-    return { file, previewUrl: isPdf ? null : URL.createObjectURL(file) };
-  });
-  globalUploadFiles = globalUploadFiles.concat(newFiles);
-  input.value = '';
+// Bấm nút "Tải lên tệp giấy tờ" (header Hồ sơ cá nhân/Hồ sơ chung gia đình): khác với FAB,
+// mở thẳng modal Xem lại nhanh ở trạng thái rỗng trước, để người dùng chủ động kéo-thả hoặc
+// bấm vào khung Dropzone bên trong mới mở trình chọn tệp của hệ điều hành - phù hợp luồng
+// "chọn - xem lại - lưu" có chủ đích hơn là chụp nhanh của FAB.
+function openGlobalUploadModal() {
+  globalUploadFiles.forEach(entry => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
+  globalUploadFiles = [];
   globalUploadContext = detectGlobalUploadContext();
   const saveBtn = document.getElementById('btnSaveGlobalDoc');
   if (saveBtn) saveBtn.textContent = globalUploadContext ? `Lưu vào ${globalUploadContext.label}` : 'Lưu vào Hồ sơ tạm';
   renderGlobalFilePreview();
   document.getElementById('globalUploadModal').classList.remove('hidden');
+}
+
+// Khóa nhận diện trùng lặp giữa 2 tệp: cùng tên + cùng dung lượng coi như tệp đã có sẵn
+// trong danh sách chờ lưu (đủ tin cậy cho mục đích tránh chọn nhầm 2 lần cùng 1 ảnh, không
+// cần đọc nội dung tệp để so sánh byte-by-byte).
+function fileKey(file) {
+  return `${file.name}|${file.size}`;
+}
+
+// Dung lượng tối đa cho 1 tệp giấy tờ nạp qua modal Xem lại nhanh (khung Dropzone lẫn nút
+// "+ Thêm tệp") - đồng bộ với giới hạn ảnh đại diện thành viên (xem js/members.js).
+const GLOBAL_UPLOAD_MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Nạp tệp vừa chọn/chụp/kéo-thả vào danh sách chờ lưu, rồi mở modal Xem lại nhanh (Quick
+// Preview). Dùng chung cho cả nút "+ Thêm tệp" (onGlobalFileSelected) lẫn kéo-thả vào khung
+// Dropzone (onGlobalDropzoneDrop) nên nhận thẳng 1 FileList/mảng File thay vì 1 <input>.
+// Cộng dồn vào danh sách hiện có (không ghi đè) để có thể gọi lại hàm này nhiều lần nhằm bổ
+// sung thêm tệp; tệp vượt quá 10MB hoặc trùng tên+dung lượng với tệp đã có trong danh sách
+// sẽ bị bỏ qua. Nhận diện ngay ngữ cảnh hiện tại (đang đứng trong danh mục nào, nếu có) để
+// đổi nhãn nút Lưu cho đúng: "Lưu vào [Tên danh mục/thư mục]" thay vì "Lưu vào Hồ sơ tạm"
+// mặc định.
+function addGlobalFiles(fileList) {
+  const existingKeys = new Set(globalUploadFiles.map(entry => fileKey(entry.file)));
+  const newFiles = [];
+  const oversized = [];
+  Array.from(fileList || []).forEach(file => {
+    if (file.size > GLOBAL_UPLOAD_MAX_FILE_SIZE) { oversized.push(file.name); return; }
+    const key = fileKey(file);
+    if (existingKeys.has(key)) return;
+    existingKeys.add(key);
+    const isPdf = (file.type || '').includes('pdf');
+    newFiles.push({ file, previewUrl: isPdf ? null : URL.createObjectURL(file) });
+  });
+  globalUploadFiles = globalUploadFiles.concat(newFiles);
+  globalUploadContext = detectGlobalUploadContext();
+  const saveBtn = document.getElementById('btnSaveGlobalDoc');
+  if (saveBtn) saveBtn.textContent = globalUploadContext ? `Lưu vào ${globalUploadContext.label}` : 'Lưu vào Hồ sơ tạm';
+  renderGlobalFilePreview();
+  document.getElementById('globalUploadModal').classList.remove('hidden');
+  if (oversized.length > 0) {
+    alert(`Bỏ qua ${oversized.length} tệp vượt quá 10MB: ${oversized.join(', ')}`);
+  }
+}
+
+function onGlobalFileSelected(input) {
+  addGlobalFiles(input.files);
+  input.value = '';
+}
+
+// Kéo-thả tệp vào khung Dropzone: chặn hành vi mặc định của trình duyệt (mở tệp trong tab
+// mới) và thêm/gỡ class highlight (.gu-dropzone--dragover) khi tệp đang kéo ngang qua khung.
+function onGlobalDropzoneDragOver(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add('gu-dropzone--dragover');
+}
+
+function onGlobalDropzoneDragLeave(event) {
+  event.currentTarget.classList.remove('gu-dropzone--dragover');
+}
+
+function onGlobalDropzoneDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('gu-dropzone--dragover');
+  addGlobalFiles(event.dataTransfer && event.dataTransfer.files);
 }
 
 function closeGlobalUploadModal() {
@@ -561,11 +623,18 @@ function renderGlobalFilePreview() {
   const countLabel = document.getElementById('guFileCount');
   if (!preview) return;
   preview.innerHTML = '';
+  preview.classList.remove('gu-file-preview--list');
   if (countLabel) {
     countLabel.textContent = globalUploadFiles.length > 0 ? `Đã chọn ${globalUploadFiles.length} tệp` : '';
   }
+  const saveBtn = document.getElementById('btnSaveGlobalDoc');
+  if (saveBtn) saveBtn.disabled = globalUploadFiles.length === 0;
+  // Nút "+ Thêm tệp" chỉ hiện khi đã có ít nhất 1 tệp - danh sách rỗng thì khung Dropzone ở
+  // trên đã đủ làm lối vào chính, tránh trùng lặp lời mời bấm.
+  const addMoreBtn = document.getElementById('guAddMoreBtn');
+  if (addMoreBtn) addMoreBtn.classList.toggle('hidden', globalUploadFiles.length === 0);
   if (globalUploadFiles.length === 0) {
-    preview.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem; width:100%;">Chưa có ảnh nào.</div>';
+    preview.innerHTML = '<div style="text-align:center; padding:8px 20px 20px; color:var(--text-muted); font-size:0.85rem; width:100%;">Chưa có ảnh nào được chọn.</div>';
     return;
   }
   const isImageEntry = entry => (entry.file.type || '').startsWith('image/');
@@ -588,6 +657,7 @@ function renderGlobalFilePreview() {
     return;
   }
 
+  preview.classList.add('gu-file-preview--list');
   globalUploadFiles.forEach((entry, i) => {
     const isImage = isImageEntry(entry);
     const { base, ext } = splitFileNameExt(entry.file.name);
